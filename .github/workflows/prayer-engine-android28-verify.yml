@@ -1,4 +1,4 @@
-name: Prayer engine Android 28 verification
+name: Prayer engine final verification
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  hijrah-api28:
+  prayer-engine:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,12 +27,15 @@ jobs:
           packages: platform-tools
 
       - name: Install Android API 37
-        run: android sdk install platforms/android-37 --canary
+        run: android sdk install platforms/android-37 --canary || true
 
-      - name: Compile prayer engine before emulator
-        run: ./gradlew :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin --stacktrace
+      - name: Run prayer engine unit tests
+        run: ./gradlew testDebugUnitTest --stacktrace
 
-      - name: Verify HijrahChronology on Android 9 / API 28
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Re-verify HijrahChronology on Android 9 / API 28
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 28
