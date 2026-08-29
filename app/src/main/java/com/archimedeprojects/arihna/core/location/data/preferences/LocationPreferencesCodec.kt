@@ -177,7 +177,14 @@ internal object LocationPreferencesCodec {
     }
 
     private fun clearManual(preferences: MutablePreferences) {
-        manualAllKeys.forEach(preferences::remove)
+        preferences.remove(manualIdKey)
+        preferences.remove(manualNameKey)
+        preferences.remove(manualRegionKey)
+        preferences.remove(manualCountryNameKey)
+        preferences.remove(manualCountryCodeKey)
+        preferences.remove(manualLatitudeKey)
+        preferences.remove(manualLongitudeKey)
+        preferences.remove(manualTimeZoneIdKey)
     }
 
     private fun <T> required(preferences: Preferences, key: Preferences.Key<T>, label: String): T {
