@@ -1,0 +1,107 @@
+name: Prayer engine JDK 21 diagnostics
+
+on:
+  push:
+    branches:
+      - prayer-engine-verify
+  workflow_dispatch:
+
+jobs:
+  bytecode:
+    name: Direct bytecode verification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - name: Resolve prayer-engine test classpath
+        run: ./gradlew :app:dependencies --configuration debugUnitTestRuntimeClasspath
+      - name: Inspect resolved class-file headers directly
+        shell: bash
+        run: |
+          set -euo pipefail
+          ADHAN_JAR="$(find "$HOME/.gradle/caches/modules-2/files-2.1/com.batoulapps.adhan/adhan2-jvm/0.0.7" -name '*.jar' | head -n 1)"
+          DATETIME_JAR="$(find "$HOME/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-datetime-jvm" -name '*.jar' | sort | tail -n 1)"
+          echo "ADHAN_JAR=$ADHAN_JAR"
+          echo "DATETIME_JAR=$DATETIME_JAR"
+          python3 - "$ADHAN_JAR" "$DATETIME_JAR" <<'PY'
+          import struct, sys, zipfile
+          from pathlib import Path
+
+          def inspect(jar_path, exact_class=None):
+              with zipfile.ZipFile(jar_path) as zf:
+                  classes = sorted(name for name in zf.namelist() if name.endswith(".class"))
+                  if exact_class:
+                      data = zf.read(exact_class)
+                      magic, minor, major = struct.unpack(">IHH", data[:8])
+                      print(f"EXACT_CLASS={exact_class} magic=0x{magic:08X} minor={minor} major={major}")
+                  max_major = -1
+                  max_name = None
+                  for name in classes:
+                      data = zf.read(name)
+                      _, _, major = struct.unpack(">IHH", data[:8])
+                      if major > max_major:
+                          max_major = major
+                          max_name = name
+                  print(f"JAR={Path(jar_path).name} classes={len(classes)} max_major={max_major} sample={max_name}")
+
+          inspect(sys.argv[1], "com/batoulapps/adhan2/CalculationMethod.class")
+          inspect(sys.argv[2])
+          PY
+
+  test-a:
+    name: TEST A - unit tests on host JDK 21
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - name: Show host JVM
+        run: java -version
+      - name: Assert approved Arihna app matrix is unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE=app/build.gradle.kts
+          grep -F 'compileSdk = 37' "$FILE"
+          grep -F 'minSdk = 28' "$FILE"
+          grep -F 'targetSdk = 37' "$FILE"
+          grep -F 'sourceCompatibility = JavaVersion.VERSION_17' "$FILE"
+          grep -F 'targetCompatibility = JavaVersion.VERSION_17' "$FILE"
+          grep -F 'jvmTarget.set(JvmTarget.JVM_17)' "$FILE"
+          echo 'APP_MATRIX_GUARD=PASS'
+      - name: TEST A - run debug unit tests
+        run: ./gradlew :app:testDebugUnitTest --stacktrace
+
+  test-b:
+    name: TEST B - assemble Android app on host JDK 21
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - name: Show host JVM
+        run: java -version
+      - name: Assert approved Arihna app matrix is unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE=app/build.gradle.kts
+          grep -F 'compileSdk = 37' "$FILE"
+          grep -F 'minSdk = 28' "$FILE"
+          grep -F 'targetSdk = 37' "$FILE"
+          grep -F 'sourceCompatibility = JavaVersion.VERSION_17' "$FILE"
+          grep -F 'targetCompatibility = JavaVersion.VERSION_17' "$FILE"
+          grep -F 'jvmTarget.set(JvmTarget.JVM_17)' "$FILE"
+          echo 'APP_MATRIX_GUARD=PASS'
+      - name: TEST B - assemble debug APK
+        run: ./gradlew :app:assembleDebug --stacktrace
