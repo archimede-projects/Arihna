@@ -1,0 +1,74 @@
+name: Prayer engine bytecode diagnosis
+
+on:
+  push:
+    branches:
+      - prayer-engine-verify
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Resolve test runtime classpath
+        run: ./gradlew :app:dependencies --configuration debugUnitTestRuntimeClasspath > /tmp/deps.txt
+
+      - name: Print dependency graph around Adhan
+        run: |
+          grep -n -A20 -B5 -E 'adhan2|kotlinx-datetime' /tmp/deps.txt || true
+
+      - name: Locate resolved Adhan and kotlinx-datetime jars
+        run: |
+          find ~/.gradle/caches/modules-2/files-2.1 -type f \( -name '*.jar' -o -name '*.klib' \) \
+            | grep -E '/com\.batoulapps\.adhan/|/org\.jetbrains\.kotlinx/kotlinx-datetime' \
+            | sort | tee /tmp/candidate-files.txt
+
+      - name: Report class-file major versions in candidate jars
+        run: |
+          python3 - <<'PY'
+          import os, struct, zipfile
+          files=[x.strip() for x in open('/tmp/candidate-files.txt') if x.strip().endswith('.jar')]
+          majors={}
+          for path in files:
+              print(f'JAR {path}')
+              try:
+                  with zipfile.ZipFile(path) as z:
+                      local=[]
+                      for name in z.namelist():
+                          if not name.endswith('.class'):
+                              continue
+                          data=z.read(name)[:8]
+                          if len(data) >= 8 and data[:4] == b'\xca\xfe\xba\xbe':
+                              major=struct.unpack('>H', data[6:8])[0]
+                              local.append((major,name))
+                              majors.setdefault(major,[]).append((path,name))
+                      for major,name in sorted(local, reverse=True)[:20]:
+                          print(f'  major={major} class={name}')
+              except zipfile.BadZipFile:
+                  pass
+          print('GLOBAL_MAX')
+          for major in sorted(majors, reverse=True)[:10]:
+              print(f'major={major} count={len(majors[major])}')
+              for path,name in majors[major][:10]:
+                  print(f'  {path} :: {name}')
+          PY
+
+      - name: Reproduce exact failure and expose class name
+        run: |
+          set +e
+          ./gradlew :app:testDebugUnitTest --tests '*allArihnaCalculationMethodsMapToExpectedAdhanMethods' --info --stacktrace 2>&1 | tee /tmp/test.log
+          status=${PIPESTATUS[0]}
+          echo "GRADLE_EXIT=$status"
+          grep -n -A8 -B8 -E 'UnsupportedClassVersionError|class file version|compiled by a more recent version' /tmp/test.log || true
+          exit 0
