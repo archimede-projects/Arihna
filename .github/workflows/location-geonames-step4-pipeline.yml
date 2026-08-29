@@ -1,0 +1,117 @@
+name: Location GeoNames step 4 pipeline
+
+on:
+  push:
+    branches:
+      - location-geonames-step4
+
+permissions:
+  contents: read
+
+jobs:
+  build-geonames:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android API 37
+        run: android sdk install platforms/android-37 --canary || true
+
+      - name: Verify app target remains Java/Kotlin 17
+        run: |
+          grep -q 'sourceCompatibility = JavaVersion.VERSION_17' app/build.gradle.kts
+          grep -q 'targetCompatibility = JavaVersion.VERSION_17' app/build.gradle.kts
+          grep -q 'jvmTarget.set(JvmTarget.JVM_17)' app/build.gradle.kts
+
+      - name: Build baseline APK without GeoNames asset
+        run: |
+          ./gradlew clean assembleDebug --stacktrace
+          cp app/build/outputs/apk/debug/app-debug.apk /tmp/arihna-baseline.apk
+          stat -c 'BASELINE_APK_BYTES=%s' /tmp/arihna-baseline.apk
+
+      - name: Download official GeoNames snapshot
+        run: |
+          mkdir -p /tmp/geonames
+          curl --fail --location --retry 5 --retry-delay 2 -o /tmp/geonames/cities500.zip https://download.geonames.org/export/dump/cities500.zip
+          curl --fail --location --retry 5 --retry-delay 2 -o /tmp/geonames/alternateNamesV2.zip https://download.geonames.org/export/dump/alternateNamesV2.zip
+          curl --fail --location --retry 5 --retry-delay 2 -o /tmp/geonames/countryInfo.txt https://download.geonames.org/export/dump/countryInfo.txt
+          curl --fail --location --retry 5 --retry-delay 2 -o /tmp/geonames/admin1CodesASCII.txt https://download.geonames.org/export/dump/admin1CodesASCII.txt
+          sha256sum /tmp/geonames/* | tee /tmp/geonames/source-sha256.txt
+
+      - name: Build precompiled SQLite city database
+        run: |
+          mkdir -p app/src/main/assets/geonames /tmp/geonames-output
+          python3 tools/geonames/build_city_db.py \
+            --cities /tmp/geonames/cities500.zip \
+            --alternate-names /tmp/geonames/alternateNamesV2.zip \
+            --country-info /tmp/geonames/countryInfo.txt \
+            --admin1 /tmp/geonames/admin1CodesASCII.txt \
+            --snapshot-date 2026-08-10 \
+            --output app/src/main/assets/geonames/cities.db \
+            --metadata /tmp/geonames-output/metadata.json
+          cp app/src/main/assets/geonames/cities.db /tmp/geonames-output/cities.db
+          stat -c 'DB_BYTES=%s' app/src/main/assets/geonames/cities.db
+          sha256sum app/src/main/assets/geonames/cities.db
+
+      - name: Build APK with GeoNames asset and measure increment
+        run: |
+          ./gradlew clean assembleDebug --stacktrace
+          cp app/build/outputs/apk/debug/app-debug.apk /tmp/arihna-with-geonames.apk
+          python3 - <<'PY'
+          import json, os, zipfile
+          baseline='/tmp/arihna-baseline.apk'
+          withdb='/tmp/arihna-with-geonames.apk'
+          db='app/src/main/assets/geonames/cities.db'
+          b=os.path.getsize(baseline)
+          w=os.path.getsize(withdb)
+          d=os.path.getsize(db)
+          with zipfile.ZipFile(withdb) as z:
+              entry=next(i for i in z.infolist() if i.filename.endswith('assets/geonames/cities.db'))
+              packed=entry.compress_size
+              stored=entry.file_size
+              method=entry.compress_type
+          result={
+              'baseline_apk_bytes': b,
+              'with_geonames_apk_bytes': w,
+              'apk_increment_bytes': w-b,
+              'database_bytes': d,
+              'apk_asset_uncompressed_bytes': stored,
+              'apk_asset_compressed_bytes': packed,
+              'apk_asset_zip_method': method,
+              'threshold_bytes': 20*1024*1024,
+              'threshold_pass': (w-b) <= 20*1024*1024,
+          }
+          print(json.dumps(result, indent=2, sort_keys=True))
+          with open('/tmp/geonames-output/apk-size.json','w') as f:
+              json.dump(result,f,indent=2,sort_keys=True); f.write('\n')
+          if not result['threshold_pass']:
+              raise SystemExit('APK increment exceeds approved 20 MiB threshold')
+          PY
+
+      - name: Collect pipeline evidence
+        if: always()
+        run: |
+          cp /tmp/geonames/source-sha256.txt /tmp/geonames-output/source-sha256.txt || true
+          ls -lh /tmp/geonames-output || true
+          cat /tmp/geonames-output/metadata.json || true
+          cat /tmp/geonames-output/apk-size.json || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: geonames-step4-pipeline
+          path: /tmp/geonames-output
+          if-no-files-found: error
+          retention-days: 7
