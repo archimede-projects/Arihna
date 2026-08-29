@@ -148,7 +148,10 @@ Cached data is never presented as current; preserve timestamp/age. No arbitrary 
 
 Use an offline city dataset derived from **GeoNames `cities500`**, licensed **CC BY 4.0**.
 
-- Approved baseline: approximately 185,000 localities (population >500 or administrative-seat exceptions covered by the GeoNames dataset definition).
+- GeoNames `cities500.txt` is the upstream candidate source, not the final Arihna city set. Its historical `ca 185,000` README estimate is not a reliable current row-count contract; the unfiltered 2026-08-10 dump produced 235,549 distinct rows in Arihna's pipeline.
+- Arihna must filter the upstream dump explicitly by `feature class = P` and a deny-by-default feature-code whitelist. Approved included feature codes are: `PPL`, `PPLA`, `PPLA2`, `PPLA3`, `PPLA4`, `PPLA5`, `PPLC`, `PPLG`, `PPLF`, `PPLR`, `STLMT`.
+- `PPLF` and `PPLR` remain included because GeoNames defines them as current populated places (farm village / religious populated place). `STLMT` remains included because it represents a current inhabited settlement with a distinct GeoNames classification; Arihna preserves GeoNames-provided country/timezone data and does not reinterpret geopolitical status.
+- Explicitly excluded categories include `PPLX` (section of a larger populated place), `PPLH`/`PPLCH` (historical), `PPLQ` (abandoned), `PPLW` (destroyed), `PPLL` (minor populated locality), and `PPLS` (aggregate/plural populated places). Any present or future feature code not in the whitelist is excluded unless separately reviewed and approved.
 - Runtime manual search must not depend on GeoNames web service, Nominatim, Android Geocoder, Google Places/Maps/Geocoding or another online geocoder.
 - Dataset is downloaded/preprocessed during development/data-generation, not on normal startup and not on every Gradle build.
 - Version the generated asset with deterministic provenance: source snapshot/date, source URL, license, checksum, record count and generator/script version.
@@ -171,9 +174,9 @@ Use an offline city dataset derived from **GeoNames `cities500`**, licensed **CC
 Measure the real incremental APK size attributable to the generated city database after preprocessing/indexing; do not infer it from the upstream ZIP.
 
 - If city data increases APK size by **more than 20 MB**, **STOP before proceeding past dataset integration** and report the measured increase for explicit review.
-- Review alternatives such as GeoNames `cities1000` (~130,000 cities) or explicit acceptance of the larger footprint.
+- Review alternatives such as GeoNames `cities1000` or explicit acceptance of the larger footprint only after the approved semantic feature-code filter has been measured.
 - If incremental growth is **20 MB or less**, proceed without additional approval on this point.
-- Never silently switch datasets to pass the threshold.
+- Never silently switch datasets or relax/tighten the approved feature-code whitelist merely to pass the threshold.
 
 #### Timezone policy
 
@@ -572,7 +575,7 @@ Future milestones add Qibla math, exact-alarm reboot/timezone/time changes, noti
 - `ACCESS_COARSE_LOCATION` only.
 - 20s timeout / 5 km / 15 min; timezone change significant.
 - FRESH/CACHED, never invented defaults.
-- GeoNames `cities500` offline, CC BY 4.0.
+- GeoNames `cities500` offline, CC BY 4.0, filtered by the approved deny-by-default populated-place feature-code whitelist.
 - Read-only SQLite; no Room.
 - IANA timezone per city; exhaustive API28 `ZoneId.of` gate.
 - Preferences DataStore `1.2.1`.
@@ -624,6 +627,10 @@ Current Location milestone also excludes:
 
 ## 17. Change log
 
+### 2026-08-30 — GeoNames populated-place feature filter approved
+
+The unfiltered official `cities500` snapshot used in the first STEP 4 size run contained 235,549 rows and increased the APK by about 27.58 MiB. Review confirmed that raw `cities500` contains semantic categories Arihna should not expose as independent manual cities. The generator must now enforce `feature class = P` plus an explicit deny-by-default whitelist: `PPL`, `PPLA`, `PPLA2`, `PPLA3`, `PPLA4`, `PPLA5`, `PPLC`, `PPLG`, `PPLF`, `PPLR`, `STLMT`. Historical/abandoned/destroyed entries, sections of larger populated places, minor localities and aggregate populated-place records remain excluded. Official GeoNames definitions were checked before approval: `PPLF` and `PPLR` are current populated places and `STLMT` is a current settlement, so those three are retained despite not appearing in the initial narrower proposal. Re-measure the generated record count and APK increment before any further STEP 4 work; the 20 MiB stop rule remains unchanged.
+
 ### 2026-08-29 — FTS4 contentless validation gate approved
 
 `city_search` remains FTS4 `content=''` with `docid = city_alias.id`. SQLite 3.44+ global `PRAGMA integrity_check` invokes virtual-table `xIntegrity`, but FTS4 cannot validate the inverted index against absent original content in this contentless configuration; this failure is not treated as evidence of corruption. The GeoNames generator must retain table-scoped SQLite integrity checks for non-FTS tables and replace the invalid FTS global gate with functional checks for row-count parity, bidirectional docid coverage, and golden `MATCH` cases for Roma, Makkah/Mecca, New York and Sydney. The 20 MiB APK-growth stop rule remains unchanged.
@@ -642,7 +649,7 @@ Final run `33248406741` passed `testDebugUnitTest`, `assembleDebug`, and `connec
 
 ### 2026-08-29 — JDK 21 build-host policy approved
 
-All present/future Gradle-based CI uses Temurin JDK21 host while Java/Kotlin app target stays 17. Direct Adhan class inspection showed major 65; run `33247757115` proved unit/build success on JDK21 with app target 17 unchanged.
+All present/future Gradle-based CI uses Temurin JDK21 host while Java/Kotlin app target stays 17. Direct Adhan class inspection showed major 65; run `33247757115` proved JDK21 host works while app target remains 17 unchanged.
 
 ### 2026-08-29 — Android API 28 HijrahChronology verification passed
 
