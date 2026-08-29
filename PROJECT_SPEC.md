@@ -304,23 +304,47 @@ Bootstrap dependencies remain minimal. Prayer calculation milestone adds only th
 - `QuranSurah` / `QuranAyah`: later milestone.
 - `DailyContent` / history: later milestone.
 
-### 8.4 Definitive bootstrap toolchain
+### 8.4 Definitive Android/build toolchain
+
+#### Build host toolchain
+
+- GitHub Actions / CI Gradle host JDK: **Temurin 21**.
+- The Gradle daemon, Android Gradle Plugin, D8/R8 and JVM-hosted unit tests are executed on JDK 21.
+- Any present or future Arihna workflow that invokes Gradle for Android build, test, packaging or release **must provision JDK 21**, unless a deliberately isolated diagnostic is specifically designed to exercise another JDK.
+- The future automatic debug/release/tag workflow defined under §10 must therefore use JDK 21 as its Gradle/build-tools host.
+
+#### App bytecode target
+
+- Java `sourceCompatibility`: **17**.
+- Java `targetCompatibility`: **17**.
+- Kotlin `jvmTarget`: **JVM 17**.
+- Using JDK 21 to execute Gradle/build tools does **not** raise Arihna's application bytecode target to Java 21.
+
+#### Android
 
 - applicationId/namespace: `com.archimedeprojects.arihna`
 - minSdk 28
 - compileSdk 37
 - targetSdk 37
+
+#### Remaining approved toolchain
+
 - AGP 9.3.1
 - Gradle wrapper 9.5.0
 - Kotlin 2.4.10
 - Compose compiler plugin 2.4.10
 - AGP built-in Kotlin; do not apply `org.jetbrains.kotlin.android`
 - Compose BOM 2026.08.00
-- JDK / Java target 17
 - Kotlin DSL
 - version catalog `gradle/libs.versions.toml`
 - one `:app` module
 - manual `AppContainer`
+
+#### JDK 21 host rationale
+
+Adhan Kotlin `0.0.7` resolves for the JVM as module `com.batoulapps.adhan:adhan2-jvm:0.0.7`; the actual resolved JAR filename is `adhan-jvm-0.0.7.jar`. Direct inspection of the Gradle-resolved `com/batoulapps/adhan2/CalculationMethod.class` header produced `magic = 0xCAFEBABE`, `minor = 0`, `major = 65`. Class-file major 65 is Java 21 bytecode and requires a Java 21 JVM for JVM-host class loading.
+
+The distinction was verified empirically on 2026-08-29 in GitHub Actions run `33247757115`: `:app:testDebugUnitTest` passed on Temurin JDK 21 while Arihna remained Java/Kotlin target 17, and `:app:assembleDebug` also passed on JDK 21 while the same target-17 matrix remained unchanged. Therefore the host JDK is standardized at 21 while Arihna's produced application bytecode remains target 17.
 
 ### 8.5 Bootstrap shell — CLOSED
 
@@ -336,13 +360,15 @@ Single-module Android project with `app/src/main`, `app/src/test`, `app/src/andr
 
 ## 10. CI/CD requirements
 
+All GitHub Actions workflows that execute Gradle/Android build tools use **Temurin JDK 21 as the host JDK**, while Arihna's Java/Kotlin bytecode target remains 17 as defined in §8.4. This policy applies to verification workflows and to all future debug/release/tag packaging workflows.
+
 ### Debug APK
 
 Build signed debug APKs with a persistent debug keystore reconstructed from GitHub Secrets and publish them through GitHub Releases, not solely Actions artifacts. Final trigger convention is pending.
 
 ### Stable release
 
-On approved version tags/releases: checkout, JDK/Android setup, test/lint, reconstruct signing key, build signed APK, checksum if practical, create/update GitHub Release and attach APK. Production signing key must remain persistent and secret.
+On approved version tags/releases: checkout, provision Temurin JDK 21 and Android tooling, test/lint, reconstruct signing key, build signed APK, checksum if practical, create/update GitHub Release and attach APK. Production signing key must remain persistent and secret.
 
 ## 11. README requirements
 
@@ -367,12 +393,15 @@ At minimum test:
 - Quran data integrity;
 - Compose navigation/state.
 
+All JVM-hosted unit tests and Android Gradle build/test invocations in CI run with host JDK 21; app compilation targets stay at Java/Kotlin 17.
+
 ## 14. Decision status
 
 ### Closed
 
 - applicationId/namespace `com.archimedeprojects.arihna`.
 - Bootstrap architecture/toolchain and successful structural build.
+- CI/build host policy: JDK 21 executes Gradle/build tools/tests; Arihna app bytecode remains Java/Kotlin target 17.
 - UI palette, Hero Dashboard direction, Prayer Times vertical timeline.
 - Logo/app icon and Android branding assets.
 - Prayer calculation engine: Adhan Kotlin Multiplatform `0.0.7`, MIT, behind Arihna adapter.
@@ -410,10 +439,14 @@ At minimum test:
 1. Branding/UI decision closure — CLOSED.
 2. Android bootstrap — CLOSED and build verified.
 3. **Current milestone:** prayer-time calculation engine only.
-4. Sequence inside current milestone: specification — DONE → dependency/domain/adapter excluding Ramadan special rule — STAGED/COMPILED → API 28 HijrahChronology instrumentation verification — PASSED → Ramadan special rule → unit tests/build → dedicated implementation commit → STOP.
+4. Sequence inside current milestone: specification — DONE → dependency/domain/adapter excluding Ramadan special rule — STAGED/COMPILED → API 28 HijrahChronology instrumentation verification — PASSED → Ramadan special rule — IMPLEMENTED ON VERIFICATION BRANCH → host-JDK compatibility diagnosis — PASSED/RESOLVED BY POLICY → full JDK 21 regression → dedicated implementation commit → STOP.
 5. Location/GPS, permissions, notifications, AlarmManager, definitive UI, Qibla, Quran and custom alarms remain separate milestones.
 
 ## 17. Change log
+
+### 2026-08-29 — JDK 21 build-host policy approved
+
+Arihna distinguishes the JVM that executes Gradle/build tools from the bytecode target produced by the app. All present/future Gradle-based CI workflows, including the future automatic debug/release/tag workflow, use Temurin JDK 21 as host. Java source/target and Kotlin JVM target for the app remain 17. The policy is required because direct inspection of the Gradle-resolved Adhan `CalculationMethod.class` returned class-file major 65 (Java 21). GitHub Actions run `33247757115` proved both `testDebugUnitTest` and `assembleDebug` succeed on host JDK 21 while the app matrix remains target 17.
 
 ### 2026-08-29 — Android API 28 HijrahChronology verification passed
 
@@ -442,7 +475,7 @@ Created and build-verified the single-module Android/Compose structural shell. `
 
 ### 2026-08-29 — Android bootstrap matrix approved
 
-Approved `com.archimedeprojects.arihna`, minSdk 28, compile/target 37, AGP 9.3.1, Gradle 9.5.0, Kotlin/Compose plugin 2.4.10, Compose BOM 2026.08.00, JDK 17, built-in Kotlin, Kotlin DSL, version catalog and manual AppContainer.
+Approved `com.archimedeprojects.arihna`, minSdk 28, compile/target 37, AGP 9.3.1, Gradle 9.5.0, Kotlin/Compose plugin 2.4.10, Compose BOM 2026.08.00, app Java/Kotlin target 17, built-in Kotlin, Kotlin DSL, version catalog and manual AppContainer. The host-JDK policy was later clarified separately in §8.4.
 
 ### 2026-08-29 — Branding and UI direction finalized
 
