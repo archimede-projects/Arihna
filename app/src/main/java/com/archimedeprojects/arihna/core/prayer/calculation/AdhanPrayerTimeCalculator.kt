@@ -35,20 +35,18 @@ class AdhanPrayerTimeCalculator : PrayerTimeCalculator {
                 coordinates.latitude,
             )
             val baseParameters = AdhanPrayerMappings.calculationMethod(settings.method).parameters
-            val ramadanIshaAdjustment = if (
+            val effectiveIshaInterval = if (
                 settings.method == PrayerCalculationMethod.UMM_AL_QURA && isRamadan(date)
             ) {
-                RAMADAN_UMM_AL_QURA_EXTRA_ISHA_MINUTES
+                UMM_AL_QURA_RAMADAN_ISHA_INTERVAL_MINUTES
             } else {
-                0
+                baseParameters.ishaInterval
             }
             val parameters = baseParameters.copy(
+                ishaInterval = effectiveIshaInterval,
                 madhab = AdhanPrayerMappings.asrMethod(settings.asrMethod),
                 highLatitudeRule = AdhanPrayerMappings.highLatitudeRule(resolvedHighLatitudeRule),
                 prayerAdjustments = AdhanPrayerMappings.adjustments(settings.adjustments),
-                methodAdjustments = baseParameters.methodAdjustments.copy(
-                    isha = baseParameters.methodAdjustments.isha + ramadanIshaAdjustment,
-                ),
             )
             val calculated = AdhanPrayerTimes(
                 coordinates = AdhanCoordinates(coordinates.latitude, coordinates.longitude),
@@ -97,7 +95,7 @@ class AdhanPrayerTimeCalculator : PrayerTimeCalculator {
 
     private companion object {
         const val RAMADAN_MONTH = 9
-        const val RAMADAN_UMM_AL_QURA_EXTRA_ISHA_MINUTES = 30
+        const val UMM_AL_QURA_RAMADAN_ISHA_INTERVAL_MINUTES = 120
         const val POLAR_CIRCLE_LATITUDE = 66.0
     }
 }
