@@ -87,6 +87,18 @@ class LocationPreferencesCodecTest {
     }
 
     @Test
+    fun activeDevicePreferenceRejectsIncompleteCachedFix() {
+        val preferences = mutablePreferencesOf(
+            LocationPreferencesCodec.modeKey to "DEVICE",
+            LocationPreferencesCodec.deviceLatitudeKey to 41.9028,
+        )
+
+        assertThrows(LocationPersistenceException::class.java) {
+            LocationPreferencesCodec.decodePreference(preferences)
+        }
+    }
+
+    @Test
     fun invalidTimezoneIsRejectedInsteadOfUsingDeviceTimezone() {
         val preferences = mutablePreferencesOf()
         LocationPreferencesCodec.writeManualPreference(preferences, makkah())

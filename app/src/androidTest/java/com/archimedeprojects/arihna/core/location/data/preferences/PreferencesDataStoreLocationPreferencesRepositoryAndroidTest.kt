@@ -1,7 +1,6 @@
 package com.archimedeprojects.arihna.core.location.data.preferences
 
 import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -104,7 +103,7 @@ class PreferencesDataStoreLocationPreferencesRepositoryAndroidTest {
     }
 
     @Test
-    fun incompleteManualRecordFailsWithoutConstructingSelectedLocation() = runBlocking {
+    fun incompleteManualRecordFailsWithPersistenceErrorWithoutSelectedLocation() = runBlocking {
         dataStore.edit { preferences ->
             preferences.clear()
             preferences[LocationPreferencesCodec.modeKey] = "MANUAL"
@@ -130,7 +129,7 @@ class PreferencesDataStoreLocationPreferencesRepositoryAndroidTest {
     }
 
     @Test
-    fun incompleteCachedFixFailsWithoutInventingFallback() = runBlocking {
+    fun incompleteActiveDeviceCacheFailsWithPersistenceErrorWithoutFallback() = runBlocking {
         repository.selectDevice()
         dataStore.edit { preferences ->
             preferences[LocationPreferencesCodec.deviceLatitudeKey] = 41.9028
@@ -148,10 +147,7 @@ class PreferencesDataStoreLocationPreferencesRepositoryAndroidTest {
         )
 
         assertEquals(
-            LocationResolutionState.PermissionDenied(
-                canRequestAgain = false,
-                cachedLocation = null,
-            ),
+            LocationResolutionState.Unavailable(LocationFailure.PERSISTENCE_ERROR, null),
             state,
         )
     }

@@ -71,6 +71,9 @@ internal object LocationPreferencesCodec {
                 if (containsAny(preferences, manualAllKeys)) {
                     throw LocationPersistenceException("Manual location fields must be cleared in DEVICE mode")
                 }
+                // Active Device mode treats a partial/corrupt cached fix as persistence corruption.
+                // A completely absent cache remains valid: the next Device resolution will obtain a fresh fix.
+                decodeCachedDeviceFix(preferences)
                 LocationPreference.Device
             }
 
