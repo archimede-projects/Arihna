@@ -180,16 +180,28 @@ For true polar/extreme cases where required astronomical events cannot be produc
 
 Model per-prayer integer-minute adjustments for Fajr, Sunrise, Dhuhr, Asr, Maghrib and Isha. Default is zero. The model/calculation behavior is implemented now; DataStore/settings UI are deferred.
 
-#### Umm al-Qura Ramadan Isha rule
+#### Umm al-Qura Ramadan Isha rule — Android API 28 VERIFIED
 
-Required intended behavior:
+Required behavior:
 
 - outside Ramadan: Isha = Maghrib + 90 minutes;
 - during Ramadan: Isha = Maghrib + 120 minutes.
 
-Ramadan detection is planned offline using `java.time.chrono.HijrahChronology.INSTANCE` / Umm al-Qura calendar.
+Ramadan detection uses `java.time.chrono.HijrahChronology.INSTANCE`, the Umm al-Qura Hijrah chronology supplied by `java.time`.
 
-**Mandatory verification gate before implementing this 90/120-minute rule:** run an Android instrumentation test on an Android API 28 emulator/device (not JVM desktop only) and verify that `HijrahChronology.INSTANCE` is available and returns the expected Islamic month for multiple known dates. If the Android API 28 verification fails or is inconsistent, stop implementation of the Ramadan-specific rule and present an alternative for approval before coding it.
+The mandatory minimum-SDK verification gate was completed successfully on 2026-08-29 using a real Android instrumentation run on an Android 9 / API 28 x86_64 emulator in GitHub Actions (run `33245235911`). `connectedDebugAndroidTest` started and finished **2 tests** successfully on `test(AVD) - 9`.
+
+The instrumentation verification confirmed:
+
+- `HijrahChronology.INSTANCE` is available on API 28;
+- chronology id is `Hijrah-umalqura`;
+- its calendar type identifies an Islamic calendar;
+- Gregorian `2024-02-20` resolves to Islamic month 8 (Sha'ban 1445 context);
+- Gregorian `2024-03-20` resolves to Islamic month 9 (Ramadan 1445);
+- Gregorian `2024-04-20` resolves to Islamic month 10 (Shawwal 1445);
+- Gregorian `2016-06-15` resolves to Islamic month 9 (Ramadan 1437).
+
+Therefore the Android API 28 gate is **CLOSED/PASSED** and Arihna may implement the approved Umm al-Qura 90/120-minute Isha rule using `HijrahChronology.INSTANCE`. Keep the instrumentation regression test in the project so this platform assumption remains testable.
 
 #### Prayer calculation test plan
 
@@ -203,8 +215,9 @@ Automated tests must cover at least:
 - southern-hemisphere `abs(latitude)` automatic-rule behavior;
 - polar/extreme case returning controlled `Unavailable` rather than an uncaught exception or fabricated time;
 - DST around `Europe/Rome` transitions;
-- Umm al-Qura Ramadan 90/120-minute behavior, but only after the API 28 HijrahChronology verification gate passes;
-- invalid latitude/longitude inputs.
+- Umm al-Qura Ramadan 90/120-minute behavior;
+- invalid latitude/longitude inputs;
+- API 28 instrumentation regression for `HijrahChronology.INSTANCE`.
 
 Published minute-level golden values should use ±1 minute tolerance; internal mapping/offset invariants should be exact.
 
@@ -214,7 +227,7 @@ Reference golden cases approved for implementation include:
 - Raleigh, 2015-07-12, ISNA/Hanafi: 04:42, 06:08, 13:21, 18:22, 20:32, 21:57.
 - Cairo, 2020-01-01, Egyptian/Standard: 05:18, 06:51, 11:59, 14:47, 17:06, 18:29.
 - Makkah coordinates 21.427009, 39.828685, `Asia/Riyadh`, 2016-01-05, Umm al-Qura/Standard: 05:38, 07:00, 12:26, 15:31, 17:52, 19:22.
-- high-latitude regression around latitude 55.983226, longitude -3.216649, 2020-06-15.
+- high-latitude regression at latitude 55.983226, longitude -3.216649, 2020-06-15: Middle Fajr 01:14 / Isha 01:14; Seventh Fajr 03:31 / Isha 22:56; Twilight Fajr 02:31 / Isha 23:50, with Sunrise 04:26, Dhuhr 13:14, Asr 17:46, Maghrib 22:01 for all three.
 - polar/extreme regression around Utqiagvik, Alaska, 2018-01-01.
 - DST regressions around `Europe/Rome` on 2026-03-29 and 2026-10-25.
 
@@ -225,7 +238,7 @@ This milestone must run at least:
 ./gradlew assembleDebug
 ```
 
-and must perform the Android API 28 instrumentation verification for HijrahChronology before the Ramadan-specific rule is coded.
+The Android API 28 HijrahChronology gate has passed and the Ramadan-specific rule is now allowed to be implemented and regression-tested.
 
 ### 5.2 Qibla
 
@@ -344,7 +357,7 @@ Never present Quran/hadith from memory as authoritative app content without veri
 At minimum test:
 
 - prayer-time calculation across representative coordinates/dates/methods, including the detailed plan in §5.1;
-- Android API 28 HijrahChronology instrumentation gate before Ramadan Isha logic;
+- API 28 HijrahChronology instrumentation regression;
 - Qibla math when that milestone starts;
 - DST/timezone transitions;
 - exact alarm reboot/timezone/time changes when alarms start;
@@ -371,10 +384,8 @@ At minimum test:
 - Per-prayer manual offset model.
 - Controlled unavailable/error behavior for extreme astronomical cases.
 - Prayer calculation test plan.
-
-### Conditional / verification gate
-
-- Umm al-Qura Ramadan Isha 90/120-minute rule is approved in principle but **must not be implemented until HijrahChronology is verified on Android API 28 instrumentation**.
+- Android API 28 `HijrahChronology.INSTANCE` verification gate — passed with 2 instrumentation tests on Android 9 emulator.
+- Umm al-Qura Ramadan Isha rule: 90 minutes normally / 120 minutes in Ramadan, with Ramadan detected offline via verified `HijrahChronology.INSTANCE`.
 
 ### Pending
 
@@ -399,10 +410,14 @@ At minimum test:
 1. Branding/UI decision closure — CLOSED.
 2. Android bootstrap — CLOSED and build verified.
 3. **Current milestone:** prayer-time calculation engine only.
-4. Sequence inside current milestone: specification → dependency/domain/adapter excluding Ramadan special rule → API 28 HijrahChronology instrumentation verification → Ramadan special rule only if verification passes → unit tests/build → dedicated implementation commit → STOP.
+4. Sequence inside current milestone: specification — DONE → dependency/domain/adapter excluding Ramadan special rule — STAGED/COMPILED → API 28 HijrahChronology instrumentation verification — PASSED → Ramadan special rule → unit tests/build → dedicated implementation commit → STOP.
 5. Location/GPS, permissions, notifications, AlarmManager, definitive UI, Qibla, Quran and custom alarms remain separate milestones.
 
 ## 17. Change log
+
+### 2026-08-29 — Android API 28 HijrahChronology verification passed
+
+Before implementing the Ramadan-specific Umm al-Qura rule, Arihna ran `HijrahChronology.INSTANCE` in an Android instrumentation test on an Android 9/API 28 emulator. GitHub Actions run `33245235911` completed successfully; `connectedDebugAndroidTest` executed and passed 2 tests. The tests verified `Hijrah-umalqura` and known Gregorian dates mapping to Islamic months 8/9/10, including Ramadan 1445 and Ramadan 1437. The gate is closed and the 90/120-minute Isha rule may now be implemented.
 
 ### 2026-08-29 — Prayer calculation architecture approved
 
