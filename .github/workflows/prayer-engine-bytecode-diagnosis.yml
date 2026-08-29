@@ -17,7 +17,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       - uses: gradle/actions/setup-gradle@v4
 
@@ -37,7 +37,7 @@ jobs:
       - name: Report class-file major versions in candidate jars
         run: |
           python3 - <<'PY'
-          import os, struct, zipfile
+          import struct, zipfile
           files=[x.strip() for x in open('/tmp/candidate-files.txt') if x.strip().endswith('.jar')]
           majors={}
           for path in files:
@@ -64,11 +64,5 @@ jobs:
                   print(f'  {path} :: {name}')
           PY
 
-      - name: Reproduce exact failure and expose class name
-        run: |
-          set +e
-          ./gradlew :app:testDebugUnitTest --tests '*allArihnaCalculationMethodsMapToExpectedAdhanMethods' --info --stacktrace 2>&1 | tee /tmp/test.log
-          status=${PIPESTATUS[0]}
-          echo "GRADLE_EXIT=$status"
-          grep -n -A8 -B8 -E 'UnsupportedClassVersionError|class file version|compiled by a more recent version' /tmp/test.log || true
-          exit 0
+      - name: Verify representative Adhan test loads on approved host JDK
+        run: ./gradlew :app:testDebugUnitTest --tests '*allArihnaCalculationMethodsMapToExpectedAdhanMethods' --info --stacktrace
