@@ -24,16 +24,24 @@ jobs:
         with:
           cmdline-tools-version: '15859902'
           packages: platform-tools
-      - name: Inspect Android 17 SDK packages
-        run: |
-          android sdk list '.*' --all --all-versions --canary | grep -Ei 'platforms/.+37|android-37|cinnamon' || true
       - name: Install Android API 37
         run: android sdk install platforms/android-37 --canary
       - name: Generate Gradle wrapper 9.5.0
-        run: gradle wrapper --gradle-version 9.5.0 --distribution-type bin
+        run: |
+          mkdir -p "$RUNNER_TEMP/wrapper-gen"
+          printf 'rootProject.name = "wrapper-gen"\n' > "$RUNNER_TEMP/wrapper-gen/settings.gradle"
+          cd "$RUNNER_TEMP/wrapper-gen"
+          gradle wrapper --gradle-version 9.5.0 --distribution-type bin
+          cp gradlew "$GITHUB_WORKSPACE/gradlew"
+          cp gradlew.bat "$GITHUB_WORKSPACE/gradlew.bat"
+          mkdir -p "$GITHUB_WORKSPACE/gradle/wrapper"
+          cp gradle/wrapper/gradle-wrapper.jar "$GITHUB_WORKSPACE/gradle/wrapper/gradle-wrapper.jar"
+          cp gradle/wrapper/gradle-wrapper.properties "$GITHUB_WORKSPACE/gradle/wrapper/gradle-wrapper.properties"
+          chmod +x "$GITHUB_WORKSPACE/gradlew"
       - name: Assemble debug
         run: ./gradlew assembleDebug --stacktrace
       - name: Upload generated wrapper
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: gradle-wrapper-9.5.0
