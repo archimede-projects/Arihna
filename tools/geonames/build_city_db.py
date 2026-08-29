@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build Arihna's deterministic offline GeoNames city database.
 
-Generator version: 2
+Generator version: 3
 Inputs are local snapshot files downloaded from GeoNames. The caller is
 responsible for checksum verification; this script records input and output
 metadata and never fetches network resources itself.
@@ -15,14 +15,45 @@ import re
 import sqlite3
 import unicodedata
 import zipfile
+from collections import Counter
 from pathlib import Path
 
-GENERATOR_VERSION = 2
+GENERATOR_VERSION = 3
 ALLOWED_LANGUAGES = {"it", "en", "ar"}
 KIND_CANONICAL = 0
 KIND_ASCII = 1
 KIND_ALTERNATE = 2
 NON_FTS_INTEGRITY_TABLES = ("country", "admin1", "city", "city_alias")
+
+# GeoNames cities500.txt is a candidate source, not Arihna's final city set.
+# Keep only current, independently recognizable populated places. The whitelist
+# is deliberately deny-by-default so future/new GeoNames feature codes cannot
+# silently enter the bundled dataset without review.
+ALLOWED_FEATURE_CLASS = "P"
+ALLOWED_FEATURE_CODES = frozenset(
+    {
+        "PPL",    # populated place
+        "PPLA",   # seat of first-order administrative division
+        "PPLA2",  # seat of second-order administrative division
+        "PPLA3",  # seat of third-order administrative division
+        "PPLA4",  # seat of fourth-order administrative division
+        "PPLA5",  # seat of fifth-order administrative division
+        "PPLC",   # capital of a political entity
+        "PPLG",   # seat of government of a political entity
+        "PPLF",   # current farm village: still a populated place
+        "PPLR",   # current religious populated place
+        "STLMT",  # current inhabited settlement with GeoNames-specific classification
+    }
+)
+EXPLICIT_EXCLUDED_FEATURE_CODES = {
+    "PPLX": "section of a larger populated place, not an independent city",
+    "PPLH": "historical populated place that no longer exists",
+    "PPLCH": "historical capital",
+    "PPLQ": "abandoned populated place",
+    "PPLW": "destroyed populated place",
+    "PPLL": "minor populated locality rather than a city/town/village center",
+    "PPLS": "aggregate/plural populated places rather than one independent center",
+}
 GOLDEN_SEARCH_ALIASES = (
     ("Roma", 3169070, "roma"),
     ("Makkah", 104515, "makkah"),
@@ -252,7 +283,12 @@ def main() -> None:
     city_ids: set[int] = set()
     referenced_countries: set[str] = set()
     referenced_admin1: set[str] = set()
+    raw_city_count = 0
     city_count = 0
+    raw_feature_class_counts: Counter[str] = Counter()
+    raw_feature_code_counts: Counter[str] = Counter()
+    included_feature_code_counts: Counter[str] = Counter()
+    excluded_feature_code_counts: Counter[str] = Counter()
 
     zf, cities_text = open_text_member(args.cities, "cities500.txt")
     try:
@@ -261,6 +297,21 @@ def main() -> None:
                 cols = line.rstrip("\n").split("\t")
                 if len(cols) < 19:
                     raise RuntimeError(f"Malformed cities500 row with {len(cols)} columns")
+
+                raw_city_count += 1
+                feature_class = cols[6].strip()
+                feature_code = cols[7].strip()
+                raw_feature_class_counts[feature_class or "<blank>"] += 1
+                raw_feature_code_counts[feature_code or "<blank>"] += 1
+
+                # The raw cities500 dump contains multiple populated-place
+                # semantics. Arihna only exposes independently recognizable,
+                # current inhabited places; everything else is denied by default.
+                if feature_class != ALLOWED_FEATURE_CLASS or feature_code not in ALLOWED_FEATURE_CODES:
+                    excluded_feature_code_counts[feature_code or "<blank>"] += 1
+                    continue
+                included_feature_code_counts[feature_code] += 1
+
                 city_id = int(cols[0])
                 name = cols[1].strip()
                 ascii_name = cols[2].strip()
@@ -398,6 +449,18 @@ def main() -> None:
         "generator_version": GENERATOR_VERSION,
         "snapshot_date": args.snapshot_date,
         "sqlite_version": sqlite3.sqlite_version,
+        "feature_filter": {
+            "feature_class": ALLOWED_FEATURE_CLASS,
+            "included_feature_codes": sorted(ALLOWED_FEATURE_CODES),
+            "explicit_exclusions": EXPLICIT_EXCLUDED_FEATURE_CODES,
+            "raw_rows": raw_city_count,
+            "included_rows": city_count,
+            "excluded_rows": raw_city_count - city_count,
+            "raw_feature_class_counts": dict(sorted(raw_feature_class_counts.items())),
+            "raw_feature_code_counts": dict(sorted(raw_feature_code_counts.items())),
+            "included_feature_code_counts": dict(sorted(included_feature_code_counts.items())),
+            "excluded_feature_code_counts": dict(sorted(excluded_feature_code_counts.items())),
+        },
         "inputs": {
             "cities500.zip": {"sha256": sha256(args.cities), "bytes": args.cities.stat().st_size},
             "alternateNamesV2.zip": {"sha256": sha256(args.alternate_names), "bytes": args.alternate_names.stat().st_size},
