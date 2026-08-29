@@ -15,40 +15,61 @@ jobs:
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
           cache: gradle
-      - name: Resolve prayer-engine test classpath
-        run: ./gradlew :app:dependencies --configuration debugUnitTestRuntimeClasspath
-      - name: Inspect resolved class-file headers directly
+      - name: Materialize resolved runtime dependencies
+        shell: bash
+        run: |
+          set +e
+          ./gradlew :app:compileDebugKotlin --stacktrace
+          COMPILE_EXIT=$?
+          set -e
+          echo "compileDebugKotlin_exit=$COMPILE_EXIT"
+          echo "Dependency materialization attempted; header inspection below is authoritative for this job."
+      - name: Locate resolved JARs in Gradle cache
+        id: jars
         shell: bash
         run: |
           set -euo pipefail
-          ADHAN_JAR="$(find "$HOME/.gradle/caches/modules-2/files-2.1/com.batoulapps.adhan/adhan2-jvm/0.0.7" -name '*.jar' | head -n 1)"
-          DATETIME_JAR="$(find "$HOME/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-datetime-jvm" -name '*.jar' | sort | tail -n 1)"
+          ADHAN_JAR="$(find "$HOME/.gradle/caches/modules-2" -name 'adhan2-jvm-0.0.7.jar' -print -quit)"
+          DATETIME_JAR="$(find "$HOME/.gradle/caches/modules-2" -name 'kotlinx-datetime-jvm-*.jar' -print | sort | tail -n 1)"
+          test -n "$ADHAN_JAR"
+          test -f "$ADHAN_JAR"
+          test -n "$DATETIME_JAR"
+          test -f "$DATETIME_JAR"
           echo "ADHAN_JAR=$ADHAN_JAR"
           echo "DATETIME_JAR=$DATETIME_JAR"
+          printf 'adhan_jar=%s\n' "$ADHAN_JAR" >> "$GITHUB_OUTPUT"
+          printf 'datetime_jar=%s\n' "$DATETIME_JAR" >> "$GITHUB_OUTPUT"
+      - name: Inspect resolved class-file headers directly
+        shell: bash
+        env:
+          ADHAN_JAR: ${{ steps.jars.outputs.adhan_jar }}
+          DATETIME_JAR: ${{ steps.jars.outputs.datetime_jar }}
+        run: |
+          set -euo pipefail
           python3 - "$ADHAN_JAR" "$DATETIME_JAR" <<'PY'
           import struct, sys, zipfile
           from pathlib import Path
 
           def inspect(jar_path, exact_class=None):
               with zipfile.ZipFile(jar_path) as zf:
-                  classes = sorted(name for name in zf.namelist() if name.endswith(".class"))
+                  classes = sorted(name for name in zf.namelist() if name.endswith('.class'))
                   if exact_class:
                       data = zf.read(exact_class)
-                      magic, minor, major = struct.unpack(">IHH", data[:8])
-                      print(f"EXACT_CLASS={exact_class} magic=0x{magic:08X} minor={minor} major={major}")
+                      magic, minor, major = struct.unpack('>IHH', data[:8])
+                      print(f'EXACT_CLASS={exact_class} magic=0x{magic:08X} minor={minor} major={major}')
                   max_major = -1
                   max_name = None
                   for name in classes:
                       data = zf.read(name)
-                      _, _, major = struct.unpack(">IHH", data[:8])
+                      _, _, major = struct.unpack('>IHH', data[:8])
                       if major > max_major:
                           max_major = major
                           max_name = name
-                  print(f"JAR={Path(jar_path).name} classes={len(classes)} max_major={max_major} sample={max_name}")
+                  print(f'JAR={Path(jar_path).name} classes={len(classes)} max_major={max_major} sample={max_name}')
 
-          inspect(sys.argv[1], "com/batoulapps/adhan2/CalculationMethod.class")
+          inspect(sys.argv[1], 'com/batoulapps/adhan2/CalculationMethod.class')
           inspect(sys.argv[2])
           PY
 
