@@ -17,60 +17,66 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: gradle
-      - name: Materialize resolved runtime dependencies
-        shell: bash
-        run: |
-          set +e
-          ./gradlew :app:compileDebugKotlin --stacktrace
-          COMPILE_EXIT=$?
-          set -e
-          echo "compileDebugKotlin_exit=$COMPILE_EXIT"
-          echo "Dependency materialization attempted; header inspection below is authoritative for this job."
-      - name: Locate resolved JARs in Gradle cache
-        id: jars
+      - name: Resolve and print actual Gradle classpath files
         shell: bash
         run: |
           set -euo pipefail
-          ADHAN_JAR="$(find "$HOME/.gradle/caches/modules-2" -name 'adhan2-jvm-0.0.7.jar' -print -quit)"
-          DATETIME_JAR="$(find "$HOME/.gradle/caches/modules-2" -name 'kotlinx-datetime-jvm-*.jar' -print | sort | tail -n 1)"
-          test -n "$ADHAN_JAR"
-          test -f "$ADHAN_JAR"
-          test -n "$DATETIME_JAR"
-          test -f "$DATETIME_JAR"
-          echo "ADHAN_JAR=$ADHAN_JAR"
-          echo "DATETIME_JAR=$DATETIME_JAR"
-          printf 'adhan_jar=%s\n' "$ADHAN_JAR" >> "$GITHUB_OUTPUT"
-          printf 'datetime_jar=%s\n' "$DATETIME_JAR" >> "$GITHUB_OUTPUT"
-      - name: Inspect resolved class-file headers directly
+          cat >/tmp/arihna-classpath.gradle <<'GRADLE'
+          allprojects {
+              afterEvaluate { p ->
+                  if (p.path == ':app') {
+                      p.tasks.register('dumpArihnaDiagnosticClasspath') {
+                          doLast {
+                              ['debugCompileClasspath', 'debugUnitTestRuntimeClasspath'].each { name ->
+                                  def cfg = p.configurations.getByName(name)
+                                  println("CONFIGURATION=${name}")
+                                  cfg.resolve().sort { a, b -> a.absolutePath <=> b.absolutePath }.each { f ->
+                                      println("CLASSPATH_FILE=${f.absolutePath}")
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+          GRADLE
+          ./gradlew -I /tmp/arihna-classpath.gradle :app:dumpArihnaDiagnosticClasspath --stacktrace | tee /tmp/classpath.log
+          grep '^CLASSPATH_FILE=' /tmp/classpath.log | sed 's/^CLASSPATH_FILE=//' | sort -u > /tmp/classpath-files.txt
+          echo 'Resolved classpath candidates containing adhan/datetime:'
+          grep -Ei 'adhan|datetime' /tmp/classpath-files.txt || true
+      - name: Inspect CalculationMethod class header directly
         shell: bash
-        env:
-          ADHAN_JAR: ${{ steps.jars.outputs.adhan_jar }}
-          DATETIME_JAR: ${{ steps.jars.outputs.datetime_jar }}
         run: |
           set -euo pipefail
-          python3 - "$ADHAN_JAR" "$DATETIME_JAR" <<'PY'
-          import struct, sys, zipfile
+          python3 - <<'PY'
+          import struct, zipfile
           from pathlib import Path
 
-          def inspect(jar_path, exact_class=None):
-              with zipfile.ZipFile(jar_path) as zf:
-                  classes = sorted(name for name in zf.namelist() if name.endswith('.class'))
-                  if exact_class:
-                      data = zf.read(exact_class)
+          exact = 'com/batoulapps/adhan2/CalculationMethod.class'
+          paths = [Path(x.strip()) for x in Path('/tmp/classpath-files.txt').read_text().splitlines() if x.strip()]
+          found = []
+          for path in paths:
+              if not path.is_file() or path.suffix.lower() not in {'.jar', '.zip', '.aar'}:
+                  continue
+              try:
+                  with zipfile.ZipFile(path) as zf:
+                      if exact not in zf.namelist():
+                          continue
+                      data = zf.read(exact)
                       magic, minor, major = struct.unpack('>IHH', data[:8])
-                      print(f'EXACT_CLASS={exact_class} magic=0x{magic:08X} minor={minor} major={major}')
-                  max_major = -1
-                  max_name = None
-                  for name in classes:
-                      data = zf.read(name)
-                      _, _, major = struct.unpack('>IHH', data[:8])
-                      if major > max_major:
-                          max_major = major
-                          max_name = name
-                  print(f'JAR={Path(jar_path).name} classes={len(classes)} max_major={max_major} sample={max_name}')
-
-          inspect(sys.argv[1], 'com/batoulapps/adhan2/CalculationMethod.class')
-          inspect(sys.argv[2])
+                      print(f'ADHAN_CLASS_CONTAINER={path}')
+                      print(f'EXACT_CLASS={exact}')
+                      print(f'magic=0x{magic:08X}')
+                      print(f'minor={minor}')
+                      print(f'major={major}')
+                      found.append(path)
+              except zipfile.BadZipFile:
+                  pass
+          if not found:
+              print('ERROR: exact CalculationMethod.class not found in resolved classpath files')
+              raise SystemExit(2)
+          if len(found) > 1:
+              print(f'NOTE: exact class found in {len(found)} resolved containers')
           PY
 
   test-a:
