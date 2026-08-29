@@ -12,7 +12,8 @@
 - **Language/UI:** Kotlin + Jetpack Compose
 - **Primary target device:** Samsung Galaxy S25 on a recent Android version
 - **Distribution:** sideloaded APK from GitHub Releases; no Play Store publication
-- The exact form **Arihna** must be used consistently in the app name, repository-facing documentation, UI, release naming, commit language where the product name appears, and application/package naming. Do not introduce variants such as `ArihnaApp` or `Ari7naBiha`.
+- The exact product name **Arihna** must be used consistently in application/package naming, display name, repository-facing documentation, release naming, commit language where the product name appears, and ordinary UI text. Do not introduce variants such as `ArihnaApp` or `Ari7naBiha`.
+- The approved extended **artwork** may render the wordmark typographically as `ARIHNA`; this is a visual treatment only and does not change the canonical product name `Arihna`.
 - Name inspiration: the hadith expression **«أرحنا بها يا بلال»** (*Arihna biha ya Bilal* — “Dacci sollievo con essa, o Bilal”), referring to prayer.
 
 ## 2. Non-negotiable constraints
@@ -34,41 +35,133 @@ For every future requested feature/change:
 
 1. Read the current `PROJECT_SPEC.md`.
 2. Update `PROJECT_SPEC.md` first with the new/changed requirement and any accepted design/technical decision.
-3. Commit the specification update before or together with the first code change, while preserving the ordering that the specification is updated before implementation work.
+3. Commit the specification update before or together with the first corresponding implementation change, while preserving the ordering that the specification is updated first.
 4. Implement the smallest coherent step.
 5. Build/test where feasible.
 6. Commit with a descriptive message.
 7. Keep unresolved choices explicitly marked as **Pending decision** rather than silently choosing for the user.
+8. Work one objective at a time; do not begin the next milestone until the current one is closed.
 
-## 4. UX/UI process — mandatory approval gate
+## 4. UX/UI and branding decisions
 
-Before implementing the definitive UI, provide at least **2–3 distinct visual directions** for the main screens and wait for user selection.
+### 4.1 Mockup phase — CLOSED
 
-Screens requiring mockups before final implementation:
+The exploratory UI phase is complete and approved.
 
-- Home
-  - current/next prayer time
-  - daily action/good deed
-  - daily motivational/religious content
-- Prayer times
-  - all prayer times for the current day
-- Qibla
-  - compass/direction toward the Kaaba
-- Quran
-  - surah list
-  - reading view
-- Alarms
-- Settings
+#### Official visual direction
 
-Logo/app icon process:
+- **Base layout:** Layout 1 — **Hero Dashboard**.
+- Design character: calm, spacious, premium but sober.
+- Main hierarchy: the **next prayer** is the primary piece of information and is shown in a large hero card.
+- Cards should use generous spacing, restrained borders/shadows, and a low-density visual rhythm rather than a crowded dashboard.
+- The definitive color basis is green/gold/off-white.
 
-- Provide multiple real generated image variants, not text descriptions only.
-- Wait for explicit user choice before finalizing icon/logo assets.
+#### Screen-specific approved layout
 
-### Current UI status
+- **Home**
+  - follows Layout 1 Hero Dashboard;
+  - next prayer is the dominant hero card;
+  - prayer name, time and countdown have the strongest hierarchy;
+  - current/last known location is visible but secondary;
+  - “azione del giorno” and motivational/religious content appear below the hero content as calm supporting cards.
+- **Prayer times**
+  - exception to the Layout 1 list;
+  - uses the **vertical timeline from Layout 2**;
+  - all prayers for the current day are shown along a vertical line with dots/markers;
+  - a current-time/progress indicator communicates where the user is within the prayer-day timeline;
+  - the next/currently relevant prayer receives clear emphasis.
+- **Qibla**
+  - follows Layout 1;
+  - large compass is the dominant element;
+  - bearing/direction and location/calibration information are supporting content.
+- **Quran**
+  - follows Layout 1;
+  - reading view prioritizes Arabic text;
+  - Italian translation, when enabled, remains visually secondary;
+  - generous vertical rhythm and reading-focused spacing;
+  - avoid decorative treatment that competes with the Quran text.
+- **Alarms**
+  - follows Layout 1;
+  - calm card/list presentation with clear time, label/scope, schedule and enabled state.
+- **Settings**
+  - follows Layout 1;
+  - spacious, grouped settings with restrained dividers/cards.
 
-- **Pending decision:** visual style, layout system, colors, typography, iconography, logo and app icon.
-- No definitive UI implementation should be started until a visual direction is selected.
+No implementation of these screens has started yet. The approved design direction is now an implementation requirement.
+
+### 4.2 Official palette — CLOSED
+
+Approved colors:
+
+- **Arihna Green:** `#0F5132`
+- **Arihna Gold:** `#D4AF37`
+- **Arihna Off-white:** `#FAFAF6`
+
+These are the official branding/UI base colors. Accessibility contrast may require derived tonal values in implementation, but derived colors must remain visually consistent with this palette.
+
+### 4.3 Logo/app icon phase — CLOSED
+
+The definitive Arihna mark is approved.
+
+#### Official icon concept
+
+A geometric monogram **A** integrating:
+
+- a minimal **minaret** into the letterform;
+- a **crescent** above the minaret;
+- **three radiating sound waves** evoking the adhan / propagation of the call to prayer.
+
+The combination intentionally communicates both the place associated with the adhan (minaret) and the sound/call itself (radiating waves).
+
+#### Religious-content restriction for the mark
+
+The icon/logo must contain:
+
+- no Quran verses;
+- no divine names;
+- no sacred text;
+- no generated Arabic calligraphy.
+
+#### Legibility requirements
+
+Approved for:
+
+- 48×48 px launcher reference size;
+- 24×24 px notification reference size;
+- 16×16 px favicon/badge reference size;
+- Android adaptive masks including circular and squircle-like masks;
+- light and dark presentation contexts.
+
+#### Finalized branding assets
+
+Android resources:
+
+- `app/src/main/res/mipmap-mdpi/ic_launcher.png`
+- `app/src/main/res/mipmap-hdpi/ic_launcher.png`
+- `app/src/main/res/mipmap-xhdpi/ic_launcher.png`
+- `app/src/main/res/mipmap-xxhdpi/ic_launcher.png`
+- `app/src/main/res/mipmap-xxxhdpi/ic_launcher.png`
+- matching `ic_launcher_round.png` files in each density
+- `app/src/main/res/drawable/ic_launcher_foreground.xml`
+- `app/src/main/res/drawable/ic_launcher_monochrome.xml`
+- `app/src/main/res/drawable/ic_notification_arihna.xml`
+- `app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml`
+- `app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml`
+- `app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml`
+- `app/src/main/res/mipmap-anydpi-v33/ic_launcher_round.xml`
+- `app/src/main/res/values/branding_colors.xml`
+
+Reference/web branding:
+
+- `docs/branding/arihna-icon-master.svg`
+- `docs/branding/arihna-icon-light.svg`
+- `docs/branding/arihna-icon-dark.svg`
+- `docs/branding/arihna-logo-extended-light.svg`
+- `docs/branding/arihna-logo-extended-dark.svg`
+- `docs/branding/favicon.svg`
+- raster favicons/previews in `docs/branding/`
+
+Android's actual small notification icon is intentionally a monochrome vector because Android masks/tints small notification icons. API 33+ adaptive-icon resources include a monochrome layer for themed launcher icons; API 26–32 use background + foreground layers only.
 
 ## 5. Core feature requirements
 
@@ -79,7 +172,7 @@ Logo/app icon process:
 - Support approximate location when that is what Android/user allows.
 - Recalculate/update automatically each day.
 - Allow the user to choose a standard calculation method.
-- Candidate methods to expose include, subject to technical validation:
+- Candidate methods to expose include, subject to final technical validation:
   - Muslim World League (MWL)
   - Umm al-Qura University, Makkah
   - ISNA
@@ -90,7 +183,8 @@ Logo/app icon process:
   - Standard / Shafi'i (also commonly used by Maliki/Hanbali)
   - Hanafi
 - Provide configurable prayer-time notifications / adhan reminders.
-- Core time calculation should not require a paid cloud service.
+- Core time calculation must not require a paid cloud service.
+- **First real functional milestone after project bootstrap:** prayer-time calculation.
 
 ### 5.2 Qibla
 
@@ -112,11 +206,11 @@ Logo/app icon process:
 - Reading must not require connectivity after the Quran text has been bundled or downloaded.
 - Evaluate an optional Italian translation before inclusion.
 - Translation choice must consider:
-  - redistribution license
-  - attribution requirements
-  - text integrity requirements
-  - APK/database size
-  - offline availability
+  - redistribution license;
+  - attribution requirements;
+  - text integrity requirements;
+  - APK/database size;
+  - offline availability.
 - **Pending decision:** whether Italian translation is included by default, offered as optional offline pack, or omitted in v1.
 - Religious text must come from a verified, attributable source and must not be invented or silently modified.
 
@@ -126,22 +220,22 @@ Each day provide a morning-oriented and evening-oriented item.
 
 Morning content should include some combination of:
 
-- a practical good action for the day
-- a motivational/reflection phrase
-- a Quran verse and/or authentic hadith
+- a practical good action for the day;
+- a motivational/reflection phrase;
+- a Quran verse and/or authentic hadith.
 
 Evening content should provide analogous reflective content suited to the evening.
 
 Requirements:
 
-- morning notification
-- evening notification
-- content changes daily
-- avoid close repetitions
-- Quran references must cite surah and verse number
-- hadith must be authentic/verified and cite collection plus identifying number/reference
-- never fabricate religious quotations or references
-- Prefer a curated local/offline content dataset so core daily content does not depend on a network service.
+- morning notification;
+- evening notification;
+- content changes daily;
+- avoid close repetitions;
+- Quran references must cite surah and verse number;
+- hadith must be authentic/verified and cite collection plus identifying number/reference;
+- never fabricate religious quotations or references;
+- prefer a curated local/offline content dataset so core daily content does not depend on a network service.
 
 ## 6. Permissions and Android behavior
 
@@ -171,43 +265,46 @@ The architecture should maximize offline operation.
 
 Expected offline-capable data/features:
 
-- Quran Arabic text
-- optional translation if bundled/downloaded locally
-- curated daily motivational/religious content dataset
-- stored settings
-- stored alarm definitions
-- prayer-time calculation given saved coordinates/date/configuration
-- Qibla bearing given saved coordinates
+- Quran Arabic text;
+- optional translation if bundled/downloaded locally;
+- curated daily motivational/religious content dataset;
+- stored settings;
+- stored alarm definitions;
+- prayer-time calculation given saved coordinates/date/configuration;
+- Qibla bearing given saved coordinates.
 
 Network may be required for:
 
-- GitHub APK download/update by the user
-- an optional first-time content download if the chosen Quran/translation packaging model uses downloadable packs
-- optional future features explicitly approved later
+- GitHub APK download/update by the user;
+- an optional first-time content download if the chosen Quran/translation packaging model uses downloadable packs;
+- optional future features explicitly approved later.
 
 Location itself should use Android location providers and must not require a paid geocoding service for core calculation.
 
-## 8. Proposed technical architecture — initial, subject to validation
+## 8. Proposed technical architecture — pending bootstrap approval
+
+The architecture below remains a proposal until the dedicated project-bootstrap step is approved. No functional implementation is authorized by the branding/UI closure milestone.
 
 ### 8.1 App architecture
 
 Recommended baseline:
 
-- single Android application module initially, split by feature/package to avoid unnecessary Gradle complexity during early development
-- Clean-ish layered architecture with pragmatic boundaries:
-  - `ui/` — Compose screens/components/theme/navigation
-  - `domain/` — use cases and pure models/calculation interfaces
-  - `data/` — Room repositories, preferences, bundled datasets
-  - `platform/` — location, sensors, notifications, alarms, receivers
-  - `feature/` — feature-oriented packages for home, prayers, qibla, quran, alarms, settings
-- MVVM/state-holder approach using lifecycle-aware ViewModels and Kotlin Flows.
-- Unidirectional data flow in Compose.
+- one Android application module (`:app`) initially;
+- feature/package organization rather than premature Gradle multi-module decomposition;
+- pragmatic layered boundaries:
+  - `ui/` — Compose screens/components/theme/navigation;
+  - `domain/` — use cases and pure models/calculation interfaces;
+  - `data/` — Room repositories, preferences, bundled datasets;
+  - `platform/` — location, sensors, notifications, alarms, receivers;
+  - `feature/` — feature-oriented packages for home, prayers, qibla, quran, alarms, settings;
+- MVVM/state-holder approach using lifecycle-aware ViewModels and Kotlin Flows;
+- unidirectional data flow in Compose.
 
-If the project grows substantially, feature Gradle modules may be introduced later; avoid premature modularization.
+If the project grows substantially, feature/core Gradle modules may be introduced later; avoid premature modularization.
 
 ### 8.2 Candidate Android libraries/components
 
-All final versions and licenses must be verified before adding them.
+All final versions and licenses must be verified immediately before addition.
 
 - Jetpack Compose + Material 3
 - Navigation Compose
@@ -217,9 +314,9 @@ All final versions and licenses must be verified before adding them.
 - DataStore Preferences for lightweight settings
 - WorkManager for deferrable/non-exact daily maintenance
 - AlarmManager for time-critical prayer/custom alarms
-- Android location APIs / fused location where available without introducing a paid service dependency; fallback strategy to be evaluated
+- Android location APIs / fused location where available without introducing a paid service dependency; final choice to be approved
 - Android `SensorManager` rotation-vector/orientation sensors for Qibla compass
-- A verified open-source prayer-time calculation library or a small audited local implementation; final choice pending technical/license review
+- a verified open-source prayer-time calculation library or a small audited local implementation; final choice pending technical/license review
 
 ### 8.3 Proposed data separation
 
@@ -231,19 +328,19 @@ All final versions and licenses must be verified before adding them.
 - `DailyContent`: curated action/reflection + linked Quran/hadith source metadata
 - `DailyContentHistory`: recent IDs/dates to enforce anti-repeat rules
 
-## 9. Repository structure — proposed
+## 9. Repository structure — target proposal
 
 ```text
 Arihna/
 ├─ PROJECT_SPEC.md
 ├─ README.md
-├─ LICENSES/                       # third-party notices/text-data licenses
+├─ LICENSES/
 ├─ app/
 │  ├─ build.gradle.kts
 │  └─ src/
 │     ├─ main/
 │     │  ├─ AndroidManifest.xml
-│     │  ├─ java/.../arihna/
+│     │  ├─ java/.../Arihna/
 │     │  │  ├─ ArihnaApplication.kt
 │     │  │  ├─ ui/
 │     │  │  ├─ domain/
@@ -251,6 +348,9 @@ Arihna/
 │     │  │  ├─ platform/
 │     │  │  └─ feature/
 │     │  └─ res/
+│     │     ├─ drawable/             # branding vector layers already finalized
+│     │     ├─ mipmap-*/             # launcher assets already finalized
+│     │     └─ values/
 │     ├─ test/
 │     └─ androidTest/
 ├─ gradle/
@@ -262,12 +362,13 @@ Arihna/
 │     ├─ debug-release.yml
 │     └─ release.yml
 └─ docs/
-   ├─ architecture.md              # optional when architecture grows
-   ├─ religious-sources.md         # verified Quran/hadith source inventory
-   └─ ui-decisions.md              # accepted UI direction/assets
+   ├─ branding/                      # approved logo/web/reference assets
+   ├─ architecture.md
+   ├─ religious-sources.md
+   └─ ui-decisions.md
 ```
 
-The exact package/application ID must use the `Arihna` project identity without product-name variants while still conforming to Android package naming rules. Final reverse-domain prefix is **Pending decision/initial project bootstrap**.
+The exact package/application ID must use the `Arihna` project identity without product-name variants while still conforming to Android package naming rules. Final reverse-domain prefix is **Pending decision / project-bootstrap milestone**.
 
 ## 10. CI/CD requirements
 
@@ -278,41 +379,45 @@ The exact package/application ID must use the `Arihna` project identity without 
 - Publish the APK to GitHub Releases.
 - Use a persistent debug keystore reconstructed at workflow runtime from GitHub Secrets.
 - Required secret concept (exact names may be finalized during implementation):
-  - base64-encoded debug keystore
-  - keystore password
-  - key alias
-  - key password
+  - base64-encoded debug keystore;
+  - keystore password;
+  - key alias;
+  - key password.
 - Never print secrets in logs.
 - Release/tag naming must make debug builds unmistakable and allow convenient installation/update.
-- Prefer a deliberate trigger strategy that does not flood Releases for every tiny commit (for example manual dispatch and/or a dedicated debug tag convention). Final trigger is **Pending decision**.
+- Prefer a deliberate trigger strategy that does not flood Releases for every tiny commit, for example manual dispatch and/or a dedicated debug tag convention.
+- Final trigger is **Pending decision**.
 
 ### 10.2 Release APK publication
 
-- On an approved version tag/release convention, GitHub Actions must:
-  1. check out source
-  2. install the required JDK/Android build environment
-  3. restore safe Gradle caches
-  4. reconstruct signing keystore from GitHub Secrets
-  5. run tests/lint as appropriate
-  6. build the signed release APK
-  7. calculate checksum if practical
-  8. create/update the corresponding GitHub Release
-  9. attach the APK (and optional checksum file) to the Release
-- Production signing key must remain persistent so updates install over previous releases.
+On an approved version tag/release convention, GitHub Actions must:
+
+1. check out source;
+2. install the required JDK/Android build environment;
+3. restore safe Gradle caches;
+4. reconstruct signing keystore from GitHub Secrets;
+5. run tests/lint as appropriate;
+6. build the signed release APK;
+7. calculate checksum if practical;
+8. create/update the corresponding GitHub Release;
+9. attach the APK and optional checksum file to the Release.
+
+Production signing key must remain persistent so updates install over previous releases.
 
 ## 11. README requirements
 
 `README.md` must eventually include:
 
-- what Arihna is
-- supported target/device notes
-- how to download an APK from GitHub Releases
-- how to enable sideload/install unknown apps on Samsung/Android safely
-- distinction between debug test releases and stable releases
-- update procedure without uninstalling when signing key/package is unchanged
-- permissions explanation
-- any Samsung battery/background-alarm guidance required for reliable alerts
-- third-party/religious-data attribution links or references
+- what Arihna is;
+- supported target/device notes;
+- how to download an APK from GitHub Releases;
+- how to enable sideload/install unknown apps on Samsung/Android safely;
+- distinction between debug test releases and stable releases;
+- update procedure without uninstalling when signing key/package is unchanged;
+- permissions explanation;
+- any Samsung battery/background-alarm guidance required for reliable alerts;
+- third-party/religious-data attribution links or references;
+- approved Arihna branding/logo where appropriate.
 
 ## 12. Religious-source integrity
 
@@ -326,26 +431,39 @@ The exact package/application ID must use the `Arihna` project identity without 
 
 At minimum, plan for tests around:
 
-- prayer-time calculation across representative coordinates/dates/methods
-- Qibla bearing math
-- DST/time-zone transitions
-- exact alarm rescheduling after reboot/time-zone/time changes where supported
-- notification permission denied/granted flows
-- location approximate/precise/denied flows
-- anti-repeat daily-content selection
-- Quran database/data integrity checks
-- Compose navigation and essential screen state
+- prayer-time calculation across representative coordinates/dates/methods;
+- Qibla bearing math;
+- DST/time-zone transitions;
+- exact alarm rescheduling after reboot/time-zone/time changes where supported;
+- notification permission denied/granted flows;
+- location approximate/precise/denied flows;
+- anti-repeat daily-content selection;
+- Quran database/data integrity checks;
+- Compose navigation and essential screen state.
 
-## 14. Decisions currently pending user approval
+Branding assets should additionally be verified during project bootstrap by a real Android build/resource merge.
 
-1. UI visual direction among proposed mockups.
-2. Logo/app icon variant.
-3. Exact reverse-domain `applicationId` prefix while retaining the exact product name Arihna.
+## 14. Decisions status
+
+### Closed
+
+- UI palette: `#0F5132`, `#D4AF37`, `#FAFAF6`.
+- UI base layout: Layout 1 Hero Dashboard.
+- Prayer Times layout: Layout 2 vertical timeline within the Layout 1 design language.
+- Logo/app icon: final A + integrated minaret + crescent + radiating adhan sound waves.
+- Logo legibility/adaptive-mask review.
+- Android launcher/adaptive/themed icon asset structure.
+
+### Pending
+
+1. Exact reverse-domain `applicationId` prefix while retaining the exact product name Arihna.
+2. Final project bootstrap structure and build configuration.
+3. Exact Android `minSdk`, `compileSdk`, `targetSdk`, Kotlin/AGP/Compose versions at bootstrap time.
 4. Prayer calculation library/implementation after license/API validation.
 5. Arabic Quran source and packaging after license/integrity validation.
 6. Italian translation: include, optional pack, or omit; exact licensed source.
 7. Debug-release trigger convention.
-8. Default calculation method for a fresh installation (can also be locale/location-informed if later approved).
+8. Default calculation method for a fresh installation.
 9. Default notification/adhan sound policy and included audio licensing.
 
 ## 15. Explicitly out of scope unless later approved
@@ -357,24 +475,53 @@ At minimum, plan for tests around:
 - analytics requiring third-party tracking
 - social/community features
 
-## 16. Change log
+## 16. Milestone sequence
+
+Current agreed sequence:
+
+1. **Branding/UI decision closure — CLOSED in specification and assets.**
+2. **Next:** propose the Android project bootstrap in concrete detail (module structure, build versions, initial Compose setup, dependencies) and wait for approval.
+3. After bootstrap approval, create the structural Android project without implementing feature logic beyond what is necessary for a buildable shell.
+4. First real functional feature: **prayer-time calculation**.
+5. UI implementation follows approved layout/branding but must not jump ahead of the agreed milestone sequence.
+
+## 17. Change log
+
+### 2026-08-29 — Branding and UI direction finalized
+
+Closed the visual decision phase:
+
+- approved official palette: Arihna Green `#0F5132`, Arihna Gold `#D4AF37`, Arihna Off-white `#FAFAF6`;
+- approved Layout 1 Hero Dashboard as the definitive UI base;
+- approved Layout 2 vertical timeline specifically for the Prayer Times screen;
+- approved final icon: A monogram + integrated minaret + crescent + radiating sound waves evoking the adhan;
+- confirmed no sacred text, Quran verse or generated Arabic calligraphy in the mark;
+- finalized Android legacy launcher assets for mdpi/hdpi/xhdpi/xxhdpi/xxxhdpi;
+- finalized round launcher variants;
+- finalized adaptive background/foreground resources;
+- finalized API 33+ monochrome adaptive-icon resources;
+- finalized monochrome notification vector;
+- finalized SVG light/dark/reference/wordmark assets and favicons;
+- explicitly stopped before Android UI or functional-code implementation.
+
+Next milestone is a **proposal** for Android project bootstrap; implementation must wait for approval.
 
 ### 2026-08-29 — Initial specification
 
 Captured initial requirements for:
 
-- native Kotlin + Jetpack Compose app
-- zero-cost/private-GitHub/sideload distribution constraints
-- prayer times and calculation preferences
-- Qibla compass
-- custom alarms and prayer alerts
-- offline Quran
-- optional Italian translation evaluation
-- morning/evening daily motivational religious content
-- Android permissions, exact alarms, offline behavior and Samsung battery considerations
-- mandatory UI/logo approval gate before definitive UI implementation
-- GitHub Releases based debug and production APK delivery with persistent secret signing keys
-- README installation guidance
-- religious-source verification and citation policy
+- native Kotlin + Jetpack Compose app;
+- zero-cost/private-GitHub/sideload distribution constraints;
+- prayer times and calculation preferences;
+- Qibla compass;
+- custom alarms and prayer alerts;
+- offline Quran;
+- optional Italian translation evaluation;
+- morning/evening daily motivational religious content;
+- Android permissions, exact alarms, offline behavior and Samsung battery considerations;
+- mandatory UI/logo approval gate before definitive UI implementation;
+- GitHub Releases based debug and production APK delivery with persistent secret signing keys;
+- README installation guidance;
+- religious-source verification and citation policy.
 
-No definitive UI, logo, Quran translation, prayer library, or release-trigger design has been selected yet.
+At initial capture no definitive UI, logo, Quran translation, prayer library, or release-trigger design had yet been selected.

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" role="img" aria-labelledby="title">
+<title id="title">Arihna — monogramma A con minareto, mezzaluna e onde dell'adhan</title>
+<rect x="2" y="2" width="104" height="104" rx="24" fill="#0F5132"/>
+<g fill="#D4AF37" stroke="#D4AF37" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M29 86 L45 35 H52 L38 86 Z" stroke="none"/>
+    <path d="M52 35 L69 86 H59 L49 50 Z" stroke="none"/>
+    <path d="M39 65 H59 L62 72 H37 Z" stroke="none"/>
+    <path d="M42 27 H50 V43 H42 Z" stroke="none"/>
+    <path d="M41 27 L46 21 L51 27 Z" stroke="none"/>
+    <path d="M45 13 C40 14 40 21 45 23 C49 24 53 21 53 18 C50 20 46 19 45 16 C44 15 44 14 45 13 Z" stroke="none"/>
+    <path d="M69 47 C76 52 76 66 69 71" fill="none" stroke-width="2.8"/>
+    <path d="M73 40 C84 48 84 70 73 78" fill="none" stroke-width="3"/>
+    <path d="M77 33 C91 44 91 75 77 85" fill="none" stroke-width="3.2"/>
+  </g>
+</svg>
