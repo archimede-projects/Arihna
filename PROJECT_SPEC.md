@@ -161,6 +161,10 @@ Use an offline city dataset derived from **GeoNames `cities500`**, licensed **CC
 - Include aliases from canonical/ASCII names and selected useful alternate names, including approved Italian/English/Arabic aliases where available.
 - The large upstream alternate-name source may be used only during preprocessing; it is not bundled wholesale.
 - Search is local, normalized/case-insensitive, supports useful prefix/alias lookup and a bounded result set; ranking prefers exact matches, then strong prefix/alias matches, with population/region/country for disambiguation.
+- `city_search` remains an FTS4 contentless table (`content=''`) with `docid = city_alias.id`; do not change this schema merely to satisfy a generic integrity command.
+- SQLite 3.44+ invokes virtual-table `xIntegrity` from global `PRAGMA integrity_check`; FTS4 cannot perform that inverted-index validation for this contentless configuration because original content is intentionally absent. Therefore global `PRAGMA integrity_check` is not used as the validation gate for `city_search`.
+- Structural SQLite integrity checks remain mandatory for every Arihna-owned non-FTS table (`country`, `admin1`, `city`, `city_alias`) using table-scoped `PRAGMA integrity_check(...)`.
+- The contentless FTS index must instead pass functional integrity checks: `city_search` row count equals `city_alias`; no FTS docid is orphaned and no alias id is missing from FTS; and known golden aliases (`Roma`, `Makkah`, `Mecca`, `New York`, `Sydney`) must resolve through `MATCH` to the exact corresponding `city_alias.id`/GeoNames city.
 
 #### APK-size alarm threshold
 
@@ -619,6 +623,10 @@ Current Location milestone also excludes:
 6. Notifications, AlarmManager, definitive UI, Qibla, Quran and custom alarms remain separate milestones.
 
 ## 17. Change log
+
+### 2026-08-29 — FTS4 contentless validation gate approved
+
+`city_search` remains FTS4 `content=''` with `docid = city_alias.id`. SQLite 3.44+ global `PRAGMA integrity_check` invokes virtual-table `xIntegrity`, but FTS4 cannot validate the inverted index against absent original content in this contentless configuration; this failure is not treated as evidence of corruption. The GeoNames generator must retain table-scoped SQLite integrity checks for non-FTS tables and replace the invalid FTS global gate with functional checks for row-count parity, bidirectional docid coverage, and golden `MATCH` cases for Roma, Makkah/Mecca, New York and Sydney. The 20 MiB APK-growth stop rule remains unchanged.
 
 ### 2026-08-29 — Location architecture approved
 
