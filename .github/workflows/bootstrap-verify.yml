@@ -1,4 +1,4 @@
-name: Bootstrap verify
+name: Persist verified wrapper
 
 on:
   push:
@@ -6,10 +6,10 @@ on:
       - bootstrap-verify
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  assemble-debug:
+  persist-wrapper:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,12 +20,6 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.5.0'
-      - uses: android-actions/setup-android@v3
-        with:
-          cmdline-tools-version: '15859902'
-          packages: platform-tools
-      - name: Install Android API 37
-        run: android sdk install platforms/android-37 --canary
       - name: Generate Gradle wrapper 9.5.0
         run: |
           mkdir -p "$RUNNER_TEMP/wrapper-gen"
@@ -38,16 +32,10 @@ jobs:
           cp gradle/wrapper/gradle-wrapper.jar "$GITHUB_WORKSPACE/gradle/wrapper/gradle-wrapper.jar"
           cp gradle/wrapper/gradle-wrapper.properties "$GITHUB_WORKSPACE/gradle/wrapper/gradle-wrapper.properties"
           chmod +x "$GITHUB_WORKSPACE/gradlew"
-      - name: Assemble debug
-        run: ./gradlew assembleDebug --stacktrace
-      - name: Upload generated wrapper
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: gradle-wrapper-9.5.0
-          path: |
-            gradlew
-            gradlew.bat
-            gradle/wrapper/gradle-wrapper.jar
-            gradle/wrapper/gradle-wrapper.properties
-          retention-days: 1
+      - name: Persist wrapper on verification branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add gradlew gradlew.bat gradle/wrapper/gradle-wrapper.jar gradle/wrapper/gradle-wrapper.properties
+          git commit -m "test: persist verified Gradle wrapper [skip ci]"
+          git push origin HEAD:bootstrap-verify
