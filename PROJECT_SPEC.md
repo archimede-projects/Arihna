@@ -12,6 +12,7 @@
 - **Language/UI:** Kotlin + Jetpack Compose
 - **Primary target device:** Samsung Galaxy S25 on a recent Android version
 - **Distribution:** sideloaded APK from GitHub Releases; no Play Store publication
+- **Android applicationId / namespace:** `com.archimedeprojects.arihna` — definitive technical identifier; lowercase by convention and fixed for update continuity.
 - The exact product name **Arihna** must be used consistently in application/package naming, display name, repository-facing documentation, release naming, commit language where the product name appears, and ordinary UI text. Do not introduce variants such as `ArihnaApp` or `Ari7naBiha`.
 - The approved extended **artwork** may render the wordmark typographically as `ARIHNA`; this is a visual treatment only and does not change the canonical product name `Arihna`.
 - Name inspiration: the hadith expression **«أرحنا بها يا بلال»** (*Arihna biha ya Bilal* — “Dacci sollievo con essa, o Bilal”), referring to prayer.
@@ -281,13 +282,13 @@ Network may be required for:
 
 Location itself should use Android location providers and must not require a paid geocoding service for core calculation.
 
-## 8. Proposed technical architecture — pending bootstrap approval
+## 8. Android technical architecture — bootstrap APPROVED
 
-The architecture below remains a proposal until the dedicated project-bootstrap step is approved. No functional implementation is authorized by the branding/UI closure milestone.
+The bootstrap architecture and toolchain below were explicitly approved on 2026-08-29. The bootstrap may create only a buildable structural shell; prayer-time calculation and other functional features remain separate future milestones.
 
 ### 8.1 App architecture
 
-Recommended baseline:
+Approved bootstrap baseline:
 
 - one Android application module (`:app`) initially;
 - feature/package organization rather than premature Gradle multi-module decomposition;
@@ -328,7 +329,44 @@ All final versions and licenses must be verified immediately before addition.
 - `DailyContent`: curated action/reflection + linked Quran/hadith source metadata
 - `DailyContentHistory`: recent IDs/dates to enforce anti-repeat rules
 
-## 9. Repository structure — target proposal
+### 8.4 Definitive bootstrap toolchain
+
+Approved versions and build choices:
+
+- **applicationId / namespace:** `com.archimedeprojects.arihna`
+- **minSdk:** `28` (Android 9)
+- **compileSdk:** `37` (Android 17)
+- **targetSdk:** `37` (Android 17)
+- **Android Gradle Plugin:** `9.3.1`
+- **Gradle wrapper:** `9.5.0`
+- **Kotlin:** `2.4.10`
+- **Compose compiler plugin:** `org.jetbrains.kotlin.plugin.compose` `2.4.10`
+- **AGP built-in Kotlin:** enabled; do not apply `org.jetbrains.kotlin.android`
+- **Compose BOM:** `2026.08.00`
+- **JDK / Java target:** `17`
+- **build scripts:** Kotlin DSL
+- **version catalog:** `gradle/libs.versions.toml`
+- **Gradle modules:** only `:app` for the bootstrap
+- **dependency injection:** manual `AppContainer`; no Hilt/Koin
+
+Bootstrap-only dependencies are limited to AndroidX Core KTX, Activity Compose, Compose/Material 3, Lifecycle runtime/ViewModel Compose, Navigation Compose, and Kotlin Coroutines Android. Room, DataStore, WorkManager, Adhan/prayer calculation, location providers, Quran data, alarm/notification frameworks, KSP, and DI frameworks are explicitly deferred until their own milestones.
+
+### 8.5 Bootstrap shell scope
+
+The approved structural shell contains:
+
+- `ArihnaApplication.kt`;
+- `MainActivity.kt`;
+- `ArihnaApp.kt`;
+- `AppContainer.kt`;
+- base Arihna theme (`Color.kt`, `Theme.kt`, `Type.kt`, `Shape.kt`);
+- navigation shell;
+- placeholder-only destinations for Home, Prayer Times, Qibla, Quran, Alarms, and Settings;
+- existing approved launcher/adaptive/themed branding assets wired through the manifest.
+
+The placeholders are not the definitive approved UI implementation and must contain no prayer calculation, location access, Quran data, alarm scheduling, or notification behavior.
+
+## 9. Repository structure — approved bootstrap target
 
 ```text
 Arihna/
@@ -340,7 +378,7 @@ Arihna/
 │  └─ src/
 │     ├─ main/
 │     │  ├─ AndroidManifest.xml
-│     │  ├─ java/.../Arihna/
+│     │  ├─ java/com/archimedeprojects/arihna/
 │     │  │  ├─ ArihnaApplication.kt
 │     │  │  ├─ ui/
 │     │  │  ├─ domain/
@@ -368,7 +406,7 @@ Arihna/
    └─ ui-decisions.md
 ```
 
-The exact package/application ID must use the `Arihna` project identity without product-name variants while still conforming to Android package naming rules. Final reverse-domain prefix is **Pending decision / project-bootstrap milestone**.
+The technical Android package/application identifier is definitively `com.archimedeprojects.arihna`. The visible product name remains exactly `Arihna`. Changing the applicationId after distributed installs would break update continuity and is therefore prohibited.
 
 ## 10. CI/CD requirements
 
@@ -385,24 +423,21 @@ The exact package/application ID must use the `Arihna` project identity without 
   - key password.
 - Never print secrets in logs.
 - Release/tag naming must make debug builds unmistakable and allow convenient installation/update.
-- Prefer a deliberate trigger strategy that does not flood Releases for every tiny commit, for example manual dispatch and/or a dedicated debug tag convention.
 - Final trigger is **Pending decision**.
 
 ### 10.2 Release APK publication
 
-On an approved version tag/release convention, GitHub Actions must:
-
-1. check out source;
-2. install the required JDK/Android build environment;
-3. restore safe Gradle caches;
-4. reconstruct signing keystore from GitHub Secrets;
-5. run tests/lint as appropriate;
-6. build the signed release APK;
-7. calculate checksum if practical;
-8. create/update the corresponding GitHub Release;
-9. attach the APK and optional checksum file to the Release.
-
-Production signing key must remain persistent so updates install over previous releases.
+- On an approved version tag/release convention, GitHub Actions must:
+  1. check out source;
+  2. install the required JDK/Android build environment;
+  3. restore safe Gradle caches;
+  4. reconstruct signing keystore from GitHub Secrets;
+  5. run tests/lint as appropriate;
+  6. build the signed release APK;
+  7. calculate checksum if practical;
+  8. create/update the corresponding GitHub Release;
+  9. attach the APK (and optional checksum file) to the Release.
+- Production signing key must remain persistent so updates install over previous releases.
 
 ## 11. README requirements
 
@@ -416,8 +451,7 @@ Production signing key must remain persistent so updates install over previous r
 - update procedure without uninstalling when signing key/package is unchanged;
 - permissions explanation;
 - any Samsung battery/background-alarm guidance required for reliable alerts;
-- third-party/religious-data attribution links or references;
-- approved Arihna branding/logo where appropriate.
+- third-party/religious-data attribution links or references.
 
 ## 12. Religious-source integrity
 
@@ -447,6 +481,9 @@ Branding assets should additionally be verified during project bootstrap by a re
 
 ### Closed
 
+- Android applicationId/namespace: `com.archimedeprojects.arihna`.
+- Bootstrap architecture: one `:app` module, package-level `core/` + `feature/`, manual `AppContainer`.
+- Bootstrap toolchain: minSdk 28, compileSdk/targetSdk 37, AGP 9.3.1, Gradle 9.5.0, Kotlin 2.4.10, Compose BOM 2026.08.00, JDK 17.
 - UI palette: `#0F5132`, `#D4AF37`, `#FAFAF6`.
 - UI base layout: Layout 1 Hero Dashboard.
 - Prayer Times layout: Layout 2 vertical timeline within the Layout 1 design language.
@@ -456,15 +493,12 @@ Branding assets should additionally be verified during project bootstrap by a re
 
 ### Pending
 
-1. Exact reverse-domain `applicationId` prefix while retaining the exact product name Arihna.
-2. Final project bootstrap structure and build configuration.
-3. Exact Android `minSdk`, `compileSdk`, `targetSdk`, Kotlin/AGP/Compose versions at bootstrap time.
-4. Prayer calculation library/implementation after license/API validation.
-5. Arabic Quran source and packaging after license/integrity validation.
-6. Italian translation: include, optional pack, or omit; exact licensed source.
-7. Debug-release trigger convention.
-8. Default calculation method for a fresh installation.
-9. Default notification/adhan sound policy and included audio licensing.
+1. Prayer calculation library/implementation after license/API validation.
+2. Arabic Quran source and packaging after license/integrity validation.
+3. Italian translation: include, optional pack, or omit; exact licensed source.
+4. Debug-release trigger convention.
+5. Default calculation method for a fresh installation.
+6. Default notification/adhan sound policy and included audio licensing.
 
 ## 15. Explicitly out of scope unless later approved
 
@@ -480,12 +514,28 @@ Branding assets should additionally be verified during project bootstrap by a re
 Current agreed sequence:
 
 1. **Branding/UI decision closure — CLOSED in specification and assets.**
-2. **Next:** propose the Android project bootstrap in concrete detail (module structure, build versions, initial Compose setup, dependencies) and wait for approval.
-3. After bootstrap approval, create the structural Android project without implementing feature logic beyond what is necessary for a buildable shell.
-4. First real functional feature: **prayer-time calculation**.
-5. UI implementation follows approved layout/branding but must not jump ahead of the agreed milestone sequence.
+2. **Android bootstrap proposal/toolchain approval — CLOSED.**
+3. **Current milestone:** create and verify the structural Android bootstrap without feature logic.
+4. After a successful bootstrap build and dedicated commit, stop.
+5. First real functional feature after bootstrap: **prayer-time calculation**.
+6. UI implementation follows approved layout/branding but must not jump ahead of the agreed milestone sequence.
 
 ## 17. Change log
+
+### 2026-08-29 — Android bootstrap matrix approved
+
+Approved the definitive structural/bootstrap decisions before implementation:
+
+- fixed technical Android identifier to `com.archimedeprojects.arihna`;
+- approved single Gradle module `:app` with package-level `core/` and `feature/` organization;
+- approved manual dependency injection via `AppContainer`;
+- approved `minSdk 28`, `compileSdk 37`, `targetSdk 37`;
+- approved AGP `9.3.1`, Gradle `9.5.0`, Kotlin/Compose compiler plugin `2.4.10`, Compose BOM `2026.08.00`, JDK/Java target `17`;
+- approved AGP 9 built-in Kotlin and explicitly excluded `org.jetbrains.kotlin.android`;
+- approved Kotlin DSL and version catalog;
+- limited bootstrap dependencies to the minimal Compose/navigation/lifecycle/coroutines shell;
+- authorized placeholder-only navigation for the six primary destinations;
+- explicitly deferred all prayer calculation and other functional implementation until after a successful bootstrap commit.
 
 ### 2026-08-29 — Branding and UI direction finalized
 
