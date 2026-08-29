@@ -29,6 +29,7 @@
 8. Debug/release keystores and credentials must never be committed; store them in GitHub Secrets.
 9. Keep history understandable through descriptive commits and this specification.
 10. Religious content and prayer-time behavior must never silently invent authoritative data.
+11. Location behavior must never silently invent a default city, coordinates or timezone that the user did not choose or authorize.
 
 ## 3. Development workflow rule
 
@@ -76,198 +77,305 @@ Final Android assets include density launcher/round icons, adaptive foreground/b
 
 ## 5. Core feature requirements
 
-### 5.1 Prayer times — calculation architecture APPROVED
-
-Core behavior:
+### 5.1 Prayer times — calculation engine CLOSED
 
 - Calculate daily Islamic prayer times from coordinates, civil date, timezone and user calculation settings.
 - Core calculation is fully offline and requires no cloud/network service.
-- GPS/location acquisition is a later milestone and is **not** part of the calculation-engine milestone.
-- Recalculation/update scheduling is a later milestone.
-- Prayer notifications/adhan reminders are later milestones.
+- Location acquisition is supplied by the separate Location milestone in §5.2.
+- Prayer notifications/adhan reminders and recalculation scheduling are later milestones.
 
-#### Selected engine
+Selected engine:
 
-- **Library:** Adhan Kotlin Multiplatform
-- **Artifact:** `com.batoulapps.adhan:adhan2:0.0.7`
-- **Version:** `0.0.7`
-- **License:** MIT
-- Pure Kotlin/KMP dependency usable on Android; no JNI/native binding and no cloud/network dependency for calculation.
-- Arihna must not expose Adhan-specific types outside the adapter implementation.
+- Adhan Kotlin Multiplatform `com.batoulapps.adhan:adhan2:0.0.7`, MIT.
+- Adapter boundary: `PrayerTimeCalculator` / `AdhanPrayerTimeCalculator`.
+- Arihna-owned domain types; Adhan-specific types never leak outside the adapter.
+- Supported methods: MWL, Umm al-Qura, ISNA, Egyptian, Karachi, Dubai, Kuwait, Qatar, Moonsighting Committee, Singapore, Turkey.
+- Asr: `STANDARD` shadow factor 1 / `HANAFI` shadow factor 2.
+- High-latitude rules: `AUTOMATIC`, `MIDDLE_OF_THE_NIGHT`, `SEVENTH_OF_THE_NIGHT`, `TWILIGHT_ANGLE`; Arihna AUTO is `abs(latitude) > 48° → SEVENTH_OF_THE_NIGHT`, otherwise `MIDDLE_OF_THE_NIGHT`.
+- Polar/extreme failures return controlled `Unavailable`; no fabricated times/fallbacks.
+- `PrayerTimeCalculator` receives explicit `Coordinates` and `ZoneId`; DST uses `ZoneRules`, no manual +1/-1 logic.
+- Per-prayer integer-minute manual offsets are supported.
+- Umm al-Qura Isha: 90 minutes normally, 120 minutes in Ramadan, with Ramadan detected offline via verified `HijrahChronology.INSTANCE`.
 
-Architecture:
+Android API 28 HijrahChronology verification passed on 2026-08-29 in run `33245235911`. Final prayer-engine regression passed on run `33248406741`: `testDebugUnitTest`, `assembleDebug`, and `connectedDebugAndroidTest` on Android 9/API28 all succeeded. Final implementation commit: `e5987f878e253085425f9bfebf7bf714c8405de3` (`feat(prayer): implement offline prayer time calculation engine`).
 
-```text
-Arihna domain
-    ↓
-PrayerTimeCalculator
-    ↓
-AdhanPrayerTimeCalculator
-    ↓
-Adhan 0.0.7
-```
+### 5.2 Location — architecture APPROVED / CURRENT MILESTONE
+
+The Location layer supplies real or user-selected `Coordinates + ZoneId` to the existing prayer engine. `PrayerTimeCalculator` remains unchanged.
+
+#### Device location technology
+
+- Use Android framework `android.location.LocationManager`, with `androidx.core.location.LocationManagerCompat` where useful.
+- Do not introduce Google Play Services Location/FusedLocationProvider.
+- Domain terminology is `Device`, not `GPS`, because Android may use GNSS/GPS, Wi-Fi, cellular or other system providers.
+- Foreground location only; no `ACCESS_BACKGROUND_LOCATION` and no foreground location service.
+
+#### Permission policy
+
+- Request only `android.permission.ACCESS_COARSE_LOCATION` in this milestone.
+- Do not request `ACCESS_FINE_LOCATION` unless a separately approved future requirement demonstrates a real need.
+- Do not request location permission automatically at app startup.
+- Request it only after the user explicitly chooses the Device-location path, after a short rationale explaining that location is used to calculate prayer times, remains local to the device, and that manual city selection is available without granting permission.
+- If denied, degrade gracefully and always offer manual city selection.
+
+#### Refresh/significant-change policy
+
+Approved constants/behavior:
+
+- fresh-fix timeout: **20 seconds**;
+- significant movement threshold: **5 km**;
+- minimum foreground update interval: **15 minutes**.
+
+Accept/update a device location when at least one is true:
+
+1. it is the first valid fix;
+2. movement from the accepted fix is at least 5 km;
+3. the associated device `ZoneId` changes;
+4. there is no previously usable fix.
+
+When Arihna enters foreground while `Device` is selected, request a fresh fix and observe significant updates while foreground; stop updates when leaving foreground. Do not persist every provider callback or behave like a navigation tracker.
+
+#### Fresh vs cached
+
+Persist the last real device fix locally with coordinates, captured `ZoneId`, capture timestamp and optional accuracy.
+
+- `FRESH`: obtained in the current resolution/refresh flow.
+- `CACHED`: a previously observed real fix reused because a new fix is unavailable.
+
+Cached data is never presented as current; preserve timestamp/age. No arbitrary 24h/48h expiry is imposed in this milestone. Never combine old cached coordinates with a newly changed device timezone.
+
+#### Manual city source — GeoNames offline
+
+Use an offline city dataset derived from **GeoNames `cities500`**, licensed **CC BY 4.0**.
+
+- Approved baseline: approximately 185,000 localities (population >500 or administrative-seat exceptions covered by the GeoNames dataset definition).
+- Runtime manual search must not depend on GeoNames web service, Nominatim, Android Geocoder, Google Places/Maps/Geocoding or another online geocoder.
+- Dataset is downloaded/preprocessed during development/data-generation, not on normal startup and not on every Gradle build.
+- Version the generated asset with deterministic provenance: source snapshot/date, source URL, license, checksum, record count and generator/script version.
+- Required attribution: `GeoNames — CC BY 4.0`.
+
+#### Offline city database
+
+- Precompiled **read-only SQLite** using Android platform APIs; no Room.
+- Retain only Arihna-needed fields: GeoNames id, canonical/display name, region, country, country code, latitude, longitude, IANA timezone id and population/ranking data.
+- Include aliases from canonical/ASCII names and selected useful alternate names, including approved Italian/English/Arabic aliases where available.
+- The large upstream alternate-name source may be used only during preprocessing; it is not bundled wholesale.
+- Search is local, normalized/case-insensitive, supports useful prefix/alias lookup and a bounded result set; ranking prefers exact matches, then strong prefix/alias matches, with population/region/country for disambiguation.
+
+#### APK-size alarm threshold
+
+Measure the real incremental APK size attributable to the generated city database after preprocessing/indexing; do not infer it from the upstream ZIP.
+
+- If city data increases APK size by **more than 20 MB**, **STOP before proceeding past dataset integration** and report the measured increase for explicit review.
+- Review alternatives such as GeoNames `cities1000` (~130,000 cities) or explicit acceptance of the larger footprint.
+- If incremental growth is **20 MB or less**, proceed without additional approval on this point.
+- Never silently switch datasets to pass the threshold.
+
+#### Timezone policy
+
+Manual city:
+
+- IANA timezone id comes directly from the GeoNames record.
+- Convert with `ZoneId.of(timezoneId)`.
+- Never infer timezone from longitude or replace it with a fixed UTC offset.
+- Before implementation commit, Android 9/API28 instrumentation must enumerate **every distinct timezone id** in the bundled city database and verify `ZoneId.of(...)` succeeds.
+- Unsupported API28 ids must not receive longitude/fixed-offset fallback; investigate individually and only add a verified alias/normalization after approval if needed.
+
+Device:
+
+- A fresh device fix captures the device's current `ZoneId` at acceptance time.
+- Timezone change is independently significant even when movement is below 5 km.
+- Cached fixes retain their captured timezone.
 
 #### Domain models
 
-Create Arihna-owned models, independent of Adhan:
-
-- `Coordinates(latitude, longitude)` with validation latitude `[-90, 90]`, longitude `[-180, 180]`.
-- `PrayerCalculationMethod`.
-- `AsrMethod`.
-- `HighLatitudeRule`.
-- `PrayerTimeAdjustments`.
-- `PrayerCalculationSettings`.
-- `PrayerTimes` using `java.time.Instant` for Fajr, Sunrise, Dhuhr, Asr, Maghrib, Isha.
-- `PrayerDay` containing `LocalDate`, `ZoneId`, coordinates, settings and times.
-- `PrayerCalculationResult` with explicit success/unavailable outcomes.
-
-`PrayerCalculationResult.Unavailable` must be used for controlled failures such as invalid inputs or unavailable astronomical events. Never fabricate `00:00`, copy another day, silently substitute another location/method, or let upstream calculation exceptions crash the app.
-
-#### Supported calculation methods
-
-Expose these 11 Arihna methods:
-
-1. Muslim World League (MWL)
-2. Umm al-Qura University, Makkah
-3. ISNA / North America
-4. Egyptian General Authority of Survey
-5. University of Islamic Sciences, Karachi
-6. Dubai / Gulf
-7. Kuwait
-8. Qatar
-9. Moonsighting Committee
-10. Singapore
-11. Turkey / Diyanet
-
-Do not expose generic `OTHER` or arbitrary Fajr/Isha angle editing in this milestone.
-
-#### Asr
-
-- `STANDARD` → shadow factor 1; maps to Adhan Shafi setting and is the standard criterion commonly used by Shafi'i/Maliki/Hanbali.
-- `HANAFI` → shadow factor 2.
-
-The domain enum is intentionally named `AsrMethod`, not `Madhab`, because it configures the Asr shadow criterion.
-
-#### High latitude handling
-
-Arihna domain supports:
-
-- `AUTOMATIC`
-- `MIDDLE_OF_THE_NIGHT`
-- `SEVENTH_OF_THE_NIGHT`
-- `TWILIGHT_ANGLE`
-
-Arihna-owned automatic rule:
+Keep user preference separate from resolved runtime state. Approved conceptual Arihna-owned models:
 
 ```text
-abs(latitude) > 48° → SEVENTH_OF_THE_NIGHT
-otherwise          → MIDDLE_OF_THE_NIGHT
+LocationPreference
+- Unset
+- Device
+- Manual(ManualCitySnapshot)
+
+LocationSource
+- Device(capturedAt, accuracyMeters?)
+- Manual(cityId)
+
+ManualCity
+- id
+- name
+- regionName?
+- countryName
+- countryCode
+- coordinates
+- zoneId
+
+ManualCitySnapshot
+- persisted serializable snapshot of selected city identity/display/coordinates/timezone
+
+SelectedLocation
+- source
+- coordinates
+- zoneId
+- displayName
+
+DeviceLocationFix
+- coordinates
+- zoneId
+- capturedAt
+- accuracyMeters?
+
+LocationFreshness
+- FRESH
+- CACHED
+
+LocationPermissionState
+- NotRequested
+- Granted
+- Denied(canRequestAgain)
+
+LocationResolutionState
+- Unconfigured
+- Resolving
+- Ready(location, freshness?)
+- PermissionDenied(canRequestAgain, cachedLocation?)
+- LocationServicesDisabled(cachedLocation?)
+- Unavailable(reason, cachedLocation?)
+
+LocationFailure
+- TIMEOUT
+- NO_PROVIDER
+- INVALID_FIX
+- CITY_NOT_FOUND
+- CITY_DATASET_UNAVAILABLE
+- UNSUPPORTED_TIME_ZONE
+- PERSISTENCE_ERROR
 ```
 
-Use `abs(latitude)` so north/south behavior is symmetric. Pass an explicit resolved rule to the Adhan adapter rather than blindly relying on an upstream automatic heuristic.
+Persist a manual-city snapshot rather than only GeoNames id so later dataset changes do not silently erase the user's selection. GeoNames id remains available for reconciliation.
 
-For true polar/extreme cases where required astronomical events cannot be produced coherently, return `Unavailable` rather than inventing a religious fallback. `nearest day`, `nearest latitude`, `Makkah time`, fixed arbitrary intervals or equivalent fallbacks require a separate future religious/technical decision.
+#### Testable boundaries
 
-#### Timezone and DST
+Conceptual boundaries:
 
-- `PrayerTimeCalculator` receives an explicit `java.time.ZoneId`; never hide `ZoneId.systemDefault()` inside the calculation engine.
-- Domain uses `LocalDate`, `Instant` and `ZoneId` from `java.time`.
-- DST and historical timezone offsets are handled by `ZoneId`/`ZoneRules`.
-- Do not add manual “summer +1 hour” logic.
-- Coordinate-to-timezone discovery is a later location milestone.
+```text
+DeviceLocationDataSource
+- getCurrentLocation()
+- observeSignificantUpdates()
 
-#### Manual prayer offsets
+CityRepository
+- search(query)
+- findById(id)
 
-Model per-prayer integer-minute adjustments for Fajr, Sunrise, Dhuhr, Asr, Maghrib and Isha. Default is zero. The model/calculation behavior is implemented now; DataStore/settings UI are deferred.
-
-#### Umm al-Qura Ramadan Isha rule — Android API 28 VERIFIED
-
-Required behavior:
-
-- outside Ramadan: Isha = Maghrib + 90 minutes;
-- during Ramadan: Isha = Maghrib + 120 minutes.
-
-Ramadan detection uses `java.time.chrono.HijrahChronology.INSTANCE`, the Umm al-Qura Hijrah chronology supplied by `java.time`.
-
-The mandatory minimum-SDK verification gate was completed successfully on 2026-08-29 using a real Android instrumentation run on an Android 9 / API 28 x86_64 emulator in GitHub Actions (run `33245235911`). `connectedDebugAndroidTest` started and finished **2 tests** successfully on `test(AVD) - 9`.
-
-The instrumentation verification confirmed:
-
-- `HijrahChronology.INSTANCE` is available on API 28;
-- chronology id is `Hijrah-umalqura`;
-- its calendar type identifies an Islamic calendar;
-- Gregorian `2024-02-20` resolves to Islamic month 8 (Sha'ban 1445 context);
-- Gregorian `2024-03-20` resolves to Islamic month 9 (Ramadan 1445);
-- Gregorian `2024-04-20` resolves to Islamic month 10 (Shawwal 1445);
-- Gregorian `2016-06-15` resolves to Islamic month 9 (Ramadan 1437).
-
-Therefore the Android API 28 gate is **CLOSED/PASSED** and Arihna may implement the approved Umm al-Qura 90/120-minute Isha rule using `HijrahChronology.INSTANCE`. Keep the instrumentation regression test in the project so this platform assumption remains testable.
-
-#### Prayer calculation test plan
-
-Automated tests must cover at least:
-
-- golden-value regression cases for Raleigh (MWL and ISNA/Hanafi), Cairo (Egyptian), Makkah (Umm al-Qura), and Karachi;
-- all Arihna calculation-method mappings;
-- Standard Asr vs Hanafi Asr on the same date/location;
-- manual positive/negative/zero per-prayer offsets;
-- high-latitude Middle/Seventh/Twilight/Automatic cases;
-- southern-hemisphere `abs(latitude)` automatic-rule behavior;
-- polar/extreme case returning controlled `Unavailable` rather than an uncaught exception or fabricated time;
-- DST around `Europe/Rome` transitions;
-- Umm al-Qura Ramadan 90/120-minute behavior;
-- invalid latitude/longitude inputs;
-- API 28 instrumentation regression for `HijrahChronology.INSTANCE`.
-
-Published minute-level golden values should use ±1 minute tolerance; internal mapping/offset invariants should be exact.
-
-Reference golden cases approved for implementation include:
-
-- Raleigh, 2015-12-01, MWL/Standard: Fajr 05:35, Sunrise 07:06, Dhuhr 12:05, Asr 14:42, Maghrib 17:01, Isha 18:26.
-- Raleigh, 2015-07-12, ISNA/Hanafi: 04:42, 06:08, 13:21, 18:22, 20:32, 21:57.
-- Cairo, 2020-01-01, Egyptian/Standard: 05:18, 06:51, 11:59, 14:47, 17:06, 18:29.
-- Makkah coordinates 21.427009, 39.828685, `Asia/Riyadh`, 2016-01-05, Umm al-Qura/Standard: 05:38, 07:00, 12:26, 15:31, 17:52, 19:22.
-- high-latitude regression at latitude 55.983226, longitude -3.216649, 2020-06-15: Middle Fajr 01:14 / Isha 01:14; Seventh Fajr 03:31 / Isha 22:56; Twilight Fajr 02:31 / Isha 23:50, with Sunrise 04:26, Dhuhr 13:14, Asr 17:46, Maghrib 22:01 for all three.
-- polar/extreme regression around Utqiagvik, Alaska, 2018-01-01.
-- DST regressions around `Europe/Rome` on 2026-03-29 and 2026-10-25.
-
-This milestone must run at least:
-
-```bash
-./gradlew testDebugUnitTest
-./gradlew assembleDebug
+LocationPreferencesRepository
+- observe preference
+- observe cached device fix
+- select device
+- select manual city
+- save device fix
 ```
 
-The Android API 28 HijrahChronology gate has passed and the Ramadan-specific rule is now allowed to be implemented and regression-tested.
+A coordinator/repository combines user preference, permission state, Android `LocationManager`, cached fix, city repository and timezone into `LocationResolutionState`.
 
-### 5.2 Qibla
+The prayer engine consumes only:
+
+```text
+SelectedLocation.coordinates
+SelectedLocation.zoneId
+```
+
+No change to `PrayerTimeCalculator` is authorized.
+
+#### Persistence — Preferences DataStore
+
+Introduce **AndroidX Preferences DataStore `1.2.1`**.
+
+- No SharedPreferences for new Location persistence.
+- No Proto DataStore for this simple state.
+- No Room.
+- Persist mode `UNSET | DEVICE | MANUAL`.
+- For Manual persist city snapshot: id, name/region/country metadata, coordinates, timezone id.
+- Persist last real Device fix: coordinates, captured timezone id, timestamp, optional accuracy.
+- Persist only minimal permission-flow metadata if needed; Android remains authority on current permission state.
+- All data remains local; no upload/cloud sync.
+- Malformed/incomplete persisted data produces controlled unconfigured/error state, never arbitrary reconstructed defaults.
+
+#### Error/fallback policy
+
+**First launch / no selection**
+
+- `LocationPreference.Unset` / `LocationResolutionState.Unconfigured`.
+- No prayer calculation with invented coordinates.
+- Functional UI asks `Use current/device location` or `Choose a city`.
+
+**Permission denied**
+
+- Without cached real fix: `PermissionDenied`, no selected coordinates; offer retry/settings as appropriate plus manual city.
+- With cached real fix: cached value may remain usable only as `CACHED`, while denial remains visible/actionable.
+
+**Location Services disabled**
+
+- With cache: keep real cached value as `CACHED` and surface disabled services.
+- Without cache: no coordinates; offer enable services or manual city.
+
+**Timeout/provider unavailable/invalid fix**
+
+- With previous real fix: use it as `CACHED` and surface the failure.
+- Without previous real fix: controlled `Unavailable`; no substitute city/coordinates.
+
+**Manual selection**
+
+- Manual mode wins until user explicitly returns to Device.
+- Switching to Manual stops active Device updates.
+- Switching to Device re-enters permission/fresh-fix flow; cached Device data follows the explicit cached policy above.
+
+#### Minimal functional UI
+
+Only enough Compose UI to exercise Location; do not implement final Hero Dashboard.
+
+User can:
+
+- see active source Device vs Manual;
+- choose Device location and understand permission rationale;
+- search/select a manual city offline;
+- see selected readable city/location;
+- return from Manual to Device simply;
+- understand permission denied, services disabled, timeout/cached and unconfigured states;
+- see GeoNames attribution in relevant functional/about path.
+
+### 5.3 Qibla
 
 - Determine Qibla bearing from current coordinates to the Kaaba.
 - Use Android sensors for live compass direction and surface calibration/accuracy gracefully.
 - Remain calculable offline once coordinates are available.
 
-### 5.3 Alarms
+### 5.4 Alarms
 
 - Custom alarms in addition to prayer-linked alarms.
 - Configurable sounds.
 - Prayer/custom alarm reliability must respect Android standby/doze restrictions.
 
-### 5.4 Quran
+### 5.5 Quran
 
 - Arabic Quran text readable offline with surah navigation.
 - Evaluate optional Italian translation for redistribution license, attribution, integrity, size and offline packaging.
 - **Pending:** bundled vs optional pack vs omitted in v1.
 - Religious text must come from a verified attributable source and never be silently altered.
 
-### 5.5 Daily motivational content
+### 5.6 Daily motivational content
 
 Morning/evening offline-oriented content may include a practical action, reflection, Quran verse and/or authentic hadith. Content changes daily, avoids close repeats, and stores verifiable source metadata. Quran citations include surah/verse; hadith include collection/reference and authenticity/source information. Never fabricate quotations/references.
 
 ## 6. Permissions and Android behavior
 
-### 6.1 Location
+### 6.1 Location — approved milestone policy
 
-Request only when needed, explain purpose, support precise/approximate behavior and degrade gracefully when denied. Manual-location fallback may be added if separately approved.
+- Request only `ACCESS_COARSE_LOCATION` in the current Location milestone.
+- Do not request `ACCESS_FINE_LOCATION` or `ACCESS_BACKGROUND_LOCATION`.
+- Do not request permission automatically at startup; request only after explicit Device-location choice and concise rationale.
+- Explain that location is used for prayer-time calculation, remains local, and manual city selection is available without permission.
+- Treat denial and disabled Location Services as explicit states; never fabricate a default location.
+- Any future precise/background location requires separately approved decision.
 
 ### 6.2 Notifications
 
@@ -279,7 +387,9 @@ Evaluate `AlarmManager` exact alarms including `setExactAndAllowWhileIdle`, spec
 
 ## 7. Offline/data requirements
 
-Maximize offline operation. Quran text, optional translation packs, curated daily content, settings, alarms, prayer calculation from saved coordinates/settings and Qibla bearing should work locally once required data exists. Core prayer calculation must not require network access.
+Maximize offline operation. Quran text, optional translation packs, curated daily content, settings, alarms, prayer calculation from saved coordinates/settings and Qibla bearing should work locally once required data exists. Core prayer calculation requires no network access.
+
+Location adds an offline GeoNames-derived catalog so manual city search, coordinates and timezone lookup work without network access. Runtime manual-location behavior must not depend on third-party geocoding.
 
 ## 8. Android technical architecture — bootstrap CLOSED
 
@@ -293,13 +403,21 @@ Maximize offline operation. Quran text, optional translation packs, curated dail
 
 ### 8.2 Approved dependencies/components
 
-Bootstrap dependencies remain minimal. Prayer calculation milestone adds only the approved Adhan dependency `com.batoulapps.adhan:adhan2:0.0.7` plus test dependencies required for unit/instrumentation verification. Room, DataStore, WorkManager, location providers, alarms/notifications and Quran data remain deferred.
+- Prayer: `com.batoulapps.adhan:adhan2:0.0.7` (MIT).
+- Location persistence: `androidx.datastore:datastore-preferences:1.2.1`.
+- Device location: Android `LocationManager` / AndroidX Core helpers; no Google Play Services Location dependency.
+- Manual city data: precompiled read-only SQLite derived from GeoNames `cities500`, CC BY 4.0; no Room.
+- Unit/instrumentation test dependencies required for verification.
+
+WorkManager, alarms/notifications, Quran data libraries and Google/Fused location providers remain deferred/not approved here.
 
 ### 8.3 Data concepts
 
-- `PrayerCalculationSettings`: method, Asr method, high-latitude rule, manual offsets.
-- `PrayerDay`: computed times for a local civil date/timezone/coordinates.
-- `LocationState`: later milestone.
+- `PrayerCalculationSettings`, `PrayerDay`.
+- `LocationPreference`, `LocationSource`.
+- `ManualCity`, `ManualCitySnapshot`.
+- `DeviceLocationFix`, `SelectedLocation`.
+- `LocationFreshness`, `LocationPermissionState`, `LocationResolutionState`, `LocationFailure`.
 - `Alarm`: later milestone.
 - `QuranSurah` / `QuranAyah`: later milestone.
 - `DailyContent` / history: later milestone.
@@ -309,16 +427,16 @@ Bootstrap dependencies remain minimal. Prayer calculation milestone adds only th
 #### Build host toolchain
 
 - GitHub Actions / CI Gradle host JDK: **Temurin 21**.
-- The Gradle daemon, Android Gradle Plugin, D8/R8 and JVM-hosted unit tests are executed on JDK 21.
-- Any present or future Arihna workflow that invokes Gradle for Android build, test, packaging or release **must provision JDK 21**, unless a deliberately isolated diagnostic is specifically designed to exercise another JDK.
-- The future automatic debug/release/tag workflow defined under §10 must therefore use JDK 21 as its Gradle/build-tools host.
+- Gradle daemon, AGP, D8/R8 and JVM-hosted tests execute on JDK 21.
+- Any current/future Arihna workflow invoking Gradle for Android build/test/package/release must provision JDK 21 unless deliberately diagnostic.
+- Future automatic debug/release/tag workflow uses JDK 21 host.
 
 #### App bytecode target
 
 - Java `sourceCompatibility`: **17**.
 - Java `targetCompatibility`: **17**.
 - Kotlin `jvmTarget`: **JVM 17**.
-- Using JDK 21 to execute Gradle/build tools does **not** raise Arihna's application bytecode target to Java 21.
+- JDK 21 build host does not raise Arihna app bytecode target.
 
 #### Android
 
@@ -327,52 +445,46 @@ Bootstrap dependencies remain minimal. Prayer calculation milestone adds only th
 - compileSdk 37
 - targetSdk 37
 
-#### Remaining approved toolchain
+#### Remaining toolchain
 
 - AGP 9.3.1
 - Gradle wrapper 9.5.0
 - Kotlin 2.4.10
 - Compose compiler plugin 2.4.10
-- AGP built-in Kotlin; do not apply `org.jetbrains.kotlin.android`
+- AGP built-in Kotlin; no `org.jetbrains.kotlin.android`
 - Compose BOM 2026.08.00
 - Kotlin DSL
 - version catalog `gradle/libs.versions.toml`
 - one `:app` module
 - manual `AppContainer`
 
-#### JDK 21 host rationale
-
-Adhan Kotlin `0.0.7` resolves for the JVM as module `com.batoulapps.adhan:adhan2-jvm:0.0.7`; the actual resolved JAR filename is `adhan-jvm-0.0.7.jar`. Direct inspection of the Gradle-resolved `com/batoulapps/adhan2/CalculationMethod.class` header produced `magic = 0xCAFEBABE`, `minor = 0`, `major = 65`. Class-file major 65 is Java 21 bytecode and requires a Java 21 JVM for JVM-host class loading.
-
-The distinction was verified empirically on 2026-08-29 in GitHub Actions run `33247757115`: `:app:testDebugUnitTest` passed on Temurin JDK 21 while Arihna remained Java/Kotlin target 17, and `:app:assembleDebug` also passed on JDK 21 while the same target-17 matrix remained unchanged. Therefore the host JDK is standardized at 21 while Arihna's produced application bytecode remains target 17.
+Adhan `CalculationMethod.class` was directly verified as class-file major 65 (Java 21); run `33247757115` proved JDK21 host works while app target remains 17.
 
 ### 8.5 Bootstrap shell — CLOSED
 
-Contains `ArihnaApplication`, `MainActivity`, `ArihnaApp`, `AppContainer`, base theme, navigation shell and placeholder-only Home/Prayer Times/Qibla/Quran/Alarms/Settings destinations. Approved branding assets are wired through Android resources/manifest.
+Contains `ArihnaApplication`, `MainActivity`, `ArihnaApp`, `AppContainer`, base theme, navigation shell and placeholder destinations. Approved branding assets are wired through resources/manifest.
 
-`versionName = 0.1.0-bootstrap` is temporary; before the first real public release, normalize to clean SemVer such as `0.1.0`.
-
-Current branded splash integration uses Android's native Splash Screen behavior on API 31+. Before definitive UI/release, evaluate whether a custom/pre-31 fallback is needed for Android 9–11; this is not part of the prayer calculation milestone.
+`versionName = 0.1.0-bootstrap` is temporary; normalize to clean SemVer before first real public release. Pre-31 branded splash fallback remains deferred to a later UI/release milestone.
 
 ## 9. Repository structure
 
-Single-module Android project with `app/src/main`, `app/src/test`, `app/src/androidTest`, version catalog and Gradle wrapper. Feature/core packages stay inside `:app`. The technical package identifier is permanently `com.archimedeprojects.arihna` for update continuity.
+Single-module Android project with `app/src/main`, `app/src/test`, `app/src/androidTest`, version catalog and Gradle wrapper. Location remains inside `:app` using domain/data/platform/UI boundaries; do not create a Gradle module only for this milestone.
 
 ## 10. CI/CD requirements
 
-All GitHub Actions workflows that execute Gradle/Android build tools use **Temurin JDK 21 as the host JDK**, while Arihna's Java/Kotlin bytecode target remains 17 as defined in §8.4. This policy applies to verification workflows and to all future debug/release/tag packaging workflows.
+All Gradle/Android workflows use Temurin JDK 21 host while Arihna bytecode target remains 17.
 
 ### Debug APK
 
-Build signed debug APKs with a persistent debug keystore reconstructed from GitHub Secrets and publish them through GitHub Releases, not solely Actions artifacts. Final trigger convention is pending.
+Build signed debug APKs with persistent debug keystore reconstructed from GitHub Secrets and publish through GitHub Releases, not solely Actions artifacts. Final trigger convention pending.
 
 ### Stable release
 
-On approved version tags/releases: checkout, provision Temurin JDK 21 and Android tooling, test/lint, reconstruct signing key, build signed APK, checksum if practical, create/update GitHub Release and attach APK. Production signing key must remain persistent and secret.
+On approved tags/releases: checkout, provision JDK21/Android tooling, test/lint, reconstruct signing key, build signed APK, checksum if practical, create/update GitHub Release and attach APK. Production signing key remains persistent and secret.
 
 ## 11. README requirements
 
-Eventually document what Arihna is, supported device notes, how to download/install/update GitHub Release APKs, Samsung sideload guidance, debug vs stable releases, permissions, battery/alarm caveats and third-party/religious-data attributions.
+Eventually document Arihna, supported device notes, GitHub Release install/update, Samsung sideload guidance, debug vs stable, permissions, battery/alarm caveats and third-party/religious-data attributions. GeoNames/CC BY 4.0 attribution is required when city data is integrated.
 
 ## 12. Religious-source integrity
 
@@ -380,41 +492,90 @@ Never present Quran/hadith from memory as authoritative app content without veri
 
 ## 13. Testing expectations
 
-At minimum test:
+### Prayer regression
 
-- prayer-time calculation across representative coordinates/dates/methods, including the detailed plan in §5.1;
-- API 28 HijrahChronology instrumentation regression;
-- Qibla math when that milestone starts;
-- DST/timezone transitions;
-- exact alarm reboot/timezone/time changes when alarms start;
-- notification permission flows;
-- location precise/approximate/denied flows;
-- daily-content anti-repeat logic;
-- Quran data integrity;
-- Compose navigation/state.
+Keep representative prayer golden/mapping/high-latitude/DST/Ramadan/error tests and API28 HijrahChronology regression passing.
 
-All JVM-hosted unit tests and Android Gradle build/test invocations in CI run with host JDK 21; app compilation targets stay at Java/Kotlin 17.
+### Location pure/domain tests — no real GPS required
+
+Use fakes. Cover at least:
+
+- first valid fix accepted;
+- invalid coordinates rejected;
+- movement <5 km ignored, movement >=5 km accepted;
+- timezone change accepted even below 5 km;
+- fresh → `FRESH`;
+- timeout/provider unavailable with cache → `CACHED`; without cache → controlled unavailable;
+- permission denied with/without cache;
+- Location Services disabled with/without cache;
+- manual selection yields exact stored coordinates/timezone and never uses `ZoneId.systemDefault()` for remote city;
+- Device ↔ Manual switching;
+- persisted manual snapshot survives restart and remains usable if later dataset lookup is missing;
+- malformed snapshot → controlled error/unconfigured;
+- unsupported timezone → `UNSUPPORTED_TIME_ZONE`;
+- empty/no-result search never creates arbitrary city;
+- city ranking/aliases including representative Italian/English/Arabic names;
+- DataStore round-trip for Unset, Device, Manual snapshot and cached Device fix;
+- `SelectedLocation.coordinates + zoneId` pass unchanged to existing prayer boundary.
+
+### Android API28 Location instrumentation gate
+
+Before Location implementation commit, Android 9/API28 tests must verify:
+
+1. generated read-only city SQLite opens;
+2. known cities resolve expected timezone ids (Rome, Makkah, New York, Sydney representatives);
+3. approved aliases such as Makkah/Mecca resolve intended record;
+4. **every distinct bundled timezone id passes `ZoneId.of(...)` on API28**;
+5. no bundled row has invalid coordinates, missing timezone, or invalid primary id;
+6. Preferences DataStore real read/write works on API28;
+7. manifest permissions match policy: `ACCESS_COARSE_LOCATION` only, no FINE/BACKGROUND.
+
+No CI test requires physical GPS movement or runner geographic position.
+
+### Location final gate
+
+Host JDK: Temurin 21. Run at least:
+
+```bash
+./gradlew testDebugUnitTest --stacktrace
+./gradlew assembleDebug --stacktrace
+./gradlew :app:connectedDebugAndroidTest --stacktrace
+```
+
+All must pass, including previous prayer regression and new Location/API28 checks.
+
+Measure APK before/after city database integration. If city data increases APK by >20 MB, stop for approval before proceeding.
+
+Future milestones add Qibla math, exact-alarm reboot/timezone/time changes, notification flows, daily-content anti-repeat, Quran integrity and final Compose UI tests.
 
 ## 14. Decision status
 
 ### Closed
 
 - applicationId/namespace `com.archimedeprojects.arihna`.
-- Bootstrap architecture/toolchain and successful structural build.
-- CI/build host policy: JDK 21 executes Gradle/build tools/tests; Arihna app bytecode remains Java/Kotlin target 17.
-- UI palette, Hero Dashboard direction, Prayer Times vertical timeline.
-- Logo/app icon and Android branding assets.
-- Prayer calculation engine: Adhan Kotlin Multiplatform `0.0.7`, MIT, behind Arihna adapter.
-- Prayer calculation domain model set.
-- 11 calculation methods.
-- Asr Standard/Hanafi behavior.
-- Arihna automatic high-latitude rule based on `abs(latitude) > 48°`.
-- Explicit ZoneId/ZoneRules timezone/DST architecture.
-- Per-prayer manual offset model.
-- Controlled unavailable/error behavior for extreme astronomical cases.
-- Prayer calculation test plan.
-- Android API 28 `HijrahChronology.INSTANCE` verification gate — passed with 2 instrumentation tests on Android 9 emulator.
-- Umm al-Qura Ramadan Isha rule: 90 minutes normally / 120 minutes in Ramadan, with Ramadan detected offline via verified `HijrahChronology.INSTANCE`.
+- Bootstrap architecture/toolchain and structural build.
+- JDK21 build-host policy; app bytecode remains target 17.
+- UI palette/layout direction and branding assets.
+- Prayer calculation engine and domain.
+- 11 methods, Standard/Hanafi, high-latitude AUTO, ZoneId/ZoneRules, prayer offsets, polar controlled errors.
+- API28 HijrahChronology gate and Umm al-Qura 90/120 Ramadan rule.
+- Final prayer regression and implementation commit on `main`.
+
+### Approved / current Location milestone
+
+- Native LocationManager, no Play Services.
+- Foreground Device location only.
+- `ACCESS_COARSE_LOCATION` only.
+- 20s timeout / 5 km / 15 min; timezone change significant.
+- FRESH/CACHED, never invented defaults.
+- GeoNames `cities500` offline, CC BY 4.0.
+- Read-only SQLite; no Room.
+- IANA timezone per city; exhaustive API28 `ZoneId.of` gate.
+- Preferences DataStore `1.2.1`.
+- Arihna-owned Location models/state/errors; `PrayerTimeCalculator` unchanged.
+- Minimal functional Device/Manual UI only.
+- APK growth >20 MB requires stop/review; <=20 MB may proceed.
+- Full unit/build/API28 gate before implementation commit.
 
 ### Pending
 
@@ -423,59 +584,73 @@ All JVM-hosted unit tests and Android Gradle build/test invocations in CI run wi
 3. Debug-release trigger convention.
 4. Default calculation method for fresh install.
 5. Default notification/adhan sound policy and audio licensing.
-6. Pre-31 custom splash fallback decision before definitive release/UI.
+6. Pre-31 custom splash fallback.
+7. Any future need for `ACCESS_FINE_LOCATION`.
+8. Any future need for background location/foreground location service.
 
 ## 15. Explicitly out of scope unless later approved
 
-- Play Store publication
-- paid services/APIs
-- user accounts/cloud sync
-- advertising/monetization
-- third-party tracking analytics
-- social/community features
+General: Play Store, paid services/APIs, user accounts/cloud sync, ads/monetization, third-party tracking analytics, social/community.
+
+Current Location milestone also excludes:
+
+- `POST_NOTIFICATIONS`
+- notification channels
+- `AlarmManager` / exact alarms
+- WorkManager
+- adhan audio
+- Qibla/sensors
+- Quran
+- custom alarms
+- final Hero Dashboard/Prayer Times timeline
+- Google Maps/Places/Geocoding
+- Nominatim runtime
+- Play Services/FusedLocationProvider
+- background location
+- foreground location service
 
 ## 16. Milestone sequence
 
 1. Branding/UI decision closure — CLOSED.
-2. Android bootstrap — CLOSED and build verified.
-3. **Current milestone:** prayer-time calculation engine only.
-4. Sequence inside current milestone: specification — DONE → dependency/domain/adapter excluding Ramadan special rule — STAGED/COMPILED → API 28 HijrahChronology instrumentation verification — PASSED → Ramadan special rule — IMPLEMENTED ON VERIFICATION BRANCH → host-JDK compatibility diagnosis — PASSED/RESOLVED BY POLICY → full JDK 21 regression → dedicated implementation commit → STOP.
-5. Location/GPS, permissions, notifications, AlarmManager, definitive UI, Qibla, Quran and custom alarms remain separate milestones.
+2. Android bootstrap — CLOSED/build verified.
+3. Prayer-time calculation — CLOSED; final commit `e5987f878e253085425f9bfebf7bf714c8405de3`; JDK21/API28 regression passed.
+4. **Current: Location (Device + manual city) — architecture APPROVED.**
+5. Location sequence: STEP 1 spec commit → STEP 2 pure Kotlin domain/state/policies + fake tests → STEP 3 Preferences DataStore → STEP 4 GeoNames generation/read-only SQLite + APK-size measurement + API28 timezone/data gate → STEP 5 Android LocationManager + permission/resolution → STEP 6 minimal functional UI → STEP 7 full unit/build/API28 regression → dedicated implementation commit → STOP.
+6. Notifications, AlarmManager, definitive UI, Qibla, Quran and custom alarms remain separate milestones.
 
 ## 17. Change log
 
+### 2026-08-29 — Location architecture approved
+
+Before implementation, approved Android framework LocationManager/LocationManagerCompat, no Play Services, foreground-only `ACCESS_COARSE_LOCATION`, 20s timeout, 5 km significant movement, 15-minute minimum foreground interval, timezone changes as significant, fresh/cached real-fix semantics and no invented default location.
+
+Manual city uses offline read-only SQLite generated from GeoNames `cities500` under CC BY 4.0, with canonical/ASCII and selected Italian/English/Arabic aliases and IANA timezone per record. All bundled timezone ids must pass `ZoneId.of` on Android API28 before commit. Preferences DataStore `1.2.1` persists Device/Manual choice, manual city snapshot and last real device fix. `PrayerTimeCalculator` stays unchanged.
+
+The generated city database's real APK impact must be measured. If it increases APK size by more than 20 MB, stop for review before proceeding; `cities1000` or explicit acceptance of larger footprint are review options, but no silent dataset switch is allowed.
+
+### 2026-08-29 — Prayer calculation engine closed
+
+Final run `33248406741` passed `testDebugUnitTest`, `assembleDebug`, and `connectedDebugAndroidTest` on Android 9/API28 using host JDK21. Engine promoted to `main` in `e5987f878e253085425f9bfebf7bf714c8405de3`.
+
 ### 2026-08-29 — JDK 21 build-host policy approved
 
-Arihna distinguishes the JVM that executes Gradle/build tools from the bytecode target produced by the app. All present/future Gradle-based CI workflows, including the future automatic debug/release/tag workflow, use Temurin JDK 21 as host. Java source/target and Kotlin JVM target for the app remain 17. The policy is required because direct inspection of the Gradle-resolved Adhan `CalculationMethod.class` returned class-file major 65 (Java 21). GitHub Actions run `33247757115` proved both `testDebugUnitTest` and `assembleDebug` succeed on host JDK 21 while the app matrix remains target 17.
+All present/future Gradle-based CI uses Temurin JDK21 host while Java/Kotlin app target stays 17. Direct Adhan class inspection showed major 65; run `33247757115` proved unit/build success on JDK21 with app target 17 unchanged.
 
 ### 2026-08-29 — Android API 28 HijrahChronology verification passed
 
-Before implementing the Ramadan-specific Umm al-Qura rule, Arihna ran `HijrahChronology.INSTANCE` in an Android instrumentation test on an Android 9/API 28 emulator. GitHub Actions run `33245235911` completed successfully; `connectedDebugAndroidTest` executed and passed 2 tests. The tests verified `Hijrah-umalqura` and known Gregorian dates mapping to Islamic months 8/9/10, including Ramadan 1445 and Ramadan 1437. The gate is closed and the 90/120-minute Isha rule may now be implemented.
+Run `33245235911` executed 2 passing instrumentation tests on Android 9/API28, verifying `Hijrah-umalqura` and known Gregorian dates mapping to Islamic months including Ramadan. The 90/120-minute Umm al-Qura rule was subsequently implemented and regression-tested.
 
 ### 2026-08-29 — Prayer calculation architecture approved
 
-Approved before implementation:
-
-- Adhan Kotlin Multiplatform `com.batoulapps.adhan:adhan2:0.0.7`, MIT;
-- adapter boundary `PrayerTimeCalculator` / `AdhanPrayerTimeCalculator`;
-- Arihna-owned domain models `Coordinates`, `PrayerCalculationMethod`, `AsrMethod`, `HighLatitudeRule`, `PrayerTimeAdjustments`, `PrayerCalculationSettings`, `PrayerTimes`, `PrayerDay`, `PrayerCalculationResult`;
-- 11 calculation methods: MWL, Umm al-Qura, ISNA, Egyptian, Karachi, Dubai, Kuwait, Qatar, Moonsighting Committee, Singapore, Turkey;
-- Standard/Hanafi Asr;
-- Arihna automatic high-latitude rule using absolute latitude;
-- controlled `Unavailable` behavior for polar/extreme cases;
-- explicit ZoneId and ZoneRules for timezone/DST;
-- per-prayer manual minute offsets;
-- intended Umm al-Qura Isha 90/120 rule with mandatory Android API 28 HijrahChronology verification before implementation;
-- golden-value/mapping/Asr/offset/high-latitude/southern-hemisphere/polar/DST/Ramadan/invalid-input test plan;
-- explicit exclusion of GPS, permissions, notifications, AlarmManager and definitive UI from this milestone.
+Approved Adhan 0.0.7/MIT adapter architecture, Arihna prayer-domain models, 11 methods, Standard/Hanafi, absolute-latitude AUTO rule, controlled polar errors, explicit ZoneId/ZoneRules, prayer offsets, Ramadan rule and comprehensive test plan.
 
 ### 2026-08-29 — Bootstrap completed
 
-Created and build-verified the single-module Android/Compose structural shell. `versionName 0.1.0-bootstrap` remains temporary; pre-31 splash fallback is deferred for later UI/release evaluation.
+Created/build-verified the single-module Android/Compose shell. `versionName 0.1.0-bootstrap` remains temporary; pre-31 splash fallback deferred.
 
 ### 2026-08-29 — Android bootstrap matrix approved
 
-Approved `com.archimedeprojects.arihna`, minSdk 28, compile/target 37, AGP 9.3.1, Gradle 9.5.0, Kotlin/Compose plugin 2.4.10, Compose BOM 2026.08.00, app Java/Kotlin target 17, built-in Kotlin, Kotlin DSL, version catalog and manual AppContainer. The host-JDK policy was later clarified separately in §8.4.
+Approved `com.archimedeprojects.arihna`, minSdk28, compile/target37, AGP9.3.1, Gradle9.5.0, Kotlin/Compose plugin2.4.10, Compose BOM2026.08.00, app target17, built-in Kotlin, Kotlin DSL, version catalog and manual AppContainer.
 
 ### 2026-08-29 — Branding and UI direction finalized
 
@@ -483,4 +658,4 @@ Closed palette, Hero Dashboard, Prayer Times timeline, final A/minaret/crescent/
 
 ### 2026-08-29 — Initial specification
 
-Captured native Kotlin/Compose, zero-cost/private-GitHub/sideload distribution, prayer times, Qibla, alarms, offline Quran, optional Italian translation, daily motivational content, permissions/exact alarms/offline behavior, UI/logo approval gate, GitHub Releases signing and religious-source verification requirements.
+Captured native Kotlin/Compose, zero-cost/private-GitHub/sideload distribution, prayer times, Qibla, alarms, offline Quran, optional Italian translation, daily content, permissions/exact alarms/offline behavior, UI/logo gate, GitHub Releases signing and religious-source verification requirements.
