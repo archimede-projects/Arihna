@@ -61,13 +61,13 @@ def load_admin1_names(path: Path) -> dict[str, str]:
     return result
 
 
-def open_single_text_member(zip_path: Path):
+def open_text_member(zip_path: Path, member_name: str):
     zf = zipfile.ZipFile(zip_path)
     members = [n for n in zf.namelist() if not n.endswith("/")]
-    if len(members) != 1:
+    if member_name not in members:
         zf.close()
-        raise RuntimeError(f"Expected one file in {zip_path}, found {members}")
-    raw = zf.open(members[0], "r")
+        raise RuntimeError(f"Expected {member_name} in {zip_path}, found {members}")
+    raw = zf.open(member_name, "r")
     import io
     text = io.TextIOWrapper(raw, encoding="utf-8", newline="")
     return zf, text
@@ -150,7 +150,7 @@ def main() -> None:
     referenced_admin1: set[str] = set()
     city_count = 0
 
-    zf, cities_text = open_single_text_member(args.cities)
+    zf, cities_text = open_text_member(args.cities, "cities500.txt")
     try:
         with db:
             for line in cities_text:
@@ -218,7 +218,7 @@ def main() -> None:
 
     alt_seen = 0
     alt_inserted_before = db.execute("SELECT COUNT(*) FROM city_alias").fetchone()[0]
-    zf, alt_text = open_single_text_member(args.alternate_names)
+    zf, alt_text = open_text_member(args.alternate_names, "alternateNamesV2.txt")
     try:
         batch: list[tuple[int, str, int, str, int, int]] = []
         for line in alt_text:
