@@ -21,6 +21,9 @@ jobs:
         with:
           gradle-version: '9.5.0'
       - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: '15859902'
+          packages: platform-tools
       - name: Install Android API 37
         run: sdkmanager "platforms;android-37"
       - name: Generate Gradle wrapper 9.5.0
