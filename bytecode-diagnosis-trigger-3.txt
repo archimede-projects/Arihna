@@ -1,0 +1,1 @@
+Third trigger for bytecode diagnosis.
