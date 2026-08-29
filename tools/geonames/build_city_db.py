@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build Arihna's deterministic offline GeoNames city database.
 
-Generator version: 1
+Generator version: 2
 Inputs are local snapshot files downloaded from GeoNames. The caller is
 responsible for checksum verification; this script records input and output
 metadata and never fetches network resources itself.
@@ -17,11 +17,19 @@ import unicodedata
 import zipfile
 from pathlib import Path
 
-GENERATOR_VERSION = 1
+GENERATOR_VERSION = 2
 ALLOWED_LANGUAGES = {"it", "en", "ar"}
 KIND_CANONICAL = 0
 KIND_ASCII = 1
 KIND_ALTERNATE = 2
+NON_FTS_INTEGRITY_TABLES = ("country", "admin1", "city", "city_alias")
+GOLDEN_SEARCH_ALIASES = (
+    ("Roma", 3169070, "roma"),
+    ("Makkah", 104515, "makkah"),
+    ("Mecca", 104515, "mecca"),
+    ("New York", 5128581, "new york"),
+    ("Sydney", 2147714, "sydney"),
+)
 
 
 def sha256(path: Path) -> str:
@@ -71,6 +79,102 @@ def open_text_member(zip_path: Path, member_name: str):
     import io
     text = io.TextIOWrapper(raw, encoding="utf-8", newline="")
     return zf, text
+
+
+def validate_non_fts_integrity(db: sqlite3.Connection) -> dict[str, str]:
+    """Run SQLite structural integrity checks on Arihna-owned non-FTS tables.
+
+    Do not replace these with a global PRAGMA integrity_check while city_search
+    remains FTS4 contentless. SQLite 3.44+ invokes virtual-table xIntegrity from
+    the global pragma, and FTS4 cannot validate an inverted index against source
+    content that content='' intentionally does not store.
+    """
+    results: dict[str, str] = {}
+    for table in NON_FTS_INTEGRITY_TABLES:
+        messages = [row[0] for row in db.execute(f"PRAGMA integrity_check('{table}')")]
+        if messages != ["ok"]:
+            raise RuntimeError(f"SQLite integrity check failed for {table}: {messages}")
+        results[table] = "ok"
+    return results
+
+
+def validate_city_search(db: sqlite3.Connection, alias_count: int) -> dict[str, object]:
+    """Functionally validate the FTS4 contentless search index.
+
+    A contentless FTS4 virtual table cannot be reliably full-scanned to count or
+    enumerate rows because the original column content is absent by design.
+    FTS4's city_search_docsize shadow table is therefore used as the document
+    roster: it contains exactly one row per indexed docid with this schema. The
+    golden MATCH checks below exercise the actual inverted index and confirm that
+    each expected city_alias.id is retrievable for representative aliases.
+    """
+    search_doc_count = db.execute("SELECT COUNT(*) FROM city_search_docsize").fetchone()[0]
+    orphan_docids = db.execute(
+        """
+        SELECT COUNT(*)
+        FROM city_search_docsize AS search_doc
+        LEFT JOIN city_alias AS alias ON alias.id = search_doc.docid
+        WHERE alias.id IS NULL
+        """
+    ).fetchone()[0]
+    missing_docids = db.execute(
+        """
+        SELECT COUNT(*)
+        FROM city_alias AS alias
+        LEFT JOIN city_search_docsize AS search_doc ON search_doc.docid = alias.id
+        WHERE search_doc.docid IS NULL
+        """
+    ).fetchone()[0]
+
+    if search_doc_count != alias_count:
+        raise RuntimeError(
+            f"city_search document count mismatch: FTS={search_doc_count}, city_alias={alias_count}"
+        )
+    if orphan_docids:
+        raise RuntimeError(f"city_search has {orphan_docids} orphan docids")
+    if missing_docids:
+        raise RuntimeError(f"city_search is missing {missing_docids} city_alias docids")
+
+    golden_matches: list[dict[str, object]] = []
+    for label, city_id, normalized_alias in GOLDEN_SEARCH_ALIASES:
+        alias_rows = db.execute(
+            "SELECT id FROM city_alias WHERE city_id=? AND normalized_alias=?",
+            (city_id, normalized_alias),
+        ).fetchall()
+        if len(alias_rows) != 1:
+            raise RuntimeError(
+                f"Golden alias {label!r} expected exactly one city_alias row for "
+                f"GeoNames id {city_id}, found {len(alias_rows)}"
+            )
+        expected_docid = alias_rows[0][0]
+        matched_docids = {
+            row[0]
+            for row in db.execute(
+                "SELECT docid FROM city_search WHERE city_search MATCH ?",
+                (normalized_alias,),
+            )
+        }
+        if expected_docid not in matched_docids:
+            raise RuntimeError(
+                f"Golden MATCH failed for {label!r}: expected docid {expected_docid} "
+                f"for GeoNames id {city_id}"
+            )
+        golden_matches.append(
+            {
+                "label": label,
+                "geonames_id": city_id,
+                "normalized_alias": normalized_alias,
+                "expected_docid": expected_docid,
+            }
+        )
+
+    return {
+        "alias_rows": alias_count,
+        "fts_documents": search_doc_count,
+        "orphan_docids": orphan_docids,
+        "missing_docids": missing_docids,
+        "golden_matches": golden_matches,
+    }
 
 
 def main() -> None:
@@ -273,9 +377,14 @@ def main() -> None:
         db.execute("ANALYZE")
     db.execute("VACUUM")
 
-    integrity = db.execute("PRAGMA integrity_check").fetchone()[0]
-    if integrity != "ok":
-        raise RuntimeError(f"SQLite integrity check failed: {integrity}")
+    # Do not run global PRAGMA integrity_check here. On SQLite 3.44+ it calls
+    # xIntegrity for FTS4, which cannot validate a contentless (content='')
+    # index against source text that is intentionally not stored. That produces
+    # "unable to validate the inverted index ... SQL logic error" even for a
+    # valid, queryable index. Keep structural checks on all non-FTS tables and
+    # validate city_search functionally instead.
+    non_fts_integrity = validate_non_fts_integrity(db)
+    city_search_validation = validate_city_search(db, alias_count)
 
     timezone_count = db.execute("SELECT COUNT(DISTINCT timezone_id) FROM city").fetchone()[0]
     blank_timezone_count = db.execute("SELECT COUNT(*) FROM city WHERE timezone_id='' OR timezone_id IS NULL").fetchone()[0]
@@ -288,6 +397,7 @@ def main() -> None:
     metadata = {
         "generator_version": GENERATOR_VERSION,
         "snapshot_date": args.snapshot_date,
+        "sqlite_version": sqlite3.sqlite_version,
         "inputs": {
             "cities500.zip": {"sha256": sha256(args.cities), "bytes": args.cities.stat().st_size},
             "alternateNamesV2.zip": {"sha256": sha256(args.alternate_names), "bytes": args.alternate_names.stat().st_size},
@@ -304,6 +414,10 @@ def main() -> None:
             "invalid_coordinates": invalid_coordinate_count,
             "blank_timezones": blank_timezone_count,
             "invalid_city_ids": invalid_id_count,
+        },
+        "validation": {
+            "non_fts_integrity": non_fts_integrity,
+            "city_search": city_search_validation,
         },
     }
     args.metadata.parent.mkdir(parents=True, exist_ok=True)
