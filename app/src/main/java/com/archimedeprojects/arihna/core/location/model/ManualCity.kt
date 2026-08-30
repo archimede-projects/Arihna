@@ -11,12 +11,15 @@ data class ManualCity(
     val countryCode: String,
     val coordinates: Coordinates,
     val zoneId: ZoneId,
+    /** Authoritative modern IANA id from GeoNames, even if [zoneId] uses API28 compatibility. */
+    val timeZoneId: String = zoneId.id,
 ) {
     val isValid: Boolean
         get() = id > 0 &&
             name.isNotBlank() &&
             countryName.isNotBlank() &&
             countryCode.isNotBlank() &&
+            timeZoneId.isNotBlank() &&
             coordinates.isValid
 
     val displayName: String
