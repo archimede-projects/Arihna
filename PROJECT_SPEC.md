@@ -99,11 +99,11 @@ Selected engine:
 
 Android API 28 HijrahChronology verification passed on 2026-08-29 in run `33245235911`. Final prayer-engine regression passed on run `33248406741`: `testDebugUnitTest`, `assembleDebug`, and `connectedDebugAndroidTest` on Android 9/API28 all succeeded. Final implementation commit: `e5987f878e253085425f9bfebf7bf714c8405de3` (`feat(prayer): implement offline prayer time calculation engine`).
 
-### 5.2 Location — MILESTONE OPEN / STEP 6 IN PROGRESS
+### 5.2 Location — MILESTONE OPEN / STEP 6 CLOSED
 
 Location STEP 4 (GeoNames generation/read-only SQLite, APK-size measurement, CityRepository/timezone/data validation and API28 data gate) is **CLOSED** after definitive workflow run `33296099459` on implementation commit `8620772ebe0dd5b51691ce2447c46ef996cd90d1`. The run passed frozen-dataset provenance, runtime-minimal database generation, real AAPT/APK size gate, host unit regression, and Android 9/API28 instrumentation (**16/16 tests, 0 failed, 0 skipped**). The API28-classified SQLite asset is 28,020,736 bytes with SHA-256 `7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb`; its real APK increment is 15,033,263 bytes, 5,938,257 bytes below the approved 20 MiB threshold. All 224,330 cities and 258,685 aliases are preserved; the four reviewed timezone mappings and the exact 17-city `America/Nuuk` controlled-unsupported set passed the STEP 4 gate.
 
-The **Location milestone remains OPEN**. STEP 5 (Android `LocationManager` + Android permission/resolution flow) is **CLOSED** after definitive run `33317622881` on exact tested/promoted candidate `7f59c55da954347a1db5c17fe41c2cb07309184c`. STEP 6 (minimal functional Device/Manual UI) is now **IN PROGRESS** under the separately authorized scope below. STEP 7 remains the final full regression/closure gate for the milestone and must not begin until STEP 6 is closed.
+The **Location milestone remains OPEN**. STEP 5 (Android `LocationManager` + Android permission/resolution flow) is **CLOSED** after definitive run `33317622881` on exact tested/promoted candidate `7f59c55da954347a1db5c17fe41c2cb07309184c`. STEP 6 (minimal functional Device/Manual UI) is **CLOSED** after definitive run `33325240888` on exact clean candidate `df53f71c07cd3da743604898941f6b4ef39e86aa`, which passed policy/asset checks, unit tests, debug assembly and Android 9/API28 instrumentation (**25/25 tests, 0 failed, 0 skipped**) before exact-SHA promotion. STEP 7 is **NOT STARTED / NEXT** and remains the final full regression/closure gate for the Location milestone.
 
 The Location layer supplies real or user-selected `Coordinates + ZoneId` to the existing prayer engine. `PrayerTimeCalculator` remains unchanged.
 
@@ -645,7 +645,7 @@ Host JDK: Temurin 21. Required commands for the STEP 4 regression were:
 
 Definitive run `33296099459` on commit `8620772ebe0dd5b51691ce2447c46ef996cd90d1` passed the complete **STEP 4** gate. `testDebugUnitTest` and both APK builds were successful; Android 9/API28 `connectedDebugAndroidTest` finished **16/16 tests with 0 failed and 0 skipped**. The same run regenerated and validated the exact API28-classified database, passed all table-scoped integrity/FTS/golden/query-plan checks, and measured a 15,033,263-byte APK increment against the 20 MiB threshold.
 
-This does **not** close the Location milestone. STEP 5 Android `LocationManager`/permission-resolution and STEP 6 minimal functional UI remain to be implemented, followed by STEP 7 full unit/build/API28 regression as the final milestone closure gate.
+This does **not** close the Location milestone. STEP 5 and STEP 6 are now **CLOSED**; STEP 7 full Location unit/build/API28 regression is **NOT STARTED / NEXT** and remains the final milestone closure gate.
 
 Future milestones add Qibla math, exact-alarm reboot/timezone/time changes, notification flows, daily-content anti-repeat, Quran integrity and final Compose UI tests.
 
@@ -677,8 +677,8 @@ Future milestones add Qibla math, exact-alarm reboot/timezone/time changes, noti
 - Preferences DataStore `1.2.1`.
 - Arihna-owned Location models/state/errors; `PrayerTimeCalculator` unchanged.
 - **STEP 5 — Android `LocationManager` + permission/resolution flow: CLOSED.** Exact promoted candidate `7f59c55da954347a1db5c17fe41c2cb07309184c`; definitive run `33317622881` passed `testDebugUnitTest`, `assembleDebug`, and Android 9/API28 instrumentation (21/21, 0 failed, 0 skipped), with COARSE-only/no-FINE/no-background/no-Play-Services policy intact. Real Galaxy S25 verification independently returned a successful approximate-location current fix through the unmodified production bridge.
-- **STEP 6 — minimal functional Device/Manual Compose UI: IN PROGRESS.** Authorized on 2026-08-30: functional Location panel in the existing `Impostazioni` destination, explicit rationale-before-prompt Device flow, manual `CityRepository` search/selection, visible domain states/source, foreground update collection, and focused Compose/state tests. This is not the definitive Hero Dashboard.
-- **STEP 7 — full Location unit/build/API28 regression and milestone closure: NOT STARTED.** It follows STEP 6.
+- **STEP 6 — minimal functional Device/Manual Compose UI: CLOSED.** Exact clean candidate `df53f71c07cd3da743604898941f6b4ef39e86aa`; definitive run `33325240888` passed toolchain/permission policy, exact STEP 4 asset restore/SHA, `testDebugUnitTest`, `assembleDebug`, and Android 9/API28 instrumentation (**25/25, 0 failed, 0 skipped**). The functional Location panel remains scoped to `Impostazioni`, gates `ACCESS_COARSE_LOCATION` behind explicit Arihna rationale/confirmation, supports offline manual-city search/selection and controlled unsupported-timezone presentation, and does not implement the definitive Hero Dashboard.
+- **STEP 7 — full Location unit/build/API28 regression and milestone closure: NOT STARTED / NEXT.** No STEP 7 work has begun.
 
 ### Pending
 
@@ -717,11 +717,15 @@ Current Location milestone also excludes:
 1. Branding/UI decision closure — CLOSED.
 2. Android bootstrap — CLOSED/build verified.
 3. Prayer-time calculation — CLOSED; final commit `e5987f878e253085425f9bfebf7bf714c8405de3`; JDK21/API28 regression passed.
-4. **Current: Location (Device + manual city) — MILESTONE OPEN.** STEP 4 and STEP 5 are closed; STEP 6 is IN PROGRESS; STEP 7 remains not started.
-5. Location sequence/status: STEP 1 spec commit — CLOSED → STEP 2 pure Kotlin domain/state/policies + fake tests — CLOSED → STEP 3 Preferences DataStore — CLOSED → STEP 4 GeoNames generation/read-only SQLite + APK-size measurement + CityRepository/timezone/data/API28 gate — **CLOSED** → STEP 5 Android `LocationManager` + permission/resolution — **CLOSED** → STEP 6 minimal functional Device/Manual UI — **IN PROGRESS** → STEP 7 full unit/build/API28 regression → dedicated implementation commit → STOP — **NOT STARTED**.
+4. **Current: Location (Device + manual city) — MILESTONE OPEN.** STEP 4, STEP 5 and STEP 6 are closed; STEP 7 is NOT STARTED / NEXT.
+5. Location sequence/status: STEP 1 spec commit — CLOSED → STEP 2 pure Kotlin domain/state/policies + fake tests — CLOSED → STEP 3 Preferences DataStore — CLOSED → STEP 4 GeoNames generation/read-only SQLite + APK-size measurement + CityRepository/timezone/data/API28 gate — **CLOSED** → STEP 5 Android `LocationManager` + permission/resolution — **CLOSED** → STEP 6 minimal functional Device/Manual UI — **CLOSED** → STEP 7 full unit/build/API28 regression → dedicated implementation commit → STOP — **NOT STARTED / NEXT**.
 6. Notifications, AlarmManager, definitive UI, Qibla, Quran and custom alarms remain separate milestones and must not begin before the Location milestone is closed.
 
 ## 17. Change log
+
+### 2026-08-30 — Location STEP 6 CLOSED after clean-candidate regression and exact-SHA promotion
+
+STEP 6 is **CLOSED** while the overall Location milestone remains **OPEN**. The final technical tree was rebuilt as clean candidate `df53f71c07cd3da743604898941f6b4ef39e86aa` directly above the STEP 6 spec-first commit `f7ce99c24d92bac973dce444db37c201fe9b0f30`. Definitive workflow run `33325240888` checked out that exact clean SHA, passed toolchain/permission policy, restored the exact STEP 4 GeoNames asset with SHA-256 `7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb`, passed `testDebugUnitTest`, passed `assembleDebug`, compiled the Android test suite, and completed Android 9/API28 `connectedDebugAndroidTest` with **25/25 tests, 0 failed and 0 skipped**. The exact candidate was then fast-forward promoted to `location-step6` before this documentation-only closure commit. The production result is the approved minimal functional Location panel in `Impostazioni`: explicit Arihna rationale/confirmation before any `ACCESS_COARSE_LOCATION` request, no startup permission side effect, clear domain/source/freshness/error states, offline `CityRepository` manual search/selection, controlled `UNSUPPORTED_TIME_ZONE` behavior, Device re-selection, and foreground significant-update wiring that continues to delegate 5 km/ZoneId acceptance to the existing domain policy. Manifest/dependency policy remains COARSE-only with no FINE/BACKGROUND permission, no Play Services Location and no foreground location service. The Nuuk UI instrumentation instability encountered while reaching the final gate was test-harness-only: first IME viewport shrinkage and then LazyColumn off-viewport composition; the final test isolates search rendering with injected populated state and scrolls the lazy container to the result rather than fabricating production behavior. STEP 7 is **NOT STARTED / NEXT**; no STEP 7 implementation or regression work has begun.
 
 ### 2026-08-30 — Location STEP 6 minimal functional UI authorized and started
 
