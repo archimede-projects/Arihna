@@ -11,6 +11,8 @@ import com.archimedeprojects.arihna.core.location.domain.LocationCoordinator
 import com.archimedeprojects.arihna.core.location.platform.AndroidLocationEnvironment
 import com.archimedeprojects.arihna.core.location.platform.AndroidLocationPermissionStateResolver
 import com.archimedeprojects.arihna.core.location.platform.LocationManagerDeviceLocationDataSource
+import com.archimedeprojects.arihna.feature.prayerschedule.data.PrayerSettingsRepository
+import com.archimedeprojects.arihna.feature.prayerschedule.data.preferences.PreferencesDataStorePrayerSettingsRepository
 
 private val Context.locationPreferencesDataStore by preferencesDataStore(name = "location")
 
@@ -27,6 +29,10 @@ class AppContainer(context: Context) {
 
     val locationPreferencesRepository: LocationPreferencesRepository by lazy {
         PreferencesDataStoreLocationPreferencesRepository(appContext.locationPreferencesDataStore)
+    }
+
+    val prayerSettingsRepository: PrayerSettingsRepository by lazy {
+        PreferencesDataStorePrayerSettingsRepository(appContext.locationPreferencesDataStore)
     }
 
     val locationCoordinator: LocationCoordinator by lazy {
