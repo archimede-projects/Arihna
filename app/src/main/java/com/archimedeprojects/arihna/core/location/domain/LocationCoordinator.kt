@@ -3,6 +3,7 @@ package com.archimedeprojects.arihna.core.location.domain
 import com.archimedeprojects.arihna.core.location.data.CityRepository
 import com.archimedeprojects.arihna.core.location.data.DeviceLocationDataSource
 import com.archimedeprojects.arihna.core.location.data.LocationPreferencesRepository
+import com.archimedeprojects.arihna.core.location.data.UnsupportedCityTimeZoneException
 import com.archimedeprojects.arihna.core.location.model.DeviceLocationFix
 import com.archimedeprojects.arihna.core.location.model.DeviceLocationResult
 import com.archimedeprojects.arihna.core.location.model.LocationFailure
@@ -62,6 +63,8 @@ class LocationCoordinator(
             cityRepository.findById(cityId)
         } catch (error: CancellationException) {
             throw error
+        } catch (_: UnsupportedCityTimeZoneException) {
+            return LocationResolutionState.Unavailable(LocationFailure.UNSUPPORTED_TIME_ZONE, null)
         } catch (_: Exception) {
             return LocationResolutionState.Unavailable(LocationFailure.CITY_DATASET_UNAVAILABLE, null)
         } ?: return LocationResolutionState.Unavailable(LocationFailure.CITY_NOT_FOUND, null)
