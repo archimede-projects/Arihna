@@ -1,0 +1,51 @@
+name: Location STEP 5 API30 coarse mock control
+
+on:
+  push:
+    branches:
+      - location-step5-api30-diag
+    paths:
+      - app/src/androidTest/java/com/archimedeprojects/arihna/core/location/platform/CoarseMockProviderCrossApiAndroidTest.kt
+      - .github/workflows/location-step5-api30-cross-api.yml
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  api30-coarse-only:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Verify COARSE-only production manifest
+        run: |
+          grep -q 'android.permission.ACCESS_COARSE_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.ACCESS_FINE_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.ACCESS_BACKGROUND_LOCATION' app/src/main/AndroidManifest.xml
+
+      - name: Run isolated COARSE-only mock-provider control on Android 11 / API 30
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          target: default
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: >-
+            ./gradlew :app:connectedDebugAndroidTest
+            -Pandroid.testInstrumentationRunnerArguments.class=com.archimedeprojects.arihna.core.location.platform.CoarseMockProviderCrossApiAndroidTest
+            --stacktrace
