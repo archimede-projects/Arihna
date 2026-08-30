@@ -1,8 +1,6 @@
 package com.archimedeprojects.arihna.core.location.model
 
 import com.archimedeprojects.arihna.core.prayer.model.Coordinates
-import java.time.DateTimeException
-import java.time.ZoneId
 
 data class ManualCitySnapshot(
     val id: Long,
@@ -12,6 +10,7 @@ data class ManualCitySnapshot(
     val countryCode: String,
     val latitude: Double,
     val longitude: Double,
+    /** Authoritative modern IANA id, never a legacy compatibility id. */
     val timeZoneId: String,
 ) {
     fun toManualCityOrNull(): ManualCity? {
@@ -20,11 +19,7 @@ data class ManualCitySnapshot(
             return null
         }
 
-        val zoneId = try {
-            ZoneId.of(timeZoneId)
-        } catch (_: DateTimeException) {
-            return null
-        }
+        val zoneId = VerifiedTimeZoneCompatibility.resolveOrNull(timeZoneId) ?: return null
 
         return ManualCity(
             id = id,
@@ -34,6 +29,7 @@ data class ManualCitySnapshot(
             countryCode = countryCode,
             coordinates = coordinates,
             zoneId = zoneId,
+            timeZoneId = timeZoneId,
         )
     }
 
@@ -46,7 +42,7 @@ data class ManualCitySnapshot(
             countryCode = city.countryCode,
             latitude = city.coordinates.latitude,
             longitude = city.coordinates.longitude,
-            timeZoneId = city.zoneId.id,
+            timeZoneId = city.timeZoneId,
         )
     }
 }
