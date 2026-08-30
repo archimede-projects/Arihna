@@ -1,0 +1,89 @@
+from pathlib import Path
+
+path = Path("PROJECT_SPEC.md")
+text = path.read_text(encoding="utf-8")
+
+
+def replace_once(old: str, new: str) -> None:
+    global text
+    count = text.count(old)
+    if count != 1:
+        raise SystemExit(f"Expected exactly one match, found {count}: {old[:120]!r}")
+    text = text.replace(old, new, 1)
+
+
+replace_once(
+    "### 5.2 Location — MILESTONE OPEN / STEP 6 CLOSED",
+    "### 5.2 Location — MILESTONE CLOSED",
+)
+
+replace_once(
+    "The **Location milestone remains OPEN**. STEP 5 (Android `LocationManager` + Android permission/resolution flow) is **CLOSED** after definitive run `33317622881` on exact tested/promoted candidate `7f59c55da954347a1db5c17fe41c2cb07309184c`. STEP 6 (minimal functional Device/Manual UI) is **CLOSED** after definitive run `33325240888` on exact clean candidate `df53f71c07cd3da743604898941f6b4ef39e86aa`, which passed policy/asset checks, unit tests, debug assembly and Android 9/API28 instrumentation (**25/25 tests, 0 failed, 0 skipped**) before exact-SHA promotion. STEP 7 is **NOT STARTED / NEXT** and remains the final full regression/closure gate for the Location milestone.",
+    "The **Location milestone is CLOSED** after STEP 7 final regression on exact pre-closure `main` SHA `b41dd6a4b8a29204a4cb01b0d640a44504139cfc`. Final run `33326121715` passed the complete `testDebugUnitTest`, `assembleDebug`, and Android 9/API28 `connectedDebugAndroidTest` gate with **25/25 tests, 0 failed, 0 skipped**. Complementary final data/APK run `33326126008` on the same exact SHA regenerated the frozen GeoNames runtime asset, repeated the full unit and Location+Prayer Android 9/API28 regression with **25/25 tests, 0 failed, 0 skipped**, and remeasured the GeoNames APK increment at **15,033,263 bytes**, 5,938,257 bytes below the approved 20 MiB threshold. STEP 5 remains closed on candidate `7f59c55da954347a1db5c17fe41c2cb07309184c` / run `33317622881`; STEP 6 remains closed on clean candidate `df53f71c07cd3da743604898941f6b4ef39e86aa` / run `33325240888`. No subsequent product milestone is authorized or started by this closure.",
+)
+
+apk_anchor = "- Definitive STEP 4 closure run `33296099459` on commit `8620772ebe0dd5b51691ce2447c46ef996cd90d1`: **28,020,736-byte SQLite**, **15,033,136-byte APK-compressed asset**, baseline APK **33,986,205 bytes**, APK with GeoNames **49,019,468 bytes**, and **15,033,263-byte APK increment**. The final database/APK asset SHA-256 is `7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb` and the workflow verified the decompressed APK asset matches the generated database exactly."
+replace_once(
+    apk_anchor,
+    apk_anchor
+    + "\n- Final STEP 7 remeasurement run `33326126008` on exact pre-closure `main` SHA `b41dd6a4b8a29204a4cb01b0d640a44504139cfc`: baseline APK **34,150,268 bytes**, APK with GeoNames **49,183,531 bytes**, **15,033,136-byte APK-compressed asset**, **28,020,736-byte SQLite**, and unchanged **15,033,263-byte APK increment**. Threshold remains 20,971,520 bytes; final margin is **5,938,257 bytes** and `threshold_pass = true`. Database SHA-256 remains `7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb`; 224,330 cities, 258,685 aliases and 391 timezone rows remain preserved.",
+)
+
+step6_end = "STEP 6 is closed only after an exact candidate SHA passes this gate and is promoted to the official STEP 6 branch. STEP 7 must not begin before that closure."
+step7_section = """STEP 6 was closed only after an exact candidate SHA passed this gate and was promoted to the official STEP 6 branch. STEP 7 began only after that closure and has now passed the final gate below.
+
+### Location STEP 7 final milestone regression — PASSED / MILESTONE CLOSED
+
+STEP 7 revalidated the complete accumulated Location milestone and the prior Prayer Engine on exact pre-closure `main` SHA `b41dd6a4b8a29204a4cb01b0d640a44504139cfc`; no production-code commit was inserted merely to run the gate.
+
+- Final full gate run `33326121715`: toolchain/permission policy and exact STEP 4 asset restore passed; `testDebugUnitTest` passed; `assembleDebug` passed; Android 9/API28 `connectedDebugAndroidTest` started and finished **25/25 tests with 0 failed and 0 skipped**.
+- Complementary final GeoNames/data gate run `33326126008` on the same SHA regenerated and validated the runtime-minimal city database, reran the full host unit suite, and passed the workflow step explicitly covering **Location and Prayer regression on Android 9/API28**, again **25/25 tests with 0 failed and 0 skipped**.
+- The unfiltered final suites include the accumulated Location boundaries from STEP 2 domain/coordinator/policies, STEP 3 Preferences DataStore, STEP 4 SQLite/CityRepository/timezone/data, STEP 5 `LocationManager` platform integration, and STEP 6 presentation/ViewModel/Compose UI, plus the existing Prayer regression including API28 HijrahChronology coverage.
+- Final manifest/dependency policy remains `ACCESS_COARSE_LOCATION` only: no `ACCESS_FINE_LOCATION`, no `ACCESS_BACKGROUND_LOCATION`, no Play Services Location dependency and no foreground location service.
+- Prayer Engine production subtree remains unchanged from final prayer implementation commit `e5987f878e253085425f9bfebf7bf714c8405de3`; the STEP 7 full unit/API28 gates passed, so the Location milestone introduced no Prayer regression.
+- Final real APK-size measurement: baseline APK 34,150,268 bytes; APK with GeoNames 49,183,531 bytes; runtime SQLite 28,020,736 bytes; compressed APK asset 15,033,136 bytes; incremental cost **15,033,263 bytes** against the 20,971,520-byte threshold, leaving **5,938,257 bytes** margin. The city database SHA-256 is unchanged at `7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb`.
+
+The Location milestone is therefore **CLOSED**. This documentation closure does not authorize or begin Qibla, notifications/alarms, Quran, definitive dashboard UI, or any other later milestone."""
+replace_once(step6_end, step7_section)
+
+replace_once(
+    "### Location STEP 4 gate — PASSED / milestone final gate pending",
+    "### Location STEP 4 gate — PASSED",
+)
+
+replace_once(
+    "This does **not** close the Location milestone. STEP 5 and STEP 6 are now **CLOSED**; STEP 7 full Location unit/build/API28 regression is **NOT STARTED / NEXT** and remains the final milestone closure gate.",
+    "This STEP 4 result did **not by itself** close the Location milestone. STEP 5 and STEP 6 later closed on their own exact-SHA gates, and STEP 7 final regression subsequently passed on `b41dd6a4b8a29204a4cb01b0d640a44504139cfc` in runs `33326121715` and `33326126008`; the Location milestone is now **CLOSED**.",
+)
+
+replace_once(
+    "### Approved / current Location milestone — OPEN",
+    "### Location milestone — CLOSED",
+)
+
+replace_once(
+    "- **STEP 7 — full Location unit/build/API28 regression and milestone closure: NOT STARTED / NEXT.** No STEP 7 work has begun.",
+    "- **STEP 7 — full Location unit/build/API28 regression and milestone closure: CLOSED.** Exact pre-closure `main` SHA `b41dd6a4b8a29204a4cb01b0d640a44504139cfc`; runs `33326121715` and `33326126008` both passed the accumulated host/API28 regression with 25/25 instrumentation tests, 0 failed and 0 skipped. The complementary data gate reconfirmed the 15,033,263-byte GeoNames APK increment below the 20 MiB threshold and the prior Prayer Engine regression remained green.",
+)
+
+replace_once(
+    "Current Location milestone also excludes:",
+    "The closed Location milestone excluded:",
+)
+
+replace_once(
+    "4. **Current: Location (Device + manual city) — MILESTONE OPEN.** STEP 4, STEP 5 and STEP 6 are closed; STEP 7 is NOT STARTED / NEXT.\n5. Location sequence/status: STEP 1 spec commit — CLOSED → STEP 2 pure Kotlin domain/state/policies + fake tests — CLOSED → STEP 3 Preferences DataStore — CLOSED → STEP 4 GeoNames generation/read-only SQLite + APK-size measurement + CityRepository/timezone/data/API28 gate — **CLOSED** → STEP 5 Android `LocationManager` + permission/resolution — **CLOSED** → STEP 6 minimal functional Device/Manual UI — **CLOSED** → STEP 7 full unit/build/API28 regression → dedicated implementation commit → STOP — **NOT STARTED / NEXT**.\n6. Notifications, AlarmManager, definitive UI, Qibla, Quran and custom alarms remain separate milestones and must not begin before the Location milestone is closed.",
+    "4. **Location (Device + manual city) — MILESTONE CLOSED.** STEP 1 through STEP 7 are closed after exact-SHA final regression on `b41dd6a4b8a29204a4cb01b0d640a44504139cfc`.\n5. Location sequence/status: STEP 1 spec/architecture — **CLOSED** → STEP 2 pure Kotlin domain/state/policies + fake tests — **CLOSED** → STEP 3 Preferences DataStore — **CLOSED** → STEP 4 GeoNames generation/read-only SQLite + APK-size measurement + CityRepository/timezone/data/API28 gate — **CLOSED** → STEP 5 Android `LocationManager` + permission/resolution — **CLOSED** → STEP 6 minimal functional Device/Manual UI — **CLOSED** → STEP 7 full unit/build/API28 + Prayer/data/APK final regression — **CLOSED** → **STOP**.\n6. Notifications, AlarmManager, definitive UI, Qibla, Quran and custom alarms remain separate future milestones; none is authorized or started by the Location closure.",
+)
+
+changelog_anchor = "## 17. Change log\n\n"
+closure_entry = """### 2026-08-30 — Location milestone CLOSED after STEP 7 final regression
+
+The **Location milestone is CLOSED** after the complete STEP 7 regression on exact pre-closure `main` SHA `b41dd6a4b8a29204a4cb01b0d640a44504139cfc`. Final run `33326121715` passed policy/asset checks, the entire `testDebugUnitTest` suite, `assembleDebug`, and Android 9/API28 `connectedDebugAndroidTest` with **25/25 tests, 0 failed and 0 skipped**. Complementary run `33326126008` on the same exact SHA regenerated the frozen GeoNames runtime database, passed the full host regression and the explicit Location+Prayer API28 regression with **25/25 tests, 0 failed and 0 skipped**, and remeasured the final GeoNames APK increment at **15,033,263 bytes** against the 20,971,520-byte threshold (margin **5,938,257 bytes**). Baseline APK was 34,150,268 bytes, APK with GeoNames 49,183,531 bytes, SQLite 28,020,736 bytes and compressed APK asset 15,033,136 bytes; the database SHA-256 remains `7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb`, with 224,330 cities, 258,685 aliases and the controlled 17-city `America/Nuuk` API28 unsupported set unchanged. Final policy remains COARSE-only with no FINE/BACKGROUND permission, no Play Services Location and no foreground location service. The prior Prayer Engine remains unchanged from `e5987f878e253085425f9bfebf7bf714c8405de3` and passed the accumulated final regression.
+
+Traceability across the original Location plan: **STEP 1** architecture/spec commit `4c818dd2c5ef35bce3110f41d89360ff96ba6c28` (spec/orchestration step; no dedicated Actions run); **STEP 2** pure Kotlin domain/state/policies and **STEP 3** Preferences DataStore landed together in `640891f79ed708d69befc5f5ed70110e982db582` (no dedicated Actions run at that point; both are included in the final unfiltered STEP 7 regression); **STEP 4** implementation `8620772ebe0dd5b51691ce2447c46ef996cd90d1`, definitive run `33296099459`, 16/16 API28 tests; **STEP 5** exact technical candidate `7f59c55da954347a1db5c17fe41c2cb07309184c`, definitive run `33317622881`, 21/21 API28 tests, followed by docs closure `44348eb2251e4586b4d9efd5683ef87aca2d000a`; **STEP 6** exact clean technical candidate `df53f71c07cd3da743604898941f6b4ef39e86aa`, definitive run `33325240888`, 25/25 API28 tests, followed by docs closure `b41dd6a4b8a29204a4cb01b0d640a44504139cfc`; **STEP 7** then revalidated that exact pre-closure `main` tree with final runs `33326121715` and `33326126008`. No later product milestone has been started.
+
+"""
+replace_once(changelog_anchor, changelog_anchor + closure_entry)
+
+path.write_text(text, encoding="utf-8")
