@@ -12,7 +12,7 @@ permissions:
 jobs:
   build-geonames:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -157,6 +157,20 @@ jobs:
           if not result['threshold_pass']:
               raise SystemExit('APK increment exceeds approved 20 MiB threshold')
           PY
+
+      - name: Run full unit regression
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Run Location and prayer regression on Android 9 / API 28
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 28
+          arch: x86_64
+          target: default
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
 
       - name: Collect pipeline evidence
         if: always()
