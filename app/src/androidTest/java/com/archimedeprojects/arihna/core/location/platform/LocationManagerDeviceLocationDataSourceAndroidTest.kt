@@ -87,7 +87,7 @@ class LocationManagerDeviceLocationDataSourceAndroidTest {
     }
 
     @Test
-    fun currentFixDeliveryIsBisectedAcrossFrameworkCompatAndBridge() = runBlocking {
+    fun currentFixDeliveryIsBisectedAcrossFrameworkCompatAndBridge(): Unit = runBlocking {
         val diagnostics = mutableListOf("case=A current-fix three-level bisection")
         recordState(diagnostics, "initial")
 
@@ -177,7 +177,7 @@ class LocationManagerDeviceLocationDataSourceAndroidTest {
     }
 
     @Test
-    fun foregroundFlowDeliveryIsBisectedAcrossCompatListenerAndBridge() = runBlocking {
+    fun foregroundFlowDeliveryIsBisectedAcrossCompatListenerAndBridge(): Unit = runBlocking {
         val diagnostics = mutableListOf("case=B foreground-flow three-level bisection")
         recordState(diagnostics, "initial")
 
