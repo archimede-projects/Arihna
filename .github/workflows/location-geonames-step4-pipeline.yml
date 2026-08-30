@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   build-geonames:
@@ -37,65 +38,122 @@ jobs:
 
       - name: Build baseline APK without GeoNames asset
         run: |
+          rm -rf app/src/main/assets/geonames
           ./gradlew clean assembleDebug --stacktrace
           cp app/build/outputs/apk/debug/app-debug.apk /tmp/arihna-baseline.apk
           stat -c 'BASELINE_APK_BYTES=%s' /tmp/arihna-baseline.apk
 
-      - name: Download official GeoNames snapshot
+      - name: Restore exact E6 staging snapshot from run 33292976302
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          mkdir -p /tmp/geonames
-          curl --fail --location --retry 5 --retry-delay 2 -o /tmp/geonames/cities500.zip https://download.geonames.org/export/dump/cities500.zip
-          curl --fail --location --retry 5 --retry-delay 2 -o /tmp/geonames/alternateNamesV2.zip https://download.geonames.org/export/dump/alternateNamesV2.zip
-          curl --fail --location --retry 5 --retry-delay 2 -o /tmp/geonames/countryInfo.txt https://download.geonames.org/export/dump/countryInfo.txt
-          curl --fail --location --retry 5 --retry-delay 2 -o /tmp/geonames/admin1CodesASCII.txt https://download.geonames.org/export/dump/admin1CodesASCII.txt
-          sha256sum /tmp/geonames/* | tee /tmp/geonames/source-sha256.txt
+          mkdir -p /tmp/e6-stage /tmp/geonames-output
+          gh run download 33292976302 \
+            --repo "$GITHUB_REPOSITORY" \
+            --name geonames-step4-pipeline \
+            --dir /tmp/e6-stage
+          ls -lh /tmp/e6-stage
 
-      - name: Build precompiled SQLite city database
+      - name: Verify staging provenance and semantic dataset
         run: |
-          mkdir -p app/src/main/assets/geonames /tmp/geonames-output
-          python3 tools/geonames/build_city_db.py \
-            --cities /tmp/geonames/cities500.zip \
-            --alternate-names /tmp/geonames/alternateNamesV2.zip \
-            --country-info /tmp/geonames/countryInfo.txt \
-            --admin1 /tmp/geonames/admin1CodesASCII.txt \
-            --snapshot-date 2026-08-10 \
+          python3 - <<'PY'
+          import hashlib, json, pathlib
+
+          root = pathlib.Path('/tmp/e6-stage')
+          db = root / 'cities.db'
+          metadata_path = root / 'metadata.json'
+          expected_db_sha = 'e567b7eabb40994d5d9fb95209c050503cf5747a6cdd25ef73d195aeb4003877'
+          expected_sources = {
+              'cities500.zip': '51540057545db1963c99109ff49548c5067bd00877cd6d6baa86045ce2698ad5',
+              'alternateNamesV2.zip': '5fda82d1053ac5e3ddc9447497db1fbf53d56017febba8c81a18514a65c6f000',
+              'countryInfo.txt': '93bafc525813f22e4711ff9ed6d626343094ce48c26388dc7c49189b3d7d5512',
+              'admin1CodesASCII.txt': '590651498043f674accda2b7f46d21286cda0e290b02f8561c5005eee9a5448c',
+          }
+          h = hashlib.sha256(db.read_bytes()).hexdigest()
+          if h != expected_db_sha:
+              raise SystemExit(f'staging DB SHA mismatch: {h} != {expected_db_sha}')
+          metadata = json.loads(metadata_path.read_text())
+          counts = metadata['counts']
+          expected_counts = {'cities': 224330, 'aliases_total': 258685, 'timezones_distinct': 391}
+          for key, value in expected_counts.items():
+              if counts.get(key) != value:
+                  raise SystemExit(f'{key} mismatch: {counts.get(key)} != {value}')
+          if counts.get('coordinate_roundtrip_mismatches') != 0:
+              raise SystemExit('staging coordinate roundtrip validation was not clean')
+          fts = metadata['validation']['city_search']
+          if fts.get('missing_docids') != 0 or fts.get('orphan_docids') != 0:
+              raise SystemExit('staging FTS validation was not clean')
+          for name, sha in expected_sources.items():
+              actual = metadata['inputs'][name]['sha256']
+              if actual != sha:
+                  raise SystemExit(f'{name} SHA mismatch: {actual} != {sha}')
+          print(json.dumps({
+              'staging_db_sha256': h,
+              'counts': expected_counts,
+              'source_sha256': expected_sources,
+              'source_run_id': 33292976302,
+          }, indent=2, sort_keys=True))
+          PY
+          cp /tmp/e6-stage/metadata.json /tmp/geonames-output/e6-staging-metadata.json
+          cp /tmp/e6-stage/apk-size.json /tmp/geonames-output/e6-staging-apk-size.json
+          cp /tmp/e6-stage/source-sha256.txt /tmp/geonames-output/source-sha256.txt
+
+      - name: Build runtime-minimal SQLite city database
+        run: |
+          mkdir -p app/src/main/assets/geonames
+          python3 tools/geonames/optimize_city_db.py \
+            --source /tmp/e6-stage/cities.db \
+            --source-metadata /tmp/e6-stage/metadata.json \
+            --expected-source-sha256 e567b7eabb40994d5d9fb95209c050503cf5747a6cdd25ef73d195aeb4003877 \
             --output app/src/main/assets/geonames/cities.db \
-            --metadata /tmp/geonames-output/metadata.json
+            --metadata /tmp/geonames-output/runtime-minimal-metadata.json
           cp app/src/main/assets/geonames/cities.db /tmp/geonames-output/cities.db
-          stat -c 'DB_BYTES=%s' app/src/main/assets/geonames/cities.db
+          stat -c 'RUNTIME_MINIMAL_DB_BYTES=%s' app/src/main/assets/geonames/cities.db
           sha256sum app/src/main/assets/geonames/cities.db
 
-      - name: Build APK with GeoNames asset and measure increment
+      - name: Build APK with runtime-minimal asset and measure increment
         run: |
           ./gradlew clean assembleDebug --stacktrace
-          cp app/build/outputs/apk/debug/app-debug.apk /tmp/arihna-with-geonames.apk
+          cp app/build/outputs/apk/debug/app-debug.apk /tmp/arihna-runtime-minimal.apk
           python3 - <<'PY'
-          import json, os, zipfile
-          baseline='/tmp/arihna-baseline.apk'
-          withdb='/tmp/arihna-with-geonames.apk'
-          db='app/src/main/assets/geonames/cities.db'
-          b=os.path.getsize(baseline)
-          w=os.path.getsize(withdb)
-          d=os.path.getsize(db)
+          import hashlib, json, os, zipfile
+
+          baseline = '/tmp/arihna-baseline.apk'
+          withdb = '/tmp/arihna-runtime-minimal.apk'
+          db = 'app/src/main/assets/geonames/cities.db'
+          baseline_bytes = os.path.getsize(baseline)
+          apk_bytes = os.path.getsize(withdb)
+          database_bytes = os.path.getsize(db)
+          with open(db, 'rb') as f:
+              database_sha = hashlib.sha256(f.read()).hexdigest()
           with zipfile.ZipFile(withdb) as z:
-              entry=next(i for i in z.infolist() if i.filename.endswith('assets/geonames/cities.db'))
-              packed=entry.compress_size
-              stored=entry.file_size
-              method=entry.compress_type
-          result={
-              'baseline_apk_bytes': b,
-              'with_geonames_apk_bytes': w,
-              'apk_increment_bytes': w-b,
-              'database_bytes': d,
+              entry = next(i for i in z.infolist() if i.filename.endswith('assets/geonames/cities.db'))
+              asset_bytes = z.read(entry)
+              asset_sha = hashlib.sha256(asset_bytes).hexdigest()
+              packed = entry.compress_size
+              stored = entry.file_size
+              method = entry.compress_type
+          if asset_sha != database_sha:
+              raise SystemExit(f'APK asset is stale/mismatched: {asset_sha} != {database_sha}')
+          result = {
+              'profile': 'runtime-minimal',
+              'source_run_id': 33292976302,
+              'baseline_apk_bytes': baseline_bytes,
+              'with_geonames_apk_bytes': apk_bytes,
+              'apk_increment_bytes': apk_bytes - baseline_bytes,
+              'database_bytes': database_bytes,
+              'database_sha256': database_sha,
               'apk_asset_uncompressed_bytes': stored,
               'apk_asset_compressed_bytes': packed,
+              'apk_asset_sha256': asset_sha,
               'apk_asset_zip_method': method,
-              'threshold_bytes': 20*1024*1024,
-              'threshold_pass': (w-b) <= 20*1024*1024,
+              'threshold_bytes': 20 * 1024 * 1024,
+              'threshold_pass': (apk_bytes - baseline_bytes) <= 20 * 1024 * 1024,
           }
           print(json.dumps(result, indent=2, sort_keys=True))
-          with open('/tmp/geonames-output/apk-size.json','w') as f:
-              json.dump(result,f,indent=2,sort_keys=True); f.write('\n')
+          with open('/tmp/geonames-output/apk-size.json', 'w') as f:
+              json.dump(result, f, indent=2, sort_keys=True)
+              f.write('\n')
           if not result['threshold_pass']:
               raise SystemExit('APK increment exceeds approved 20 MiB threshold')
           PY
@@ -103,15 +161,14 @@ jobs:
       - name: Collect pipeline evidence
         if: always()
         run: |
-          cp /tmp/geonames/source-sha256.txt /tmp/geonames-output/source-sha256.txt || true
           ls -lh /tmp/geonames-output || true
-          cat /tmp/geonames-output/metadata.json || true
+          cat /tmp/geonames-output/runtime-minimal-metadata.json || true
           cat /tmp/geonames-output/apk-size.json || true
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: geonames-step4-pipeline
+          name: geonames-step4-runtime-minimal
           path: /tmp/geonames-output
           if-no-files-found: error
           retention-days: 7
