@@ -394,7 +394,7 @@ User can:
 - understand permission denied, services disabled, timeout/cached, unsupported-timezone and unconfigured states;
 - see GeoNames attribution in relevant functional/about path.
 
-### 5.3 Prayer Engine + Location integration — MILESTONE OPEN / STEP 2 IN PROGRESS
+### 5.3 Prayer Engine + Location integration — MILESTONE OPEN / STEP 2 CLOSED
 
 This milestone connects the already-closed Prayer Engine and Location milestones without reopening or duplicating their internal logic. Location remains the sole authority that produces a valid `SelectedLocation`; the Prayer Engine remains the sole authority for prayer-time calculation from explicit `Coordinates + ZoneId + PrayerCalculationSettings + LocalDate`. The integration layer derives a UI-consumable schedule only when Location is `Ready` and never invents coordinates, timezone, calculation results or fallback prayer times.
 
@@ -477,6 +477,16 @@ Until a dedicated Prayer settings UI exists, the canonical initial settings are:
 If no Prayer settings exist, materialize/persist this complete canonical default so a later settings screen edits the same stored value rather than replacing an implicit runtime fallback. A complete valid persisted set is restored unchanged. Partial/malformed Prayer settings must not create arbitrary mixed values; recover to the documented canonical default in a controlled, test-covered way.
 
 **Known temporary product limitation:** MWL/Standard/Automatic is a deliberately generic bootstrap default, not a claim that MWL matches every local religious convention. An app user in Saudi Arabia, or in any region/community whose established convention differs from MWL/Standard, may see prayer times that differ slightly from local practice until Arihna provides the separately scoped settings UI for choosing calculation method, Asr convention, high-latitude rule and offsets. This is an accepted temporary limitation of this integration milestone, not a Prayer Engine defect, and must remain tracked until the configurable settings UI exists. Arihna must not silently auto-select Umm al-Qura or another method from country/city/location.
+
+#### STEP 2 closure evidence
+
+STEP 2 was closed only after a clean technical candidate was rebuilt directly above the STEP 2 spec-first commit and passed a new gate on its exact SHA. Definitive technical commit `ffb391846481a38cca0786be238bddae912ba862` passed workflow run `33338723836` / job `99330268698`: `testDebugUnitTest` passed, `assembleDebug` passed, and Android 9/API28 `connectedDebugAndroidTest` started and finished **35/35 tests with 0 failed and 0 skipped**. The workflow also restored and verified the frozen GeoNames asset and preserved the existing COARSE-only/no-FINE/no-BACKGROUND/no-Play-Services policy checks.
+
+The real persistence instrumentation uses `PreferenceDataStoreFactory` and passes the **same `DataStore<Preferences>` instance** to the Prayer and existing Location repositories. It verifies canonical first-use materialization, restart persistence, custom settings, positive/negative/zero offsets, dedicated recovery cases for partial records, unknown enum values and wrong stored types, and explicit isolation in both directions: Prayer reads/writes preserve existing `location.*` entries, and Location reads/writes preserve existing `prayer.*` entries. Recovery rewrites only the complete Prayer record and never calls a DataStore-wide clear.
+
+Diagnostic history is retained for traceability but is not definitive gate evidence: the first attempt of run `33337223313` timed out in ddmlib while installing the APK and executed **0 tests**; its rerun then exposed only a JUnit test-harness signature error (`@After tearDown()` inferred a non-void return). That teardown was corrected without changing production code, and corrected development run `33338267865` passed **35/35 tests, 0 failed and 0 skipped** before the clean exact-SHA candidate received the independent definitive gate above.
+
+No STEP 2 production change touched `PrayerTimeCalculator`, Location behavior, existing Location keys, or UI. The documented MWL/STANDARD/AUTOMATIC bootstrap-default limitation remains tracked until the separately scoped Prayer settings UI exists. STEP 3 is **NOT STARTED**.
 
 #### Recalculation policy
 
@@ -561,14 +571,14 @@ Final milestone regression must run unfiltered `testDebugUnitTest`, `assembleDeb
 #### Seven-step implementation sequence
 
 1. **STEP 1 — spec-first architecture: CLOSED by this documentation step.** Define orchestration, exact repository interfaces, settings/default policy, recalculation, error discipline, Home scope and tests before code.
-2. **STEP 2 — Prayer settings persistence: IN PROGRESS.** Implement `PrayerSettingsRepository` with the exact same existing Preferences DataStore instance used by Location (the current `name = "location"` store is not renamed or migrated), Prayer-only keys `prayer.method`, `prayer.asr`, `prayer.high_latitude_rule`, and `prayer.offset.*`, canonical-default materialization/recovery, focused JVM tests, and real API28 shared-DataStore isolation tests. No UI and no changes to PrayerTimeCalculator, Location behavior, or existing Location keys.
+2. **STEP 2 — Prayer settings persistence: CLOSED.** `PrayerSettingsRepository` is implemented on the exact same existing Preferences DataStore instance used by Location (the current `name = "location"` store remains unchanged), with Prayer-only keys `prayer.method`, `prayer.asr`, `prayer.high_latitude_rule`, and `prayer.offset.*`. First use materializes the complete canonical MWL/STANDARD/AUTOMATIC/zero-offset record; partial or malformed Prayer data is recovered atomically to that same complete canonical record without clearing or rewriting Location entries. Focused JVM coverage and real Android 9/API28 shared-DataStore instrumentation passed on exact clean technical commit `ffb391846481a38cca0786be238bddae912ba862` in definitive run `33338723836` / job `99330268698`, including **35/35 instrumentation tests, 0 failed and 0 skipped**. No UI, `PrayerTimeCalculator`, Location behavior, or existing Location keys were changed.
 3. **STEP 3 — schedule orchestration: NOT STARTED.** Implement `PrayerScheduleRepository` and pure fake-Location/fake-calculator contract tests.
 4. **STEP 4 — presentation/countdown: NOT STARTED.** Implement `PrayerScheduleViewModel`, next-prayer/countdown behavior and tests.
 5. **STEP 5 — functional Home panel: NOT STARTED.** Render the minimal Prayer Schedule UI without final Hero Dashboard scope.
 6. **STEP 6 — full regression gate: NOT STARTED.** Run Prayer + Location + Integration unit/build/API28 regressions plus permission/asset checks and final APK/data non-regression where practical.
 7. **STEP 7 — documentation-only milestone closure: NOT STARTED.** After an exact tested technical SHA is green/promoted, update the specification with definitive evidence and stop.
 
-STEP 2 is explicitly authorized and in progress. It is limited to Prayer settings persistence and verification; STEP 3 schedule orchestration must not begin until STEP 2 is closed and explicitly confirmed. Qibla, notifications/AlarmManager, adhan audio, custom alarms, Quran and the definitive dashboard remain separate milestones.
+STEP 2 is **CLOSED** after exact-SHA persistence verification and promotion. STEP 3 schedule orchestration remains **NOT STARTED** and requires separate explicit authorization before any implementation begins. Qibla, notifications/AlarmManager, adhan audio, custom alarms, Quran and the definitive dashboard remain separate milestones.
 
 ### 5.4 Qibla
 
@@ -937,10 +947,14 @@ Current Prayer Engine + Location integration milestone additionally excludes:
 3. Prayer-time calculation — CLOSED; final commit `e5987f878e253085425f9bfebf7bf714c8405de3`; JDK21/API28 regression passed.
 4. **Location (Device + manual city) — MILESTONE CLOSED.** STEP 1 through STEP 7 are closed after exact-SHA final regression on `b41dd6a4b8a29204a4cb01b0d640a44504139cfc`.
 5. Location sequence/status: STEP 1 spec/architecture — **CLOSED** → STEP 2 pure Kotlin domain/state/policies + fake tests — **CLOSED** → STEP 3 Preferences DataStore — **CLOSED** → STEP 4 GeoNames generation/read-only SQLite + APK-size measurement + CityRepository/timezone/data/API28 gate — **CLOSED** → STEP 5 Android `LocationManager` + permission/resolution — **CLOSED** → STEP 6 minimal functional Device/Manual UI — **CLOSED** → STEP 7 full unit/build/API28 + Prayer/data/APK final regression — **CLOSED** → **STOP**.
-6. **Current: Prayer Engine + Location integration — MILESTONE OPEN / STEP 2 IN PROGRESS.** Seven-step sequence approved: STEP 1 spec-first — **CLOSED** → STEP 2 Prayer settings persistence — **IN PROGRESS** → STEP 3 schedule orchestration — NOT STARTED → STEP 4 presentation/countdown — NOT STARTED → STEP 5 functional Home panel — NOT STARTED → STEP 6 full Prayer+Location+Integration regression — NOT STARTED → STEP 7 docs-only closure — NOT STARTED → STOP.
+6. **Current: Prayer Engine + Location integration — MILESTONE OPEN / STEP 2 CLOSED.** Seven-step sequence approved: STEP 1 spec-first — **CLOSED** → STEP 2 Prayer settings persistence — **CLOSED** → STEP 3 schedule orchestration — **NOT STARTED** → STEP 4 presentation/countdown — NOT STARTED → STEP 5 functional Home panel — NOT STARTED → STEP 6 full Prayer+Location+Integration regression — NOT STARTED → STEP 7 docs-only closure — NOT STARTED → STOP. No STEP 3 work is authorized by the STEP 2 closure.
 7. Qibla, notifications/AlarmManager, adhan audio, custom alarms, Quran and definitive Hero Dashboard remain separate future milestones and must not begin before this integration milestone is closed.
 
 ## 17. Change log
+
+### 2026-08-31 — Prayer Engine + Location integration STEP 2 CLOSED after exact-SHA persistence gate
+
+STEP 2 Prayer settings persistence is **CLOSED**. Clean technical commit `ffb391846481a38cca0786be238bddae912ba862`, built directly above spec-first commit `e10b7cc2780556ca3635ac47f5057059f2720755`, passed definitive workflow run `33338723836` / job `99330268698`: `testDebugUnitTest` and `assembleDebug` were successful, and Android 9/API28 `connectedDebugAndroidTest` completed **35/35 tests with 0 failed and 0 skipped**. The implementation shares the exact existing Preferences DataStore instance/file used by Location without renaming or migrating it, persists only the approved `prayer.*` keys, materializes the complete MWL/STANDARD/AUTOMATIC/zero-offset default on first use, and atomically recovers malformed or partial Prayer records to that canonical value. Real shared-DataStore instrumentation proves Prayer↔Location isolation in both directions rather than assuming isolation from prefixes. The earlier ddmlib install timeout in run `33337223313` executed zero tests and was infrastructure-only; its rerun exposed a JUnit teardown-signature issue in the new test harness, corrected without production-code changes before corrected development run `33338267865` and the definitive clean-candidate gate. No UI, `PrayerTimeCalculator`, Location behavior, or existing Location keys changed. STEP 3 remains **NOT STARTED** and is not authorized by this closure.
 
 ### 2026-08-30 — Prayer Engine + Location integration STEP 2 Prayer settings persistence authorized
 
