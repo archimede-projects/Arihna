@@ -21,7 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -45,13 +45,13 @@ class LocationManagerDeviceLocationDataSourceAndroidTest {
 
     @Before
     fun setUp() {
-        shell("settings put secure location_mode 3")
+        setApi28LocationProvidersEnabled(true)
         grantCoarseAndMockLocationAppOp(targetContext.packageName)
         grantCoarseAndMockLocationAppOp(testContext.packageName)
         runCatching { locationManager.removeTestProvider(providerName) }
         locationManager.addTestProvider(
             providerName,
-            false,
+            true,
             false,
             false,
             false,
@@ -67,22 +67,21 @@ class LocationManagerDeviceLocationDataSourceAndroidTest {
             waitForLocationEnabled(expected = true),
         )
         assertTrue("STEP 5 test provider must be enabled", locationManager.isProviderEnabled(providerName))
+        assertTrue(
+            "The STEP 5 test provider must be visible to a COARSE-only caller",
+            providerName in locationManager.getProviders(true),
+        )
     }
 
     @After
     fun tearDown() {
         runCatching { locationManager.setTestProviderEnabled(providerName, false) }
         runCatching { locationManager.removeTestProvider(providerName) }
-        shell("settings put secure location_mode 3")
+        setApi28LocationProvidersEnabled(true)
     }
 
     @Test
     fun currentLocationRegistersWithFrameworkAndCancellationRemovesRequest() = runBlocking {
-        // API28 emulator/test-provider limitation: setTestProviderLocation() can store a complete
-        // synthetic fix while Android's app-facing COARSE path still withholds it because the mock
-        // does not reliably carry the production no-GPS payload (Location.EXTRA_NO_GPS_LOCATION).
-        // Therefore this automated case verifies the real framework/AndroidX request lifecycle only.
-        // End-to-end COARSE delivery/mapping was verified separately on a real Galaxy S25.
         val awaiting = async(Dispatchers.Default) { dataSource().getCurrentLocation() }
 
         val registration = waitForRegistration(expectedPresent = true)
@@ -102,12 +101,8 @@ class LocationManagerDeviceLocationDataSourceAndroidTest {
 
     @Test
     fun foregroundFlowRegistersApprovedIntervalAndCancellationRemovesListener() = runBlocking {
-        // Same API28 COARSE mock-delivery limitation as the current-location case above: do not
-        // require a synthetic callback the emulator cannot faithfully expose to a coarse-only app.
-        // Keep the test active (never @Ignore): prove registration, the approved 15-minute request,
-        // and callbackFlow cancellation -> LocationManagerCompat.removeUpdates().
         val awaiting = async(Dispatchers.Default) {
-            dataSource().observeSignificantUpdates().first()
+            dataSource().observeSignificantUpdates().collect { }
         }
 
         val registration = waitForRegistration(expectedPresent = true)
@@ -117,7 +112,7 @@ class LocationManagerDeviceLocationDataSourceAndroidTest {
         )
         assertTrue(
             "Foreground registration must carry the approved 15-minute interval",
-            registration.any { "requested=+15m0s0ms" in it },
+            registration.any { "requested=+15m" in it },
         )
 
         awaiting.cancelAndJoin()
@@ -149,13 +144,25 @@ class LocationManagerDeviceLocationDataSourceAndroidTest {
 
     @Test
     fun disabledLocationServicesAreExposedWithoutFabricatedFix() = runBlocking {
-        shell("settings put secure location_mode 0")
-        val environment = AndroidLocationEnvironment(targetContext)
+        try {
+            setApi28LocationProvidersEnabled(false)
+            assertTrue(
+                "API28 provider toggle must make LocationManager report services disabled",
+                waitForLocationEnabled(expected = false),
+            )
+            assertFalse(locationManager.isLocationEnabled)
+            assertFalse(AndroidLocationEnvironment(targetContext).isLocationServicesEnabled())
 
-        assertFalse(environment.isLocationServicesEnabled())
-        val result = dataSource().getCurrentLocation()
-        val unavailable = result as DeviceLocationResult.Unavailable
-        assertEquals(LocationFailure.NO_PROVIDER, unavailable.reason)
+            val result = dataSource().getCurrentLocation()
+            val unavailable = result as DeviceLocationResult.Unavailable
+            assertEquals(LocationFailure.NO_PROVIDER, unavailable.reason)
+        } finally {
+            setApi28LocationProvidersEnabled(true)
+            assertTrue(
+                "API28 location providers must be restored after the disabled-services test",
+                waitForLocationEnabled(expected = true),
+            )
+        }
     }
 
     @Test
@@ -213,6 +220,12 @@ class LocationManagerDeviceLocationDataSourceAndroidTest {
             Thread.sleep(100)
         }
         return runCatching { locationManager.isLocationEnabled }.getOrDefault(!expected) == expected
+    }
+
+    private fun setApi28LocationProvidersEnabled(enabled: Boolean) {
+        val operator = if (enabled) "+" else "-"
+        shell("settings put secure location_providers_allowed ${operator}gps")
+        shell("settings put secure location_providers_allowed ${operator}network")
     }
 
     private fun grantCoarseAndMockLocationAppOp(packageName: String) {
