@@ -8,8 +8,12 @@ import com.archimedeprojects.arihna.app.ArihnaApp
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val appContainer = (application as ArihnaApplication).appContainer
         setContent {
-            ArihnaApp()
+            ArihnaApp(
+                appContainer = appContainer,
+                activity = this,
+            )
         }
     }
 }

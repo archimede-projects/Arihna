@@ -1,5 +1,6 @@
 package com.archimedeprojects.arihna.app
 
+import android.app.Activity
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -13,12 +14,15 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.archimedeprojects.arihna.core.location.platform.AndroidLocationEnvironment
+import com.archimedeprojects.arihna.core.location.platform.AndroidLocationPermissionStateResolver
 import com.archimedeprojects.arihna.feature.alarms.AlarmsPlaceholderScreen
 import com.archimedeprojects.arihna.feature.home.HomePlaceholderScreen
 import com.archimedeprojects.arihna.feature.prayers.PrayerTimesPlaceholderScreen
 import com.archimedeprojects.arihna.feature.qibla.QiblaPlaceholderScreen
 import com.archimedeprojects.arihna.feature.quran.QuranPlaceholderScreen
-import com.archimedeprojects.arihna.feature.settings.SettingsPlaceholderScreen
+import com.archimedeprojects.arihna.feature.settings.LocationSettingsRoute
+import com.archimedeprojects.arihna.feature.settings.LocationSettingsViewModel
 
 private enum class Destination(
     val route: String,
@@ -34,7 +38,12 @@ private enum class Destination(
 }
 
 @Composable
-fun ArihnaNavHost() {
+fun ArihnaNavHost(
+    activity: Activity,
+    locationSettingsViewModel: LocationSettingsViewModel,
+    locationEnvironment: AndroidLocationEnvironment,
+    locationPermissionStateResolver: AndroidLocationPermissionStateResolver,
+) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
@@ -73,7 +82,15 @@ fun ArihnaNavHost() {
             composable(Destination.Qibla.route) { QiblaPlaceholderScreen(innerPadding) }
             composable(Destination.Quran.route) { QuranPlaceholderScreen(innerPadding) }
             composable(Destination.Alarms.route) { AlarmsPlaceholderScreen(innerPadding) }
-            composable(Destination.Settings.route) { SettingsPlaceholderScreen(innerPadding) }
+            composable(Destination.Settings.route) {
+                LocationSettingsRoute(
+                    contentPadding = innerPadding,
+                    activity = activity,
+                    viewModel = locationSettingsViewModel,
+                    environment = locationEnvironment,
+                    permissionResolver = locationPermissionStateResolver,
+                )
+            }
         }
     }
 }
