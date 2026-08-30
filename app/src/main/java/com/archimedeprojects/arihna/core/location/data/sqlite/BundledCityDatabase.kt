@@ -55,9 +55,7 @@ class BundledCityDatabase(context: Context) {
         }
 
         val target = File(directory, INSTALLED_FILE_NAME)
-        if (isExpectedDatabase(target)) {
-            return target
-        }
+        if (isExpectedDatabase(target)) return target
         if (target.exists() && !target.delete()) {
             throw IOException("Unable to remove invalid city database: $target")
         }
@@ -96,9 +94,7 @@ class BundledCityDatabase(context: Context) {
             }
             return target
         } finally {
-            if (temporary.exists()) {
-                temporary.delete()
-            }
+            if (temporary.exists()) temporary.delete()
         }
     }
 
@@ -127,12 +123,12 @@ class BundledCityDatabase(context: Context) {
     companion object {
         const val ASSET_PATH = "geonames/cities.db"
         const val EXPECTED_DATABASE_SHA256 =
-            "6383538be045a51bbab6ae2e3097f99bdc79851af525c6bbc9fed018d434ce0a"
-        const val EXPECTED_DATABASE_BYTES = 27_795_456L
+            "7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb"
+        const val EXPECTED_DATABASE_BYTES = 28_020_736L
 
         private const val INSTALL_DIRECTORY = "geonames"
         private const val INSTALLED_FILE_NAME =
-            "cities-6383538be045a51bbab6ae2e3097f99b.db"
+            "cities-7bf32ed8845b293518880f00345406b5.db"
         private const val COPY_BUFFER_BYTES = 128 * 1024
     }
 }
