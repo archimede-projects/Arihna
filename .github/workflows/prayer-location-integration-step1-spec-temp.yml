@@ -1,0 +1,39 @@
+name: Temporary prayer location integration spec patch
+
+on:
+  push:
+    branches:
+      - prayer-location-integration-step1-spec-temp
+
+permissions:
+  contents: write
+
+jobs:
+  patch-spec:
+    if: github.event.head_commit.message != 'docs(integration): define prayer location schedule architecture'
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply asserted spec patch
+        run: python3 tools/prayer_location_integration_step1_spec_temp.py
+
+      - name: Verify spec markers and diff
+        run: |
+          grep -q '### 5.3 Prayer Engine + Location integration — MILESTONE OPEN / STEP 1 SPEC CLOSED' PROJECT_SPEC.md
+          grep -q 'Known temporary product limitation' PROJECT_SPEC.md
+          grep -q 'Saudi Arabia' PROJECT_SPEC.md
+          grep -q 'interface PrayerScheduleRepository' PROJECT_SPEC.md
+          grep -q 'interface PrayerSettingsRepository' PROJECT_SPEC.md
+          grep -q 'STEP 2 Prayer settings persistence is NOT STARTED / NEXT' PROJECT_SPEC.md
+          grep -q '### 5.4 Qibla' PROJECT_SPEC.md
+          git diff --check
+
+      - name: Commit validated spec
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add PROJECT_SPEC.md
+          git diff --cached --check
+          git commit -m 'docs(integration): define prayer location schedule architecture'
+          git push origin HEAD:prayer-location-integration-step1-spec-temp
