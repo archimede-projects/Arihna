@@ -19,6 +19,28 @@ interface CitySearchResult {
             regionName?.takeIf { it.isNotBlank() },
             countryName,
         ).distinct().joinToString(", ")
+
+    companion object {
+        operator fun invoke(
+            id: Long,
+            name: String,
+            regionName: String?,
+            countryName: String,
+            countryCode: String,
+            coordinates: Coordinates,
+            timeZoneId: String,
+            timeZoneSupported: Boolean,
+        ): CitySearchResult = CatalogCitySearchResult(
+            id = id,
+            name = name,
+            regionName = regionName,
+            countryName = countryName,
+            countryCode = countryCode,
+            coordinates = coordinates,
+            timeZoneId = timeZoneId,
+            timeZoneSupported = timeZoneSupported,
+        )
+    }
 }
 
 /** Catalog result used when timezone materialization is deliberately deferred. */
