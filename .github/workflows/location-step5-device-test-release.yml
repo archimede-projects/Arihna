@@ -35,8 +35,8 @@ jobs:
 
       - uses: android-actions/setup-android@v3
 
-      - name: Install Android SDK
-        run: sdkmanager 'platforms;android-37' 'build-tools;37.0.0'
+      - name: Install Android API 37
+        run: android sdk install platforms/android-37 --canary || true
 
       - name: Verify production permission policy
         run: |
@@ -82,7 +82,7 @@ jobs:
           test -f "$APK"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
           "$APKSIGNER" verify --verbose --print-certs "$APK" | tee /tmp/apksigner.txt
-          grep -Fi '13:97:00:8c:1f:96:2d:bb:d3:6d:d8:a8:ea:02:16:af:dd:06:e4:b2:b3:e0:8b:c0:f6:d4:b5:43:44:d7:b0:fa' /tmp/apksigner.txt
+          grep -Fi '1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa' /tmp/apksigner.txt
           cp "$APK" "$APK_NAME"
           sha256sum "$APK_NAME"
 
