@@ -1,0 +1,42 @@
+name: Prayer STEP 2 closure temp
+
+on:
+  push:
+    branches:
+      - prayer-integration-step2-closure
+    paths:
+      - .github/workflows/prayer-step2-closure-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  close-spec:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Patch STEP 2 closure spec
+        run: python3 tools/step2_close_spec_temp.py
+
+      - name: Verify closure markers and clean diff
+        run: |
+          grep -q 'MILESTONE OPEN / STEP 2 CLOSED' PROJECT_SPEC.md
+          grep -q 'STEP 2 — Prayer settings persistence: CLOSED' PROJECT_SPEC.md
+          grep -q 'ffb391846481a38cca0786be238bddae912ba862' PROJECT_SPEC.md
+          grep -q '33338723836' PROJECT_SPEC.md
+          grep -q '99330268698' PROJECT_SPEC.md
+          grep -q '35/35' PROJECT_SPEC.md
+          grep -q 'STEP 3 — schedule orchestration: \*\*NOT STARTED\*\*' PROJECT_SPEC.md
+          git diff --check
+
+      - name: Commit validated PROJECT_SPEC only
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add PROJECT_SPEC.md
+          git diff --cached --check
+          test "$(git diff --cached --name-only)" = 'PROJECT_SPEC.md'
+          git commit -m 'docs(integration): validate STEP 2 closure [temp]'
+          git push origin HEAD:prayer-integration-step2-closure
