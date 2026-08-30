@@ -45,7 +45,35 @@ jobs:
           profile: pixel_2
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
-          script: >-
-            ./gradlew :app:connectedDebugAndroidTest
-            -Pandroid.testInstrumentationRunnerArguments.class=com.archimedeprojects.arihna.core.location.platform.CoarseMockProviderCrossApiAndroidTest
-            --stacktrace
+          script: |
+            set -euo pipefail
+            echo "Waiting for Android framework services package/activity..."
+            ready=0
+            for attempt in $(seq 1 300); do
+              package_state="$(adb shell service check package 2>/dev/null || true)"
+              activity_state="$(adb shell service check activity 2>/dev/null || true)"
+              if echo "$package_state" | grep -q "found" && \
+                 echo "$activity_state" | grep -q "found" && \
+                 adb shell pm path android >/dev/null 2>&1 && \
+                 adb shell am get-current-user >/dev/null 2>&1; then
+                ready=1
+                echo "Android framework services ready on attempt $attempt"
+                break
+              fi
+              if [ $((attempt % 30)) -eq 0 ]; then
+                echo "Still waiting: package='$package_state' activity='$activity_state'"
+              fi
+              sleep 2
+            done
+            if [ "$ready" -ne 1 ]; then
+              echo "Android package/activity services never became ready"
+              adb shell service list || true
+              exit 1
+            fi
+            adb shell service check package
+            adb shell service check activity
+            adb shell pm path android
+            adb shell am get-current-user
+            ./gradlew :app:connectedDebugAndroidTest \
+              -Pandroid.testInstrumentationRunnerArguments.class=com.archimedeprojects.arihna.core.location.platform.CoarseMockProviderCrossApiAndroidTest \
+              --stacktrace
