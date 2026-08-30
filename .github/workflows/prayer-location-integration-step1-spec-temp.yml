@@ -10,13 +10,17 @@ permissions:
 
 jobs:
   patch-spec:
-    if: github.event.head_commit.message != 'docs(integration): define prayer location schedule architecture'
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Apply asserted spec patch
-        run: python3 tools/prayer_location_integration_step1_spec_temp.py
+        run: |
+          if grep -q '### 5.3 Prayer Engine + Location integration — MILESTONE OPEN / STEP 1 SPEC CLOSED' PROJECT_SPEC.md; then
+            echo 'Spec already patched; nothing to do.'
+            exit 0
+          fi
+          python3 tools/prayer_location_integration_step1_spec_temp.py
 
       - name: Verify spec markers and diff
         run: |
@@ -29,8 +33,12 @@ jobs:
           grep -q '### 5.4 Qibla' PROJECT_SPEC.md
           git diff --check
 
-      - name: Commit validated spec
+      - name: Commit validated spec if changed
         run: |
+          if git diff --quiet -- PROJECT_SPEC.md; then
+            echo 'No PROJECT_SPEC change to commit.'
+            exit 0
+          fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add PROJECT_SPEC.md
