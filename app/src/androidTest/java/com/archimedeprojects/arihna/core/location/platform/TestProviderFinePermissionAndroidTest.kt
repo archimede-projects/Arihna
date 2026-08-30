@@ -21,16 +21,17 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class TestProviderFinePermissionAndroidTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
+    private val targetContext: Context = instrumentation.targetContext
     private val testContext: Context = instrumentation.context
     private val locationManager: LocationManager =
-        testContext.getSystemService(LocationManager::class.java)
+        targetContext.getSystemService(LocationManager::class.java)
     private val providerName = "arihna_fine_${UUID.randomUUID()}"
 
     @Before
     fun setUp() {
         shell("pm grant ${testContext.packageName} ${Manifest.permission.ACCESS_COARSE_LOCATION}")
         shell("pm grant ${testContext.packageName} ${Manifest.permission.ACCESS_FINE_LOCATION}")
-        shell("appops set ${testContext.packageName} android:mock_location allow")
+        shell("appops set ${targetContext.packageName} android:mock_location allow")
         createProvider()
     }
 
@@ -43,13 +44,20 @@ class TestProviderFinePermissionAndroidTest {
     @Test
     fun finePermissionMakesApi28MockFixVisible(): Unit {
         val diagnostics = mutableListOf("case=D API28 fine-permission mock-provider control")
-        record(diagnostics, "testPackage=${testContext.packageName}")
         record(
             diagnostics,
-            "fineGranted=${testContext.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED} " +
-                "coarseGranted=${testContext.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED}",
+            "targetPackage=${targetContext.packageName} testPackage=${testContext.packageName}",
         )
-        record(diagnostics, "mockAppOp=${compact(shell("appops get ${testContext.packageName} android:mock_location"))}")
+        record(
+            diagnostics,
+            "targetFineGranted=${targetContext.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED} " +
+                "testFineGranted=${testContext.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED} " +
+                "targetCoarseGranted=${targetContext.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED}",
+        )
+        record(
+            diagnostics,
+            "mockAppOpTarget=${compact(shell("appops get ${targetContext.packageName} android:mock_location"))}",
+        )
 
         val location = Location(providerName).apply {
             latitude = 41.9028
