@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build Arihna's deterministic offline GeoNames city database.
 
-Generator version: 3
+Generator version: 4
 Inputs are local snapshot files downloaded from GeoNames. The caller is
 responsible for checksum verification; this script records input and output
 metadata and never fetches network resources itself.
@@ -16,9 +16,11 @@ import sqlite3
 import unicodedata
 import zipfile
 from collections import Counter
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-GENERATOR_VERSION = 3
+GENERATOR_VERSION = 4
+COORDINATE_SCALE = 1_000_000
 ALLOWED_LANGUAGES = {"it", "en", "ar"}
 KIND_CANONICAL = 0
 KIND_ASCII = 1
@@ -32,17 +34,17 @@ NON_FTS_INTEGRITY_TABLES = ("country", "admin1", "city", "city_alias")
 ALLOWED_FEATURE_CLASS = "P"
 ALLOWED_FEATURE_CODES = frozenset(
     {
-        "PPL",    # populated place
-        "PPLA",   # seat of first-order administrative division
-        "PPLA2",  # seat of second-order administrative division
-        "PPLA3",  # seat of third-order administrative division
-        "PPLA4",  # seat of fourth-order administrative division
-        "PPLA5",  # seat of fifth-order administrative division
-        "PPLC",   # capital of a political entity
-        "PPLG",   # seat of government of a political entity
-        "PPLF",   # current farm village: still a populated place
-        "PPLR",   # current religious populated place
-        "STLMT",  # current inhabited settlement with GeoNames-specific classification
+        "PPL",
+        "PPLA",
+        "PPLA2",
+        "PPLA3",
+        "PPLA4",
+        "PPLA5",
+        "PPLC",
+        "PPLG",
+        "PPLF",
+        "PPLR",
+        "STLMT",
     }
 )
 EXPLICIT_EXCLUDED_FEATURE_CODES = {
@@ -78,6 +80,29 @@ def normalize_name(value: str) -> str:
     return " ".join(value.split())
 
 
+def coordinate_to_e6(raw: str, *, minimum: int, maximum: int, city_id: int, field: str) -> int:
+    """Convert a GeoNames decimal coordinate to exact signed microdegrees.
+
+    The approved snapshot currently uses at most six decimal places. Reject a
+    future value that cannot be represented exactly at E6 precision rather than
+    silently rounding provenance data.
+    """
+    try:
+        decimal_value = Decimal(raw.strip())
+    except InvalidOperation as exc:
+        raise RuntimeError(f"Invalid {field} for geonameId={city_id}: {raw!r}") from exc
+    scaled = decimal_value * COORDINATE_SCALE
+    integral = scaled.to_integral_value()
+    if scaled != integral:
+        raise RuntimeError(
+            f"{field} exceeds approved microdegree precision for geonameId={city_id}: {raw!r}"
+        )
+    value = int(integral)
+    if value < minimum or value > maximum:
+        raise RuntimeError(f"Invalid {field} for geonameId={city_id}: {raw!r}")
+    return value
+
+
 def load_country_names(path: Path) -> dict[str, str]:
     result: dict[str, str] = {}
     with path.open("r", encoding="utf-8") as f:
@@ -108,18 +133,12 @@ def open_text_member(zip_path: Path, member_name: str):
         raise RuntimeError(f"Expected {member_name} in {zip_path}, found {members}")
     raw = zf.open(member_name, "r")
     import io
+
     text = io.TextIOWrapper(raw, encoding="utf-8", newline="")
     return zf, text
 
 
 def validate_non_fts_integrity(db: sqlite3.Connection) -> dict[str, str]:
-    """Run SQLite structural integrity checks on Arihna-owned non-FTS tables.
-
-    Do not replace these with a global PRAGMA integrity_check while city_search
-    remains FTS4 contentless. SQLite 3.44+ invokes virtual-table xIntegrity from
-    the global pragma, and FTS4 cannot validate an inverted index against source
-    content that content='' intentionally does not store.
-    """
     results: dict[str, str] = {}
     for table in NON_FTS_INTEGRITY_TABLES:
         messages = [row[0] for row in db.execute(f"PRAGMA integrity_check('{table}')")]
@@ -130,15 +149,6 @@ def validate_non_fts_integrity(db: sqlite3.Connection) -> dict[str, str]:
 
 
 def validate_city_search(db: sqlite3.Connection, alias_count: int) -> dict[str, object]:
-    """Functionally validate the FTS4 contentless search index.
-
-    A contentless FTS4 virtual table cannot be reliably full-scanned to count or
-    enumerate rows because the original column content is absent by design.
-    FTS4's city_search_docsize shadow table is therefore used as the document
-    roster: it contains exactly one row per indexed docid with this schema. The
-    golden MATCH checks below exercise the actual inverted index and confirm that
-    each expected city_alias.id is retrievable for representative aliases.
-    """
     search_doc_count = db.execute("SELECT COUNT(*) FROM city_search_docsize").fetchone()[0]
     orphan_docids = db.execute(
         """
@@ -208,6 +218,35 @@ def validate_city_search(db: sqlite3.Connection, alias_count: int) -> dict[str, 
     }
 
 
+def validate_coordinate_storage(db: sqlite3.Connection) -> dict[str, int]:
+    invalid_range = db.execute(
+        """
+        SELECT COUNT(*) FROM city
+        WHERE latitude_e6 < -90000000 OR latitude_e6 > 90000000
+           OR longitude_e6 < -180000000 OR longitude_e6 > 180000000
+        """
+    ).fetchone()[0]
+    if invalid_range:
+        raise RuntimeError(f"city has {invalid_range} out-of-range E6 coordinate rows")
+
+    roundtrip_mismatches = 0
+    for latitude_e6, longitude_e6 in db.execute(
+        "SELECT latitude_e6, longitude_e6 FROM city"
+    ):
+        latitude = latitude_e6 / COORDINATE_SCALE
+        longitude = longitude_e6 / COORDINATE_SCALE
+        if round(latitude * COORDINATE_SCALE) != latitude_e6:
+            roundtrip_mismatches += 1
+        if round(longitude * COORDINATE_SCALE) != longitude_e6:
+            roundtrip_mismatches += 1
+    if roundtrip_mismatches:
+        raise RuntimeError(f"E6 coordinate round-trip mismatches: {roundtrip_mismatches}")
+    return {
+        "invalid_range_rows": invalid_range,
+        "e6_roundtrip_mismatches": roundtrip_mismatches,
+    }
+
+
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--cities", type=Path, required=True)
@@ -253,15 +292,15 @@ def main() -> None:
             name TEXT NOT NULL,
             country_code TEXT NOT NULL,
             admin1_code TEXT,
-            latitude REAL NOT NULL,
-            longitude REAL NOT NULL,
+            latitude_e6 INTEGER NOT NULL,
+            longitude_e6 INTEGER NOT NULL,
             timezone_id TEXT NOT NULL,
             population INTEGER NOT NULL
         );
 
         CREATE INDEX city_country_idx ON city(country_code);
         CREATE INDEX city_admin1_idx ON city(admin1_code);
-        CREATE INDEX city_lat_lon_idx ON city(latitude, longitude);
+        CREATE INDEX city_lat_lon_idx ON city(latitude_e6, longitude_e6);
         CREATE INDEX city_population_idx ON city(population DESC);
 
         CREATE TABLE city_alias(
@@ -303,10 +342,6 @@ def main() -> None:
                 feature_code = cols[7].strip()
                 raw_feature_class_counts[feature_class or "<blank>"] += 1
                 raw_feature_code_counts[feature_code or "<blank>"] += 1
-
-                # The raw cities500 dump contains multiple populated-place
-                # semantics. Arihna only exposes independently recognizable,
-                # current inhabited places; everything else is denied by default.
                 if feature_class != ALLOWED_FEATURE_CLASS or feature_code not in ALLOWED_FEATURE_CODES:
                     excluded_feature_code_counts[feature_code or "<blank>"] += 1
                     continue
@@ -315,8 +350,12 @@ def main() -> None:
                 city_id = int(cols[0])
                 name = cols[1].strip()
                 ascii_name = cols[2].strip()
-                latitude = float(cols[4])
-                longitude = float(cols[5])
+                latitude_e6 = coordinate_to_e6(
+                    cols[4], minimum=-90_000_000, maximum=90_000_000, city_id=city_id, field="latitude"
+                )
+                longitude_e6 = coordinate_to_e6(
+                    cols[5], minimum=-180_000_000, maximum=180_000_000, city_id=city_id, field="longitude"
+                )
                 country_code = cols[8].strip()
                 admin1_raw = cols[10].strip()
                 admin1_code = f"{country_code}.{admin1_raw}" if admin1_raw else None
@@ -324,12 +363,23 @@ def main() -> None:
                 timezone_id = cols[17].strip()
                 if not name or not country_code or not timezone_id:
                     raise RuntimeError(f"Missing required city data for geonameId={city_id}")
-                if not (-90.0 <= latitude <= 90.0 and -180.0 <= longitude <= 180.0):
-                    raise RuntimeError(f"Invalid coordinates for geonameId={city_id}")
 
                 db.execute(
-                    "INSERT INTO city(id,name,country_code,admin1_code,latitude,longitude,timezone_id,population) VALUES(?,?,?,?,?,?,?,?)",
-                    (city_id, name, country_code, admin1_code, latitude, longitude, timezone_id, population),
+                    """
+                    INSERT INTO city(
+                        id,name,country_code,admin1_code,latitude_e6,longitude_e6,timezone_id,population
+                    ) VALUES(?,?,?,?,?,?,?,?)
+                    """,
+                    (
+                        city_id,
+                        name,
+                        country_code,
+                        admin1_code,
+                        latitude_e6,
+                        longitude_e6,
+                        timezone_id,
+                        population,
+                    ),
                 )
                 city_ids.add(city_id)
                 referenced_countries.add(country_code)
@@ -339,13 +389,21 @@ def main() -> None:
                 canonical = normalize_name(name)
                 if canonical:
                     db.execute(
-                        "INSERT OR IGNORE INTO city_alias(city_id,normalized_alias,source_kind,language,preferred,short_name) VALUES(?,?,?,?,1,0)",
+                        """
+                        INSERT OR IGNORE INTO city_alias(
+                            city_id,normalized_alias,source_kind,language,preferred,short_name
+                        ) VALUES(?,?,?,?,1,0)
+                        """,
                         (city_id, canonical, KIND_CANONICAL, None),
                     )
                 ascii_norm = normalize_name(ascii_name)
                 if ascii_norm:
                     db.execute(
-                        "INSERT OR IGNORE INTO city_alias(city_id,normalized_alias,source_kind,language,preferred,short_name) VALUES(?,?,?,?,0,0)",
+                        """
+                        INSERT OR IGNORE INTO city_alias(
+                            city_id,normalized_alias,source_kind,language,preferred,short_name
+                        ) VALUES(?,?,?,?,0,0)
+                        """,
                         (city_id, ascii_norm, KIND_ASCII, None),
                     )
                 city_count += 1
@@ -405,14 +463,22 @@ def main() -> None:
             if len(batch) >= 5000:
                 with db:
                     db.executemany(
-                        "INSERT OR IGNORE INTO city_alias(city_id,normalized_alias,source_kind,language,preferred,short_name) VALUES(?,?,?,?,?,?)",
+                        """
+                        INSERT OR IGNORE INTO city_alias(
+                            city_id,normalized_alias,source_kind,language,preferred,short_name
+                        ) VALUES(?,?,?,?,?,?)
+                        """,
                         batch,
                     )
                 batch.clear()
         if batch:
             with db:
                 db.executemany(
-                    "INSERT OR IGNORE INTO city_alias(city_id,normalized_alias,source_kind,language,preferred,short_name) VALUES(?,?,?,?,?,?)",
+                    """
+                    INSERT OR IGNORE INTO city_alias(
+                        city_id,normalized_alias,source_kind,language,preferred,short_name
+                    ) VALUES(?,?,?,?,?,?)
+                    """,
                     batch,
                 )
     finally:
@@ -424,31 +490,34 @@ def main() -> None:
 
     with db:
         db.execute("CREATE VIRTUAL TABLE city_search USING fts4(normalized_alias, content='')")
-        db.execute("INSERT INTO city_search(docid, normalized_alias) SELECT id, normalized_alias FROM city_alias ORDER BY id")
+        db.execute(
+            "INSERT INTO city_search(docid, normalized_alias) "
+            "SELECT id, normalized_alias FROM city_alias ORDER BY id"
+        )
         db.execute("ANALYZE")
     db.execute("VACUUM")
 
-    # Do not run global PRAGMA integrity_check here. On SQLite 3.44+ it calls
-    # xIntegrity for FTS4, which cannot validate a contentless (content='')
-    # index against source text that is intentionally not stored. That produces
-    # "unable to validate the inverted index ... SQL logic error" even for a
-    # valid, queryable index. Keep structural checks on all non-FTS tables and
-    # validate city_search functionally instead.
     non_fts_integrity = validate_non_fts_integrity(db)
     city_search_validation = validate_city_search(db, alias_count)
+    coordinate_validation = validate_coordinate_storage(db)
 
     timezone_count = db.execute("SELECT COUNT(DISTINCT timezone_id) FROM city").fetchone()[0]
-    blank_timezone_count = db.execute("SELECT COUNT(*) FROM city WHERE timezone_id='' OR timezone_id IS NULL").fetchone()[0]
-    invalid_id_count = db.execute("SELECT COUNT(*) FROM city WHERE id<=0").fetchone()[0]
-    invalid_coordinate_count = db.execute(
-        "SELECT COUNT(*) FROM city WHERE latitude < -90 OR latitude > 90 OR longitude < -180 OR longitude > 180"
+    blank_timezone_count = db.execute(
+        "SELECT COUNT(*) FROM city WHERE timezone_id='' OR timezone_id IS NULL"
     ).fetchone()[0]
+    invalid_id_count = db.execute("SELECT COUNT(*) FROM city WHERE id<=0").fetchone()[0]
     db.close()
 
     metadata = {
         "generator_version": GENERATOR_VERSION,
         "snapshot_date": args.snapshot_date,
         "sqlite_version": sqlite3.sqlite_version,
+        "storage": {
+            "coordinate_encoding": "signed integer microdegrees (E6)",
+            "coordinate_scale": COORDINATE_SCALE,
+            "timezone_encoding": "IANA text per city",
+            "runtime_index_profile": "legacy/full",
+        },
         "feature_filter": {
             "feature_class": ALLOWED_FEATURE_CLASS,
             "included_feature_codes": sorted(ALLOWED_FEATURE_CODES),
@@ -463,9 +532,18 @@ def main() -> None:
         },
         "inputs": {
             "cities500.zip": {"sha256": sha256(args.cities), "bytes": args.cities.stat().st_size},
-            "alternateNamesV2.zip": {"sha256": sha256(args.alternate_names), "bytes": args.alternate_names.stat().st_size},
-            "countryInfo.txt": {"sha256": sha256(args.country_info), "bytes": args.country_info.stat().st_size},
-            "admin1CodesASCII.txt": {"sha256": sha256(args.admin1), "bytes": args.admin1.stat().st_size},
+            "alternateNamesV2.zip": {
+                "sha256": sha256(args.alternate_names),
+                "bytes": args.alternate_names.stat().st_size,
+            },
+            "countryInfo.txt": {
+                "sha256": sha256(args.country_info),
+                "bytes": args.country_info.stat().st_size,
+            },
+            "admin1CodesASCII.txt": {
+                "sha256": sha256(args.admin1),
+                "bytes": args.admin1.stat().st_size,
+            },
         },
         "output": {"sha256": sha256(args.output), "bytes": args.output.stat().st_size},
         "counts": {
@@ -474,17 +552,21 @@ def main() -> None:
             "alternate_candidates_it_en_ar": alt_seen,
             "alternate_inserted_unique": alt_inserted,
             "timezones_distinct": timezone_count,
-            "invalid_coordinates": invalid_coordinate_count,
+            "invalid_coordinates": coordinate_validation["invalid_range_rows"],
+            "coordinate_roundtrip_mismatches": coordinate_validation["e6_roundtrip_mismatches"],
             "blank_timezones": blank_timezone_count,
             "invalid_city_ids": invalid_id_count,
         },
         "validation": {
             "non_fts_integrity": non_fts_integrity,
             "city_search": city_search_validation,
+            "coordinates": coordinate_validation,
         },
     }
     args.metadata.parent.mkdir(parents=True, exist_ok=True)
-    args.metadata.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    args.metadata.write_text(
+        json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     print(json.dumps(metadata, indent=2, sort_keys=True))
 
 
