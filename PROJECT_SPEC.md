@@ -99,7 +99,9 @@ Selected engine:
 
 Android API 28 HijrahChronology verification passed on 2026-08-29 in run `33245235911`. Final prayer-engine regression passed on run `33248406741`: `testDebugUnitTest`, `assembleDebug`, and `connectedDebugAndroidTest` on Android 9/API28 all succeeded. Final implementation commit: `e5987f878e253085425f9bfebf7bf714c8405de3` (`feat(prayer): implement offline prayer time calculation engine`).
 
-### 5.2 Location — architecture APPROVED / CURRENT MILESTONE
+### 5.2 Location — CLOSED
+
+Location STEP 4 and the user-approved Location milestone scope were closed on 2026-08-30 after definitive workflow run `33296099459` on implementation commit `8620772ebe0dd5b51691ce2447c46ef996cd90d1`. The final run passed the frozen-dataset provenance gate, runtime-minimal database generation, real AAPT/APK size gate, host unit regression, and Android 9/API28 instrumentation (**16/16 tests, 0 failed, 0 skipped**). The API28-classified SQLite asset is 28,020,736 bytes with SHA-256 `7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb`; its real APK increment is 15,033,263 bytes, 5,938,257 bytes below the approved 20 MiB threshold. All 224,330 cities and 258,685 aliases are preserved; the four reviewed timezone mappings and the exact 17-city `America/Nuuk` controlled-unsupported set passed the final gate. No later Location extension or subsequent product milestone is started by this closure commit.
 
 The Location layer supplies real or user-selected `Coordinates + ZoneId` to the existing prayer engine. `PrayerTimeCalculator` remains unchanged.
 
@@ -184,9 +186,10 @@ Measure the real incremental APK size attributable to the generated city databas
 
 - Filtered/full-index baseline run `33280106118`: 56,692,736-byte SQLite; 27,459,105-byte compressed APK asset; 27,459,231-byte APK increment.
 - E6-only run `33292976302` used the frozen staging DB later reused by the final benchmark: 52,932,608-byte SQLite and 25,585,011-byte APK increment.
-- Final runtime-minimal run `33293822757`, using exactly that same staging DB: **27,795,456-byte SQLite**, **15,008,799-byte APK-compressed asset**, baseline APK **33,937,009 bytes**, APK with GeoNames **48,945,932 bytes**, and **15,008,923-byte APK increment**.
-- APK asset compression remains ZIP method 8 (DEFLATE). The workflow verified that the decompressed APK asset SHA-256 equals the generated DB SHA-256 `6383538be045a51bbab6ae2e3097f99bdc79851af525c6bbc9fed018d434ce0a`, preventing stale-asset measurement.
-- Approved threshold: 20,971,520 bytes (20 MiB). Final margin below threshold: **5,962,597 bytes** (about **5.69 MiB**). `threshold_pass = true`.
+- Runtime-minimal optimization run `33293822757`, using exactly that same staging DB: 27,795,456-byte SQLite, 15,008,799-byte APK-compressed asset, and 15,008,923-byte APK increment before the final API28 compatibility marker/mapping fields were added.
+- Definitive closure run `33296099459` on commit `8620772ebe0dd5b51691ce2447c46ef996cd90d1`: **28,020,736-byte SQLite**, **15,033,136-byte APK-compressed asset**, baseline APK **33,986,205 bytes**, APK with GeoNames **49,019,468 bytes**, and **15,033,263-byte APK increment**. The final database/APK asset SHA-256 is `7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb` and the workflow verified the decompressed APK asset matches the generated database exactly.
+- APK asset compression remains ZIP method 8 (DEFLATE).
+- Approved threshold: 20,971,520 bytes (20 MiB). Definitive margin below threshold: **5,938,257 bytes** (about **5.66 MiB**). `threshold_pass = true`.
 - No city or alias was removed to obtain the pass. The runtime-minimal schema is therefore the approved STEP 4 city database layout; do not switch to `cities1000` or raise the threshold for this reason.
 - Separate `.gz`/`.zst` precompression is not approved/needed: Android platform SQLite cannot open such a stream directly and the ordinary APK DEFLATE result already passes the gate.
 
@@ -565,9 +568,9 @@ Before Location STEP 4 closure, Android 9/API28 tests must verify:
 
 No CI test requires physical GPS movement or runner geographic position.
 
-### Location final gate
+### Location final gate — PASSED
 
-Host JDK: Temurin 21. Run at least:
+Host JDK: Temurin 21. Required commands:
 
 ```bash
 ./gradlew testDebugUnitTest --stacktrace
@@ -575,9 +578,7 @@ Host JDK: Temurin 21. Run at least:
 ./gradlew :app:connectedDebugAndroidTest --stacktrace
 ```
 
-All must pass, including previous prayer regression and new Location/API28 checks.
-
-Measure APK before/after city database integration. The finalized runtime-minimal city asset passed the 20 MiB incremental threshold in run `33293822757`; preserve that schema/measurement discipline during subsequent STEP 4 work.
+Definitive run `33296099459` on commit `8620772ebe0dd5b51691ce2447c46ef996cd90d1` passed the complete gate. `testDebugUnitTest` and both APK builds were successful; Android 9/API28 `connectedDebugAndroidTest` finished **16/16 tests with 0 failed and 0 skipped**. The same run regenerated and validated the exact API28-classified database, passed all table-scoped integrity/FTS/golden/query-plan checks, and measured a 15,033,263-byte APK increment against the 20 MiB threshold.
 
 Future milestones add Qibla math, exact-alarm reboot/timezone/time changes, notification flows, daily-content anti-repeat, Quran integrity and final Compose UI tests.
 
@@ -593,22 +594,22 @@ Future milestones add Qibla math, exact-alarm reboot/timezone/time changes, noti
 - 11 methods, Standard/Hanafi, high-latitude AUTO, ZoneId/ZoneRules, prayer offsets, polar controlled errors.
 - API28 HijrahChronology gate and Umm al-Qura 90/120 Ramadan rule.
 - Final prayer regression and implementation commit on `main`.
+- **Location STEP 4 and the user-approved Location milestone scope.** Definitive run `33296099459` on `8620772ebe0dd5b51691ce2447c46ef996cd90d1` passed unit/build/API28 regression (16/16 instrumentation tests), frozen GeoNames provenance/data integrity, runtime-minimal query/FTS gates, and the real 20 MiB APK threshold with a 15,033,263-byte increment. The final city asset SHA-256 is `7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb`; 224,330 cities and 258,685 aliases remain intact, including the controlled 17-city `America/Nuuk` unsupported set on API28.
 
-### Approved / current Location milestone
+### Closed Location decisions retained for future reuse
 
-- Native LocationManager, no Play Services.
+- Native LocationManager architecture; no Play Services.
 - Foreground Device location only.
 - `ACCESS_COARSE_LOCATION` only.
 - 20s timeout / 5 km / 15 min; timezone change significant.
 - FRESH/CACHED, never invented defaults.
 - GeoNames `cities500` offline, CC BY 4.0, filtered by the approved deny-by-default populated-place feature-code whitelist.
 - Read-only SQLite; no Room.
-- **Runtime-minimal city schema FINAL for STEP 4:** E6 coordinates, numeric timezone lookup, `population` retained, country/admin1 short text codes retained, only `city_lat_lon_idx` as explicit secondary runtime index, alias dedup in build-time staging, FTS4 contentless unchanged. Run `33293822757` measured a 15,008,923-byte APK increment and passed the 20 MiB gate with no city/alias removal.
+- Runtime-minimal city schema: E6 coordinates, numeric timezone lookup, `population` retained, country/admin1 short text codes retained, only `city_lat_lon_idx` as explicit secondary runtime index, alias dedup in build-time staging, FTS4 contentless unchanged.
 - API28 timezone policy: four explicit verified compatibility mappings; exactly one residual modern id (`America/Nuuk`) affecting 17 cities is controlled `UNSUPPORTED_TIME_ZONE` on API28 while remaining in/searchable from the dataset.
 - Preferences DataStore `1.2.1`.
 - Arihna-owned Location models/state/errors; `PrayerTimeCalculator` unchanged.
-- Minimal functional Device/Manual UI only.
-- Full unit/build/API28 gate before STEP 4 closure.
+- Any implementation work beyond the scope proven by the STEP 4 closure run must be proposed as a new explicit scope/milestone rather than being treated as silently completed here.
 
 ### Pending
 
@@ -647,11 +648,15 @@ Current Location milestone also excludes:
 1. Branding/UI decision closure — CLOSED.
 2. Android bootstrap — CLOSED/build verified.
 3. Prayer-time calculation — CLOSED; final commit `e5987f878e253085425f9bfebf7bf714c8405de3`; JDK21/API28 regression passed.
-4. **Current: Location (Device + manual city) — architecture APPROVED.**
-5. Location sequence: STEP 1 spec commit → STEP 2 pure Kotlin domain/state/policies + fake tests → STEP 3 Preferences DataStore → STEP 4 GeoNames generation/read-only SQLite + APK-size measurement + API28 timezone/data gate → STEP 5 Android LocationManager + permission/resolution → STEP 6 minimal functional UI → STEP 7 full unit/build/API28 regression → dedicated implementation commit → STOP.
-6. Notifications, AlarmManager, definitive UI, Qibla, Quran and custom alarms remain separate milestones.
+4. **Location (offline manual-city data/domain baseline) — CLOSED.** Definitive STEP 4 closure run `33296099459` on commit `8620772ebe0dd5b51691ce2447c46ef996cd90d1` passed all required unit/build/API28/data/APK gates.
+5. The earlier Location sequence listed STEP 5 Android `LocationManager`, STEP 6 minimal functional UI, and STEP 7 broader regression. By explicit user-approved closure on 2026-08-30 these are **not claimed complete** by the STEP 4 evidence and are no longer implicit work inside the closed milestone. Any such Android device-location/UI extension must be opened later as a newly approved scope before implementation.
+6. Notifications, AlarmManager, definitive UI, Qibla, Quran and custom alarms remain separate future milestones.
 
 ## 17. Change log
+
+### 2026-08-30 — Location STEP 4 and milestone closed
+
+Definitive workflow run `33296099459` on implementation commit `8620772ebe0dd5b51691ce2447c46ef996cd90d1` completed successfully and closes Location STEP 4 plus the user-approved Location milestone scope. The run restored the exact frozen E6 staging dataset from run `33292976302`, regenerated the API28-classified runtime-minimal database, and preserved 224,330 cities / 258,685 aliases / 391 timezone names with zero logical city/alias mismatches. Non-FTS table-scoped integrity checks were `ok`; FTS document parity/orphan checks and golden Roma/Makkah/Mecca/New York/Sydney MATCH tests passed; search used the FTS virtual table and nearest used `city_lat_lon_idx`. The four reviewed API28 mappings and the exact residual `America/Nuuk` set of 17 searchable-but-not-selectable cities passed the final instrumentation policy. Host `testDebugUnitTest` passed; Android 9/API28 `connectedDebugAndroidTest` ran **16 tests, 0 failed, 0 skipped**. The final SQLite asset is 28,020,736 bytes, SHA-256 `7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb`; AAPT/DEFLATE stores it as 15,033,136 bytes and the measured APK increment is **15,033,263 bytes**, 5,938,257 bytes below the 20 MiB gate. No next milestone is started by this closure. Previously listed Android `LocationManager`/minimal-UI extensions are not fabricated as completed; if desired later they require a newly approved scope.
 
 ### 2026-08-30 — API28 timezone compatibility policy approved after exhaustive gate
 
