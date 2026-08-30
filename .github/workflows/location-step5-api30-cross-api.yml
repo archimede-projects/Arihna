@@ -46,7 +46,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           script: |
-            set -euo pipefail
+            set -eu
             echo "Waiting for Android framework services package/activity..."
             ready=0
             for attempt in $(seq 1 300); do
