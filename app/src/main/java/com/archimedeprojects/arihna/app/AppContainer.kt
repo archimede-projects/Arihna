@@ -1,9 +1,14 @@
 package com.archimedeprojects.arihna.app
 
-/**
- * Manual dependency container for Arihna.
- *
- * Intentionally empty during bootstrap. Functional dependencies are added only
- * in their dedicated milestones.
- */
-class AppContainer
+import android.content.Context
+import com.archimedeprojects.arihna.core.location.data.CityRepository
+import com.archimedeprojects.arihna.core.location.data.sqlite.SQLiteCityRepository
+
+/** Manual dependency container for Arihna. */
+class AppContainer(context: Context) {
+    private val appContext = context.applicationContext
+
+    val cityRepository: CityRepository by lazy {
+        SQLiteCityRepository(appContext)
+    }
+}
