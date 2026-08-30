@@ -148,47 +148,46 @@ Cached data is never presented as current; preserve timestamp/age. No arbitrary 
 
 Use an offline city dataset derived from **GeoNames `cities500`**, licensed **CC BY 4.0**.
 
-- GeoNames `cities500.txt` is the upstream candidate source, not the final Arihna city set. Its historical `ca 185,000` README estimate is not a reliable current row-count contract; the unfiltered 2026-08-10 dump produced 235,549 distinct rows in Arihna's pipeline.
+- GeoNames `cities500.txt` is the upstream candidate source, not the final Arihna city set. Its historical `ca 185,000` README estimate is not a reliable current row-count contract; the unfiltered dump used in the first STEP 4 size run produced 235,549 distinct rows in Arihna's pipeline.
 - Arihna must filter the upstream dump explicitly by `feature class = P` and a deny-by-default feature-code whitelist. Approved included feature codes are: `PPL`, `PPLA`, `PPLA2`, `PPLA3`, `PPLA4`, `PPLA5`, `PPLC`, `PPLG`, `PPLF`, `PPLR`, `STLMT`.
 - `PPLF` and `PPLR` remain included because GeoNames defines them as current populated places (farm village / religious populated place). `STLMT` remains included because it represents a current inhabited settlement with a distinct GeoNames classification; Arihna preserves GeoNames-provided country/timezone data and does not reinterpret geopolitical status.
 - Explicitly excluded categories include `PPLX` (section of a larger populated place), `PPLH`/`PPLCH` (historical), `PPLQ` (abandoned), `PPLW` (destroyed), `PPLL` (minor populated locality), and `PPLS` (aggregate/plural populated places). Any present or future feature code not in the whitelist is excluded unless separately reviewed and approved.
 - Runtime manual search must not depend on GeoNames web service, Nominatim, Android Geocoder, Google Places/Maps/Geocoding or another online geocoder.
 - Dataset is downloaded/preprocessed during development/data-generation, not on normal startup and not on every Gradle build.
-- Version the generated asset with deterministic provenance: source snapshot/date, source URL, license, checksum, record count and generator/script version.
+- Version the generated asset with deterministic provenance: source retrieval/export metadata where trustworthy, source URL, license, checksum, record count and generator/script version. A hardcoded snapshot date must never be treated as authoritative provenance when `latest` URLs may have changed; exact source SHA-256 values are authoritative for the frozen STEP 4 benchmark snapshot.
 - Required attribution: `GeoNames — CC BY 4.0`.
 
-#### Offline city database
+#### Offline city database — FINAL STEP 4 schema
 
 - Precompiled **read-only SQLite** using Android platform APIs; no Room.
+- The **final approved runtime-minimal schema** was validated in run `33293822757` against the exact E6 staging database from run `33292976302` (staging DB SHA-256 `e567b7eabb40994d5d9fb95209c050503cf5747a6cdd25ef73d195aeb4003877`). It preserves **224,330 cities**, **258,685 aliases**, and **391 distinct IANA timezone names** with zero logical city/alias mismatches.
 - Retain only Arihna-needed fields: GeoNames id, canonical/display name, region, country, country code, latitude, longitude, IANA timezone id and population/ranking data.
-- Country and region display names are normalized lookup data, not repeated per city row. The existing `country` and `admin1` tables already satisfy this requirement; do not denormalize those names back into `city`.
-- Store city coordinates as signed integer microdegrees (`latitude_e6`, `longitude_e6`, degrees × 1,000,000) instead of SQLite `REAL`. The generator must reject/flag a source coordinate that cannot be represented at microdegree precision without the approved conversion, and tests must verify exact E6 → domain `Coordinates` reconstruction for bundled/golden rows.
-- Normalize repeated IANA timezone strings into a small `timezone` lookup table and store only its numeric id in `city`. Runtime `ManualCity.zoneId` still exposes the original GeoNames IANA string through a join and `ZoneId.of(...)`; no timezone inference/fallback is allowed.
-- Keep `population` because it is part of city-search/disambiguation ranking. SQLite `INTEGER` is already variable-length/compact; do not invent a narrower application type that risks overflow.
-- Keep textual country/admin1 codes in `city` unless measurement shows a material APK benefit from replacing them with numeric ids. A pre-change benchmark found the additional APK compression gain from numeric country/admin1 ids to be negligible compared with the added schema/join complexity, so this optimization is not approved unless later evidence changes materially.
-- Runtime indexes must correspond to actual `CityRepository` access paths, not preprocessing convenience. Keep the city primary key for `findById` and a coordinate index needed by `nearest`; FTS4 plus `city_alias.id`/`city.id` primary-key joins serve `search`. Do not retain standalone `city_country_idx`, `city_admin1_idx`, `city_population_idx`, `city_alias_normalized_idx`, `city_alias_city_idx`, or the `(city_id, normalized_alias)` uniqueness index in the final read-only asset unless query-plan/performance evidence demonstrates a runtime need.
-- Alias deduplication remains mandatory during generation. Enforce it in a build-time temporary/staging table with uniqueness, then copy only deduplicated alias rows into the final runtime `city_alias` table so preprocessing-only indexes are not bundled.
-- Include aliases from canonical/ASCII names and selected useful alternate names, including approved Italian/English/Arabic aliases where available.
-- The large upstream alternate-name source may be used only during preprocessing; it is not bundled wholesale.
+- Country and region display names are normalized lookup data, not repeated per city row. The existing `country` and `admin1` tables satisfy this requirement; `city` keeps the short textual country/admin1 codes because numeric replacement yielded only about 34 KB of compressed benefit and is not worth the extra schema/join complexity.
+- Store city coordinates as signed integer microdegrees (`latitude_e6`, `longitude_e6`, degrees × 1,000,000) instead of SQLite `REAL`. The generator rejects a source coordinate that cannot be represented at microdegree precision without the approved conversion; the E6 staging gate verified zero round-trip mismatches.
+- Normalize repeated IANA timezone strings into `timezone(id INTEGER PRIMARY KEY, name TEXT NOT NULL)` and store only numeric `city.timezone_id`. Runtime `ManualCity.zoneId` exposes the original IANA string through a join and `ZoneId.of(...)`; no timezone inference/fallback is allowed.
+- Keep `population` because it is part of city-search/disambiguation ranking. SQLite `INTEGER` is already variable-length/compact.
+- Final explicit runtime secondary indexes: **only** `city_lat_lon_idx(latitude_e6, longitude_e6)`. `findById` uses the `city` INTEGER PRIMARY KEY. `search` uses FTS4 then `city_alias.id` / `city.id` INTEGER PRIMARY KEY joins. `nearest` uses `city_lat_lon_idx`; run `33293822757` confirmed the query plan `SEARCH c USING INDEX city_lat_lon_idx (latitude_e6>? AND latitude_e6<?)` and does not require any removed country/admin1/population/alias index.
+- Do not bundle `city_country_idx`, `city_admin1_idx`, `city_population_idx`, `city_alias_normalized_idx`, `city_alias_city_idx`, or the `(city_id, normalized_alias)` uniqueness index in the final read-only asset unless a future measured runtime requirement justifies reintroducing one.
+- Alias deduplication remains mandatory during build-time staging. The final `city_alias` table preserves every already-deduplicated alias id but carries no preprocessing-only UNIQUE/secondary index. Run `33293822757` verified 258,685/258,685 aliases, zero duplicate `(city_id, normalized_alias)` pairs and zero logical alias mismatches.
+- Include aliases from canonical/ASCII names and selected useful alternate names, including approved Italian/English/Arabic aliases where available. The large upstream alternate-name source is preprocessing-only and is not bundled wholesale.
 - Search is local, normalized/case-insensitive, supports useful prefix/alias lookup and a bounded result set; ranking prefers exact matches, then strong prefix/alias matches, with population/region/country for disambiguation.
 - `city_search` remains an FTS4 contentless table (`content=''`) with `docid = city_alias.id`; do not change this schema merely to satisfy a generic integrity command or footprint optimization.
 - SQLite 3.44+ invokes virtual-table `xIntegrity` from global `PRAGMA integrity_check`; FTS4 cannot perform that inverted-index validation for this contentless configuration because original content is intentionally absent. Therefore global `PRAGMA integrity_check` is not used as the validation gate for `city_search`.
-- Structural SQLite integrity checks remain mandatory for every Arihna-owned non-FTS runtime table (`country`, `admin1`, `timezone`, `city`, `city_alias`) using table-scoped `PRAGMA integrity_check(...)`.
-- The contentless FTS index must instead pass functional integrity checks: `city_search` row count equals `city_alias`; no FTS docid is orphaned and no alias id is missing from FTS; and known golden aliases (`Roma`, `Makkah`, `Mecca`, `New York`, `Sydney`) must resolve through `MATCH` to the exact corresponding `city_alias.id`/GeoNames city.
-- Query-plan/performance checks for the compact schema must exercise representative `search`, `findById`, and `nearest` SQL. Joins required to reconstruct readable display data such as `Roma, Lazio, Italia` are acceptable; obvious regressions must be reported before integration.
+- Structural SQLite integrity checks remain mandatory for every Arihna-owned non-FTS runtime table (`country`, `admin1`, `timezone`, `city`, `city_alias`) using table-scoped `PRAGMA integrity_check(...)`. Run `33293822757` returned `ok` for all five tables.
+- The contentless FTS index must instead pass functional integrity checks: `city_search` document count equals `city_alias`; no FTS docid is orphaned and no alias id is missing from FTS; known golden aliases (`Roma`, `Makkah`, `Mecca`, `New York`, `Sydney`) resolve through `MATCH` to the exact corresponding `city_alias.id`/GeoNames city. Run `33293822757` passed all of these checks.
+- Query-plan/performance checks for the compact schema must exercise representative `search`, `findById`, and `nearest` SQL. Run `33293822757` confirmed FTS virtual-table use for search and `city_lat_lon_idx` use for nearest, with no obvious host-SQL regression.
 
-#### APK-size alarm threshold
+#### APK-size alarm threshold — PASSED for runtime-minimal schema
 
-Measure the real incremental APK size attributable to the generated city database after preprocessing/indexing; do not infer it from the upstream ZIP.
+Measure the real incremental APK size attributable to the generated city database after preprocessing/indexing; do not infer it from upstream ZIP or local zlib estimates.
 
-- The filtered-schema baseline from run `33280106118` is 224,327 cities / 258,681 aliases, a 56,692,736-byte SQLite file, a 27,459,105-byte compressed APK asset, and a 27,459,231-byte APK increment.
-- Lossless schema optimizations must be measured against that same semantic dataset; no city or alias may be removed to obtain the result.
-- Record the real SQLite size, compressed APK asset size and APK increment after each significant applied optimization (coordinates, timezone normalization, runtime-index pruning/alias staging) so the contribution of each change is auditable.
-- The existing Android package already stores `cities.db` with ZIP method 8 (DEFLATE). Do not introduce a separately precompressed database format unless normal APK compression still fails the threshold and the runtime extraction/storage cost is separately approved; Android platform SQLite cannot open a gzip/zstd stream directly as the read-only database.
-- If city data increases APK size by **more than 20 MB**, **STOP before proceeding past dataset integration** and report the measured increase for explicit review.
-- Review alternatives such as GeoNames `cities1000` or explicit acceptance of the larger footprint only after approved lossless schema optimization has been measured.
-- If incremental growth is **20 MB or less**, proceed without additional approval on this point.
-- Never silently switch datasets or relax/tighten the approved feature-code whitelist merely to pass the threshold.
+- Filtered/full-index baseline run `33280106118`: 56,692,736-byte SQLite; 27,459,105-byte compressed APK asset; 27,459,231-byte APK increment.
+- E6-only run `33292976302` used the frozen staging DB later reused by the final benchmark: 52,932,608-byte SQLite and 25,585,011-byte APK increment.
+- Final runtime-minimal run `33293822757`, using exactly that same staging DB: **27,795,456-byte SQLite**, **15,008,799-byte APK-compressed asset**, baseline APK **33,937,009 bytes**, APK with GeoNames **48,945,932 bytes**, and **15,008,923-byte APK increment**.
+- APK asset compression remains ZIP method 8 (DEFLATE). The workflow verified that the decompressed APK asset SHA-256 equals the generated DB SHA-256 `6383538be045a51bbab6ae2e3097f99bdc79851af525c6bbc9fed018d434ce0a`, preventing stale-asset measurement.
+- Approved threshold: 20,971,520 bytes (20 MiB). Final margin below threshold: **5,962,597 bytes** (about **5.69 MiB**). `threshold_pass = true`.
+- No city or alias was removed to obtain the pass. The runtime-minimal schema is therefore the approved STEP 4 city database layout; do not switch to `cities1000` or raise the threshold for this reason.
+- Separate `.gz`/`.zst` precompression is not approved/needed: Android platform SQLite cannot open such a stream directly and the ordinary APK DEFLATE result already passes the gate.
 
 #### Timezone policy
 
@@ -197,7 +196,7 @@ Manual city:
 - IANA timezone id comes directly from the GeoNames record (stored through the normalized timezone lookup in the bundled database).
 - Convert with `ZoneId.of(timezoneId)`.
 - Never infer timezone from longitude or replace it with a fixed UTC offset.
-- Before implementation commit, Android 9/API28 instrumentation must enumerate **every distinct timezone id** in the bundled city database and verify `ZoneId.of(...)` succeeds.
+- Before Location STEP 4 implementation closure, Android 9/API28 instrumentation must enumerate **every distinct timezone name** in the bundled `timezone` table and verify `ZoneId.of(...)` succeeds.
 - Unsupported API28 ids must not receive longitude/fixed-offset fallback; investigate individually and only add a verified alias/normalization after approval if needed.
 
 Device:
@@ -564,7 +563,7 @@ Host JDK: Temurin 21. Run at least:
 
 All must pass, including previous prayer regression and new Location/API28 checks.
 
-Measure APK before/after city database integration. If city data increases APK by >20 MB, stop for approval before proceeding.
+Measure APK before/after city database integration. The finalized runtime-minimal city asset passed the 20 MiB incremental threshold in run `33293822757`; preserve that schema/measurement discipline during subsequent STEP 4 work.
 
 Future milestones add Qibla math, exact-alarm reboot/timezone/time changes, notification flows, daily-content anti-repeat, Quran integrity and final Compose UI tests.
 
@@ -590,12 +589,11 @@ Future milestones add Qibla math, exact-alarm reboot/timezone/time changes, noti
 - FRESH/CACHED, never invented defaults.
 - GeoNames `cities500` offline, CC BY 4.0, filtered by the approved deny-by-default populated-place feature-code whitelist.
 - Read-only SQLite; no Room.
-- Lossless city-schema footprint optimization: E6 coordinates, normalized timezone lookup, runtime-only indexes, build-time alias dedup staging; no city/alias removal.
-- IANA timezone per city; exhaustive API28 `ZoneId.of` gate.
+- **Runtime-minimal city schema FINAL for STEP 4:** E6 coordinates, numeric timezone lookup, `population` retained, country/admin1 short text codes retained, only `city_lat_lon_idx` as explicit secondary runtime index, alias dedup in build-time staging, FTS4 contentless unchanged. Run `33293822757` measured a 15,008,923-byte APK increment and passed the 20 MiB gate with no city/alias removal.
+- IANA timezone per city; exhaustive API28 `ZoneId.of` gate remains required before STEP 4 closure.
 - Preferences DataStore `1.2.1`.
 - Arihna-owned Location models/state/errors; `PrayerTimeCalculator` unchanged.
 - Minimal functional Device/Manual UI only.
-- APK growth >20 MB requires stop/review; <=20 MB may proceed.
 - Full unit/build/API28 gate before implementation commit.
 
 ### Pending
@@ -640,6 +638,10 @@ Current Location milestone also excludes:
 6. Notifications, AlarmManager, definitive UI, Qibla, Quran and custom alarms remain separate milestones.
 
 ## 17. Change log
+
+### 2026-08-30 — Runtime-minimal GeoNames schema finalized; APK-size gate passed
+
+Run `33293822757` transformed the exact E6 staging DB from run `33292976302` (SHA-256 `e567b7eabb40994d5d9fb95209c050503cf5747a6cdd25ef73d195aeb4003877`) into the final runtime-minimal layout without removing any city or alias. The final database contains 224,330 cities, 258,685 aliases and 391 timezone names; logical comparison reported zero city/alias mismatches and zero duplicate alias pairs. Table-scoped integrity checks returned `ok` for `country`, `admin1`, `timezone`, `city` and `city_alias`; FTS document parity/orphan checks and golden MATCH cases for Roma, Makkah, Mecca, New York and Sydney all passed. `search` used the FTS virtual table, and `nearest` used the sole explicit secondary runtime index `city_lat_lon_idx`. Final SQLite size is 27,795,456 bytes; AAPT/ZIP method 8 compressed the asset to 15,008,799 bytes; baseline APK was 33,937,009 bytes and APK-with-city-data was 48,945,932 bytes, yielding a **15,008,923-byte incremental APK cost**, 5,962,597 bytes below the 20 MiB stop threshold. Runtime-minimal is therefore the final approved STEP 4 schema: E6 coordinates, numeric timezone lookup, population retained, country/admin1 short codes retained, runtime-only coordinate index, build-time alias dedup and unchanged FTS4 contentless search. Proceed with CityRepository, exhaustive API28 timezone validation and remaining STEP 4 regression.
 
 ### 2026-08-30 — Lossless GeoNames schema-footprint optimization approved
 
