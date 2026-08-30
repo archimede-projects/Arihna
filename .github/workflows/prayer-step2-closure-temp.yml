@@ -18,17 +18,18 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Patch STEP 2 closure spec
-        run: python3 tools/step2_close_spec_temp.py
+        run: python3 tools/step2_close_spec_temp_v2.py
 
       - name: Verify closure markers and clean diff
         run: |
-          grep -q 'MILESTONE OPEN / STEP 2 CLOSED' PROJECT_SPEC.md
-          grep -q 'STEP 2 — Prayer settings persistence: CLOSED' PROJECT_SPEC.md
-          grep -q 'ffb391846481a38cca0786be238bddae912ba862' PROJECT_SPEC.md
-          grep -q '33338723836' PROJECT_SPEC.md
-          grep -q '99330268698' PROJECT_SPEC.md
-          grep -q '35/35' PROJECT_SPEC.md
-          grep -q 'STEP 3 — schedule orchestration: \*\*NOT STARTED\*\*' PROJECT_SPEC.md
+          grep -Fq 'MILESTONE OPEN / STEP 2 CLOSED' PROJECT_SPEC.md
+          grep -Fq 'STEP 2 — Prayer settings persistence: CLOSED' PROJECT_SPEC.md
+          grep -Fq 'ffb391846481a38cca0786be238bddae912ba862' PROJECT_SPEC.md
+          grep -Fq '33338723836' PROJECT_SPEC.md
+          grep -Fq '99330268698' PROJECT_SPEC.md
+          grep -Fq '35/35' PROJECT_SPEC.md
+          grep -Fq '3. **STEP 3 — schedule orchestration: NOT STARTED.**' PROJECT_SPEC.md
+          grep -Fq 'STEP 3 is **NOT STARTED**' PROJECT_SPEC.md
           git diff --check
 
       - name: Commit validated PROJECT_SPEC only
