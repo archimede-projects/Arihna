@@ -76,7 +76,7 @@ class LocationManagerDeviceLocationDataSourceAndroidTest {
     }
 
     @Test
-    fun currentFixComesFromRealLocationManagerBridgeAndCapturesCurrentZone() = runBlocking {
+    fun currentFixComesFromRealLocationManagerBridgeAndCapturesCurrentZone(): Unit = runBlocking {
         val diagnostics = mutableListOf("case=A currentFix")
         recordState(diagnostics, "before-inject")
 
@@ -109,7 +109,7 @@ class LocationManagerDeviceLocationDataSourceAndroidTest {
     }
 
     @Test
-    fun foregroundFlowReceivesInjectedFrameworkLocationAndCancelsCleanly() = runBlocking {
+    fun foregroundFlowReceivesInjectedFrameworkLocationAndCancelsCleanly(): Unit = runBlocking {
         val diagnostics = mutableListOf("case=B foregroundFlow")
         recordState(diagnostics, "before-framework-probe")
         probeFrameworkUpdateRegistration(diagnostics)
@@ -166,7 +166,7 @@ class LocationManagerDeviceLocationDataSourceAndroidTest {
     }
 
     @Test
-    fun disabledLocationServicesAreExposedWithoutFabricatedFix() = runBlocking {
+    fun disabledLocationServicesAreExposedWithoutFabricatedFix(): Unit = runBlocking {
         val diagnostics = mutableListOf("case=C disabledLocationServices")
         recordState(diagnostics, "before-location-mode-write")
 
