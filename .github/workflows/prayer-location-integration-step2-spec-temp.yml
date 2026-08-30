@@ -1,0 +1,37 @@
+name: Temporary integration STEP 2 spec start patch
+
+on:
+  push:
+    branches:
+      - prayer-location-integration-step2-spec-temp
+
+permissions:
+  contents: write
+
+jobs:
+  patch-spec:
+    if: github.event.head_commit.message != 'docs(integration): start prayer settings persistence'
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply asserted spec patch
+        run: python3 tools/prayer_location_integration_step2_spec_temp.py
+
+      - name: Verify STEP 2 markers
+        run: |
+          grep -q '### 5.3 Prayer Engine + Location integration — MILESTONE OPEN / STEP 2 IN PROGRESS' PROJECT_SPEC.md
+          grep -q 'STEP 2 — Prayer settings persistence: IN PROGRESS' PROJECT_SPEC.md
+          grep -q 'same existing Preferences DataStore instance used by Location' PROJECT_SPEC.md
+          grep -q 'prayer.offset.isha' PROJECT_SPEC.md
+          grep -q 'STEP 3 schedule orchestration must not begin until STEP 2 is closed' PROJECT_SPEC.md
+          git diff --check
+
+      - name: Commit validated specification
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add PROJECT_SPEC.md
+          git diff --cached --check
+          git commit -m 'docs(integration): start prayer settings persistence'
+          git push origin HEAD:prayer-location-integration-step2-spec-temp
