@@ -99,11 +99,11 @@ Selected engine:
 
 Android API 28 HijrahChronology verification passed on 2026-08-29 in run `33245235911`. Final prayer-engine regression passed on run `33248406741`: `testDebugUnitTest`, `assembleDebug`, and `connectedDebugAndroidTest` on Android 9/API28 all succeeded. Final implementation commit: `e5987f878e253085425f9bfebf7bf714c8405de3` (`feat(prayer): implement offline prayer time calculation engine`).
 
-### 5.2 Location — MILESTONE OPEN / STEP 4 CLOSED
+### 5.2 Location — MILESTONE OPEN / STEP 5 IN PROGRESS
 
 Location STEP 4 (GeoNames generation/read-only SQLite, APK-size measurement, CityRepository/timezone/data validation and API28 data gate) is **CLOSED** after definitive workflow run `33296099459` on implementation commit `8620772ebe0dd5b51691ce2447c46ef996cd90d1`. The run passed frozen-dataset provenance, runtime-minimal database generation, real AAPT/APK size gate, host unit regression, and Android 9/API28 instrumentation (**16/16 tests, 0 failed, 0 skipped**). The API28-classified SQLite asset is 28,020,736 bytes with SHA-256 `7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb`; its real APK increment is 15,033,263 bytes, 5,938,257 bytes below the approved 20 MiB threshold. All 224,330 cities and 258,685 aliases are preserved; the four reviewed timezone mappings and the exact 17-city `America/Nuuk` controlled-unsupported set passed the STEP 4 gate.
 
-The **Location milestone remains OPEN**. STEP 5 (Android `LocationManager` + Android permission/resolution flow) and STEP 6 (minimal functional Device/Manual UI) were part of the explicitly approved Location scope from the beginning and are **NOT STARTED**. They do not require reapproval merely because STEP 4 is closed. STEP 5 is the next implementation step; STEP 6 follows it; STEP 7 remains the final full regression/closure gate for the milestone.
+The **Location milestone remains OPEN**. STEP 5 (Android `LocationManager` + Android permission/resolution flow) is **IN PROGRESS** under the already approved scope. STEP 6 (minimal functional Device/Manual UI) is **NOT STARTED** and must not begin until STEP 5 is closed and confirmed; STEP 7 remains the final full regression/closure gate for the milestone.
 
 The Location layer supplies real or user-selected `Coordinates + ZoneId` to the existing prayer engine. `PrayerTimeCalculator` remains unchanged.
 
@@ -121,6 +121,7 @@ The Location layer supplies real or user-selected `Coordinates + ZoneId` to the 
 - Do not request location permission automatically at app startup.
 - Request it only after the user explicitly chooses the Device-location path, after a short rationale explaining that location is used to calculate prayer times, remains local to the device, and that manual city selection is available without granting permission.
 - If denied, degrade gracefully and always offer manual city selection.
+- STEP 5 may provide the Android permission-state/request boundary needed by STEP 6, but the actual system prompt must have no startup side effect: it is invoked only by the explicit Device-location action after the rationale. The UI trigger/rationale rendering itself remains STEP 6.
 
 #### Refresh/significant-change policy
 
@@ -138,6 +139,9 @@ Accept/update a device location when at least one is true:
 4. there is no previously usable fix.
 
 When Arihna enters foreground while `Device` is selected, request a fresh fix and observe significant updates while foreground; stop updates when leaving foreground. Do not persist every provider callback or behave like a navigation tracker.
+
+- The Android callback layer must not reimplement the 5 km acceptance rule. Its update request uses the approved 15-minute minimum interval but must not impose a 5 km provider-level `minDistance`, because doing so could suppress a legitimate `ZoneId` change below 5 km. Every delivered candidate is passed to the existing pure `LocationUpdatePolicy.shouldAccept(...)` decision.
+- The 20-second fresh-fix timeout remains owned by `LocationCoordinator`/`LocationUpdatePolicy`; `DeviceLocationDataSource` supplies a cancellable current-location operation and does not maintain a second independent timeout.
 
 #### Fresh vs cached
 
@@ -570,6 +574,20 @@ Before Location STEP 4 closure, Android 9/API28 tests must verify:
 
 No CI test requires physical GPS movement or runner geographic position.
 
+### Location STEP 5 Android gate — REQUIRED BEFORE COMMIT/PROMOTION
+
+STEP 5 must preserve the existing host/domain regression and add Android 9/API28 instrumentation for the real `LocationManager` bridge where the emulator supports deterministic test-provider injection. The gate must cover at minimum: current-fix mapping to `DeviceLocationFix`; current device `ZoneId` capture; provider-disabled/unavailable behavior without fabricated coordinates; cancellation/unregistration behavior; foreground update registration with the approved 15-minute interval and no provider-level 5 km filter; manifest permission policy (`COARSE` only); and integration with existing cached/permission/services-disabled coordinator states. Android test-provider APIs may be used under instrumentation when the runner can grant the mock-location app-op. Any hardware/OEM path that cannot be simulated (for example a physical user toggling Samsung Location settings or real radio/GNSS acquisition) must be listed explicitly as a manual-device verification rather than replaced by a fake CI claim.
+
+Required STEP 5 commands include:
+
+```bash
+./gradlew testDebugUnitTest --stacktrace
+./gradlew assembleDebug --stacktrace
+./gradlew :app:connectedDebugAndroidTest --stacktrace
+```
+
+The tested implementation SHA is promoted/committed as the STEP 5 implementation only after these gates are green. STEP 6 must not start before that closure.
+
 ### Location STEP 4 gate — PASSED / milestone final gate pending
 
 Host JDK: Temurin 21. Required commands for the STEP 4 regression were:
@@ -613,7 +631,7 @@ Future milestones add Qibla math, exact-alarm reboot/timezone/time changes, noti
 - API28 timezone policy: four explicit verified compatibility mappings; exactly one residual modern id (`America/Nuuk`) affecting 17 cities is controlled `UNSUPPORTED_TIME_ZONE` on API28 while remaining in/searchable from the dataset.
 - Preferences DataStore `1.2.1`.
 - Arihna-owned Location models/state/errors; `PrayerTimeCalculator` unchanged.
-- **STEP 5 — Android `LocationManager` + permission/resolution flow: NOT STARTED / NEXT.** This work is already approved within the current Location milestone and does not require a new scope approval.
+- **STEP 5 — Android `LocationManager` + permission/resolution flow: IN PROGRESS.** Implement the real Android bridge and permission/service-state boundaries; keep timeout and significant-change acceptance in the existing domain layer; prove with host tests and API28 instrumentation before closure.
 - **STEP 6 — minimal functional Device/Manual Compose UI: NOT STARTED.** This work is already approved within the current Location milestone and follows STEP 5.
 - **STEP 7 — full Location unit/build/API28 regression and milestone closure: NOT STARTED.** It follows STEP 6.
 
@@ -654,11 +672,15 @@ Current Location milestone also excludes:
 1. Branding/UI decision closure — CLOSED.
 2. Android bootstrap — CLOSED/build verified.
 3. Prayer-time calculation — CLOSED; final commit `e5987f878e253085425f9bfebf7bf714c8405de3`; JDK21/API28 regression passed.
-4. **Current: Location (Device + manual city) — MILESTONE OPEN.** STEP 4 is closed; the Device-location and functional-UI work remains in the already approved scope.
-5. Location sequence/status: STEP 1 spec commit — CLOSED → STEP 2 pure Kotlin domain/state/policies + fake tests — CLOSED → STEP 3 Preferences DataStore — CLOSED → STEP 4 GeoNames generation/read-only SQLite + APK-size measurement + CityRepository/timezone/data/API28 gate — **CLOSED** → STEP 5 Android `LocationManager` + permission/resolution — **NOT STARTED / NEXT** → STEP 6 minimal functional Device/Manual UI — **NOT STARTED** → STEP 7 full unit/build/API28 regression → dedicated implementation commit → STOP — **NOT STARTED**.
+4. **Current: Location (Device + manual city) — MILESTONE OPEN.** STEP 4 is closed; STEP 5 is now the active implementation objective; STEP 6/7 remain not started.
+5. Location sequence/status: STEP 1 spec commit — CLOSED → STEP 2 pure Kotlin domain/state/policies + fake tests — CLOSED → STEP 3 Preferences DataStore — CLOSED → STEP 4 GeoNames generation/read-only SQLite + APK-size measurement + CityRepository/timezone/data/API28 gate — **CLOSED** → STEP 5 Android `LocationManager` + permission/resolution — **IN PROGRESS** → STEP 6 minimal functional Device/Manual UI — **NOT STARTED** → STEP 7 full unit/build/API28 regression → dedicated implementation commit → STOP — **NOT STARTED**.
 6. Notifications, AlarmManager, definitive UI, Qibla, Quran and custom alarms remain separate milestones and must not begin before the Location milestone is closed.
 
 ## 17. Change log
+
+### 2026-08-30 — Location STEP 5 Android LocationManager integration started
+
+STEP 5 is authorized under the original Location milestone scope. Implement the existing `DeviceLocationDataSource` with Android framework `LocationManager`/AndroidX Core compatibility helpers and no Google Play Services Location dependency. The manifest must remain `ACCESS_COARSE_LOCATION` only, with no FINE/BACKGROUND permission or location foreground service. The platform current-fix operation is cancellable while the existing domain coordinator remains the sole owner of the 20-second timeout. Foreground callbacks use the approved 15-minute interval but no provider-level 5 km distance filter, because the existing pure `LocationUpdatePolicy` must continue to decide 5 km significance and accept timezone changes even below 5 km. Permission/service-state integration must populate the already modeled denied/disabled/unavailable/cache states; no system permission request occurs at app startup. The actual request is callable only from the explicit Device-location action after rationale, which STEP 6 will render. Verify with `testDebugUnitTest`, `assembleDebug`, and API28 instrumentation using Android mock/test-provider support where deterministic; document any path that remains inherently physical-device-only. Do not start STEP 6 until STEP 5 is closed and confirmed.
 
 ### 2026-08-30 — Location milestone state corrected; STEP 4 remains closed
 
