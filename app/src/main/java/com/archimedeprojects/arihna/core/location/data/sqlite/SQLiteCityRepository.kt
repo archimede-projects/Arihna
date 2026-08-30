@@ -5,10 +5,12 @@ import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import android.icu.lang.UCharacter
 import com.archimedeprojects.arihna.core.location.data.CityRepository
+import com.archimedeprojects.arihna.core.location.data.UnsupportedCityTimeZoneException
+import com.archimedeprojects.arihna.core.location.model.CitySearchResult
 import com.archimedeprojects.arihna.core.location.model.ManualCity
+import com.archimedeprojects.arihna.core.location.model.VerifiedTimeZoneCompatibility
 import com.archimedeprojects.arihna.core.prayer.model.Coordinates
 import java.text.Normalizer
-import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
@@ -23,19 +25,15 @@ import kotlin.math.sqrt
 class SQLiteCityRepository(context: Context) : CityRepository {
     private val bundledDatabase = BundledCityDatabase(context)
 
-    override suspend fun search(query: String): List<ManualCity> = withContext(Dispatchers.IO) {
+    override suspend fun search(query: String): List<CitySearchResult> = withContext(Dispatchers.IO) {
         val normalized = normalizeSearchQuery(query)
-        if (normalized.isEmpty()) {
-            return@withContext emptyList()
-        }
+        if (normalized.isEmpty()) return@withContext emptyList()
 
         val matchExpression = normalized
             .split(' ')
             .filter { it.isNotEmpty() }
             .joinToString(separator = " ") { token -> "$token*" }
-        if (matchExpression.isEmpty()) {
-            return@withContext emptyList()
-        }
+        if (matchExpression.isEmpty()) return@withContext emptyList()
 
         val database = bundledDatabase.openReadOnly()
         database.rawQuery(
@@ -49,33 +47,32 @@ class SQLiteCityRepository(context: Context) : CityRepository {
             ),
         ).use { cursor ->
             buildList {
-                while (cursor.moveToNext()) {
-                    add(cursor.readManualCity())
-                }
+                while (cursor.moveToNext()) add(cursor.readSearchResult())
             }
         }
     }
 
     override suspend fun findById(id: Long): ManualCity? = withContext(Dispatchers.IO) {
-        if (id <= 0L) {
-            return@withContext null
-        }
+        if (id <= 0L) return@withContext null
         findByIdBlocking(bundledDatabase.openReadOnly(), id)
     }
 
-    override suspend fun nearest(coordinates: Coordinates): ManualCity? = withContext(Dispatchers.IO) {
-        if (!coordinates.isValid) {
-            return@withContext null
-        }
+    override suspend fun nearest(coordinates: Coordinates): CitySearchResult? = withContext(Dispatchers.IO) {
+        if (!coordinates.isValid) return@withContext null
 
         val database = bundledDatabase.openReadOnly()
         val nearestId = findNearestId(database, coordinates) ?: return@withContext null
-        findByIdBlocking(database, nearestId)
+        findSearchResultByIdBlocking(database, nearestId)
     }
 
     private fun findByIdBlocking(database: SQLiteDatabase, id: Long): ManualCity? =
         database.rawQuery(FIND_BY_ID_SQL, arrayOf(id.toString())).use { cursor ->
             if (cursor.moveToFirst()) cursor.readManualCity() else null
+        }
+
+    private fun findSearchResultByIdBlocking(database: SQLiteDatabase, id: Long): CitySearchResult? =
+        database.rawQuery(FIND_BY_ID_SQL, arrayOf(id.toString())).use { cursor ->
+            if (cursor.moveToFirst()) cursor.readSearchResult() else null
         }
 
     private fun findNearestId(database: SQLiteDatabase, origin: Coordinates): Long? {
@@ -111,9 +108,7 @@ class SQLiteCityRepository(context: Context) : CityRepository {
             // The bounding box conservatively contains the whole radius circle.
             // Once a candidate is actually within that radius, no point outside
             // the box can be closer, so the result is globally nearest.
-            if (bestId != null && bestDistanceKm <= radiusKm) {
-                return bestId
-            }
+            if (bestId != null && bestDistanceKm <= radiusKm) return bestId
         }
 
         return fallbackId
@@ -198,18 +193,52 @@ class SQLiteCityRepository(context: Context) : CityRepository {
         )
     }
 
-    private fun Cursor.readManualCity(): ManualCity = ManualCity(
-        id = getLong(0),
-        name = getString(1),
-        regionName = if (isNull(2)) null else getString(2),
-        countryName = getString(3),
-        countryCode = getString(4),
-        coordinates = Coordinates(
-            latitude = getLong(5).toDouble() / E6,
-            longitude = getLong(6).toDouble() / E6,
-        ),
-        zoneId = ZoneId.of(getString(7)),
-    )
+    private fun Cursor.readSearchResult(): CitySearchResult {
+        val modernTimeZoneId = getString(TIMEZONE_NAME_INDEX)
+        val compatibilityId = if (isNull(TIMEZONE_COMPAT_INDEX)) null else getString(TIMEZONE_COMPAT_INDEX)
+        val zoneSupported = VerifiedTimeZoneCompatibility.resolveOrNull(
+            modernId = modernTimeZoneId,
+            databaseCompatibilityId = compatibilityId,
+        ) != null
+
+        return CitySearchResult(
+            id = getLong(ID_INDEX),
+            name = getString(NAME_INDEX),
+            regionName = if (isNull(REGION_INDEX)) null else getString(REGION_INDEX),
+            countryName = getString(COUNTRY_NAME_INDEX),
+            countryCode = getString(COUNTRY_CODE_INDEX),
+            coordinates = Coordinates(
+                latitude = getLong(LATITUDE_INDEX).toDouble() / E6,
+                longitude = getLong(LONGITUDE_INDEX).toDouble() / E6,
+            ),
+            timeZoneId = modernTimeZoneId,
+            timeZoneSupported = zoneSupported,
+        )
+    }
+
+    private fun Cursor.readManualCity(): ManualCity {
+        val cityId = getLong(ID_INDEX)
+        val modernTimeZoneId = getString(TIMEZONE_NAME_INDEX)
+        val compatibilityId = if (isNull(TIMEZONE_COMPAT_INDEX)) null else getString(TIMEZONE_COMPAT_INDEX)
+        val zoneId = VerifiedTimeZoneCompatibility.resolveOrNull(
+            modernId = modernTimeZoneId,
+            databaseCompatibilityId = compatibilityId,
+        ) ?: throw UnsupportedCityTimeZoneException(cityId, modernTimeZoneId)
+
+        return ManualCity(
+            id = cityId,
+            name = getString(NAME_INDEX),
+            regionName = if (isNull(REGION_INDEX)) null else getString(REGION_INDEX),
+            countryName = getString(COUNTRY_NAME_INDEX),
+            countryCode = getString(COUNTRY_CODE_INDEX),
+            coordinates = Coordinates(
+                latitude = getLong(LATITUDE_INDEX).toDouble() / E6,
+                longitude = getLong(LONGITUDE_INDEX).toDouble() / E6,
+            ),
+            zoneId = zoneId,
+            timeZoneId = modernTimeZoneId,
+        )
+    }
 
     private fun normalizeSearchQuery(value: String): String {
         val decomposed = Normalizer.normalize(value, Normalizer.Form.NFKD)
@@ -226,9 +255,7 @@ class SQLiteCityRepository(context: Context) : CityRepository {
                 type == Character.NON_SPACING_MARK.toInt() ||
                     type == Character.COMBINING_SPACING_MARK.toInt() ||
                     type == Character.ENCLOSING_MARK.toInt()
-            if (combiningMark) {
-                continue
-            }
+            if (combiningMark) continue
 
             val wordCharacter = Character.isLetterOrDigit(codePoint) || codePoint == '_'.code
             if (wordCharacter) {
@@ -277,6 +304,16 @@ class SQLiteCityRepository(context: Context) : CityRepository {
         private val NEAREST_RADII_KM =
             doubleArrayOf(25.0, 100.0, 500.0, 2_000.0, 5_000.0, 10_000.0, 20_100.0)
 
+        private const val ID_INDEX = 0
+        private const val NAME_INDEX = 1
+        private const val REGION_INDEX = 2
+        private const val COUNTRY_NAME_INDEX = 3
+        private const val COUNTRY_CODE_INDEX = 4
+        private const val LATITUDE_INDEX = 5
+        private const val LONGITUDE_INDEX = 6
+        private const val TIMEZONE_NAME_INDEX = 7
+        private const val TIMEZONE_COMPAT_INDEX = 8
+
         private const val CITY_SELECT = """
             SELECT c.id,
                    c.name,
@@ -286,6 +323,8 @@ class SQLiteCityRepository(context: Context) : CityRepository {
                    c.latitude_e6,
                    c.longitude_e6,
                    tz.name AS timezone_name,
+                   tz.api28_compat_name AS timezone_compat_name,
+                   c.api28_time_zone_supported,
                    c.population
             FROM city AS c
             JOIN country AS co ON co.code = c.country_code
@@ -304,6 +343,8 @@ class SQLiteCityRepository(context: Context) : CityRepository {
                    c.latitude_e6,
                    c.longitude_e6,
                    tz.name AS timezone_name,
+                   tz.api28_compat_name AS timezone_compat_name,
+                   c.api28_time_zone_supported,
                    c.population,
                    MIN(
                        CASE
