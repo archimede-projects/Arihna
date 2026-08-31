@@ -1,7 +1,6 @@
 package com.archimedeprojects.arihna.feature.prayerschedule.domain
 
 import com.archimedeprojects.arihna.core.location.model.LocationResolutionState
-import com.archimedeprojects.arihna.core.location.model.SelectedLocation
 import com.archimedeprojects.arihna.core.prayer.calculation.PrayerTimeCalculator
 import com.archimedeprojects.arihna.core.prayer.model.PrayerCalculationResult
 import com.archimedeprojects.arihna.core.prayer.model.PrayerCalculationSettings
@@ -11,6 +10,7 @@ import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -18,10 +18,13 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
@@ -42,7 +45,9 @@ class DefaultPrayerScheduleRepository(
     private val cacheMutex = Mutex()
     private val calculationCache = mutableMapOf<PrayerScheduleInput, PrayerCalculationResult>()
 
-    override fun observeSchedule(): Flow<PrayerScheduleState> =
+    override fun observeSchedule(): Flow<PrayerScheduleState> = flow {
+        val latestTriggerVersion = AtomicLong(0L)
+
         combine(
             locationStates,
             prayerSettingsRepository.settings,
@@ -55,24 +60,53 @@ class DefaultPrayerScheduleRepository(
             )
         }
             .distinctUntilChanged()
-            .flatMapLatest(::triggerFlow)
-            .mapLatest { trigger -> deriveState(trigger.locationState, trigger.settings) }
+            .map { context ->
+                VersionedObservationContext(
+                    context = context,
+                    version = latestTriggerVersion.incrementAndGet(),
+                )
+            }
+            .flatMapLatest { context -> triggerFlow(context, latestTriggerVersion) }
+            .mapLatest { trigger ->
+                val state = deriveState(trigger.locationState, trigger.settings)
+                state.takeIf { trigger.version == latestTriggerVersion.get() }
+            }
+            .filterNotNull()
             .onStart { emit(PrayerScheduleState.Loading) }
             .distinctUntilChanged()
+            .collect { emit(it) }
+    }
 
     override suspend fun refresh() {
         refreshVersion.update { it + 1L }
     }
 
-    private fun triggerFlow(context: ObservationContext): Flow<ScheduleTrigger> = flow {
+    private fun triggerFlow(
+        versionedContext: VersionedObservationContext,
+        latestTriggerVersion: AtomicLong,
+    ): Flow<ScheduleTrigger> = flow {
+        val context = versionedContext.context
         val ready = context.locationState as? LocationResolutionState.Ready
         if (ready == null || !ready.location.isValid) {
-            emit(ScheduleTrigger(context.locationState, context.settings))
+            emit(
+                ScheduleTrigger(
+                    locationState = context.locationState,
+                    settings = context.settings,
+                    version = versionedContext.version,
+                ),
+            )
             return@flow
         }
 
+        var version = versionedContext.version
         while (currentCoroutineContext().isActive) {
-            emit(ScheduleTrigger(context.locationState, context.settings))
+            emit(
+                ScheduleTrigger(
+                    locationState = context.locationState,
+                    settings = context.settings,
+                    version = version,
+                ),
+            )
 
             val now = clock.instant()
             val zoneId = ready.location.zoneId
@@ -86,6 +120,7 @@ class DefaultPrayerScheduleRepository(
                 .coerceAtLeast(1L)
 
             delay(delayMillis)
+            version = latestTriggerVersion.incrementAndGet()
         }
     }
 
@@ -121,7 +156,6 @@ class DefaultPrayerScheduleRepository(
             is PrayerCalculationResult.Success -> {
                 val nextPrayer = nextPrayer(
                     input = input,
-                    selectedLocation = selectedLocation,
                     todayTimes = todayResult.prayerDay.times,
                     now = now,
                 )
@@ -142,7 +176,6 @@ class DefaultPrayerScheduleRepository(
 
     private suspend fun nextPrayer(
         input: PrayerScheduleInput,
-        selectedLocation: SelectedLocation,
         todayTimes: PrayerTimes,
         now: Instant,
     ): NextPrayer? {
@@ -192,8 +225,14 @@ class DefaultPrayerScheduleRepository(
         val refresh: Long,
     )
 
+    private data class VersionedObservationContext(
+        val context: ObservationContext,
+        val version: Long,
+    )
+
     private data class ScheduleTrigger(
         val locationState: LocationResolutionState,
         val settings: PrayerCalculationSettings,
+        val version: Long,
     )
 }
