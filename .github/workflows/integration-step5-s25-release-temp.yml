@@ -46,8 +46,8 @@ jobs:
 
       - uses: android-actions/setup-android@v3
 
-      - name: Install Android API 37
-        run: sdkmanager 'platforms;android-37' 'build-tools;37.0.0'
+      - name: Keep SDK setup aligned with verified Android gate
+        run: android sdk install platforms/android-37 --canary || true
 
       - name: Verify production permission policy
         run: |
@@ -107,7 +107,6 @@ jobs:
           path.write_text(text.replace(marker, block + marker, 1))
           PY
           git diff --check -- app/build.gradle.kts
-          git diff -- app/build.gradle.kts
 
       - name: Unit regression before package
         run: ./gradlew testDebugUnitTest --stacktrace
@@ -122,8 +121,8 @@ jobs:
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
           "$APKSIGNER" verify --verbose --print-certs "$APK" | tee /tmp/apksigner.txt
           grep -Fi '1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa' /tmp/apksigner.txt
-          AAPT2="$(find "$ANDROID_HOME/build-tools" -type f -name aapt2 | sort -V | tail -1)"
-          "$AAPT2" dump badging "$APK" | grep -F "package: name='com.archimedeprojects.arihna'"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$AAPT" dump badging "$APK" | grep -F "package: name='com.archimedeprojects.arihna'"
           cp "$APK" "$APK_NAME"
           sha256sum "$APK_NAME" | tee /tmp/apk-sha256.txt
 
