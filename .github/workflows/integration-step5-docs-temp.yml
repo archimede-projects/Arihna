@@ -25,12 +25,12 @@ jobs:
 
       - name: Validate docs-only semantic update
         run: |
-          grep -q '### 5.3 Prayer Engine + Location integration — MILESTONE OPEN / STEP 5 CLOSED' PROJECT_SPEC.md
-          grep -q 'STEP 5 functional Home panel: CLOSED' PROJECT_SPEC.md
-          grep -q '33362751963' PROJECT_SPEC.md
-          grep -q '99397193018' PROJECT_SPEC.md
-          grep -q '39/39' PROJECT_SPEC.md
-          grep -q 'STEP 6 remains \*\*NOT STARTED / NEXT\*\*' PROJECT_SPEC.md
+          grep -Fq '### 5.3 Prayer Engine + Location integration — MILESTONE OPEN / STEP 5 CLOSED' PROJECT_SPEC.md
+          grep -Fq 'STEP 5 — functional Home panel: CLOSED' PROJECT_SPEC.md
+          grep -Fq '33362751963' PROJECT_SPEC.md
+          grep -Fq '99397193018' PROJECT_SPEC.md
+          grep -Fq '39/39' PROJECT_SPEC.md
+          grep -Fq 'STEP 6 remains **NOT STARTED / NEXT**' PROJECT_SPEC.md
           git diff --check
           test "$(git diff --name-only | wc -l)" -eq 1
           test "$(git diff --name-only)" = 'PROJECT_SPEC.md'
