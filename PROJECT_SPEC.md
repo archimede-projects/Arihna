@@ -1146,3 +1146,21 @@ Approved diagnostic-only follow-up:
 - Keep permission policy COARSE-only. Do not add FINE/background location, Google Play Services Location, new provider fallbacks, cache shortcuts, new timeout values, or changes to lifecycle/5 km/15-minute policies in this diagnostic build.
 - The existing foreground behavior remains unchanged during diagnosis: Device mode requests a fresh fix on each foreground transition, while a persisted real fix is retained only as explicitly CACHED fallback if the fresh resolution fails. Any age-based foreground reuse optimization is a separate future UX/policy decision and is not part of this diagnostic.
 - The separate Home latency investigation remains unresolved and is not modified by this diagnostic-only follow-up.
+
+#### S25 bounded requestLocationUpdates comparison — DIAGNOSTIC 2026-08-31
+
+Real Galaxy S25 traces now prove that production commit `df5bcaa8c394cc332547453f30fbe4fdeaee8900` selects framework `network` for the one-shot while both `network` and framework `fused` are enabled, yet the production `getCurrentLocation()` path is cancelled at essentially the full 20-second boundary (`20002 ms` in the first captured trace). A separate outdoor test with good visibility and Wi-Fi/mobile data active repeated the same result (`network`, timeout at `20001 ms`). In that outdoor session the ordinary update stream emitted a real historical fix with age about 95 seconds; this proves that comparatively recent location data existed in the system stack, but does not identify which client produced it and does not by itself prove that a new fix was generated during Arihna's request.
+
+The existing 35-second diagnostic A/B for framework `network` versus framework `fused` remains required evidence for the eventual production decision. Its runtime trace is intentionally local/in-memory plus Logcat and is not uploaded by Arihna, so no A/B result may be inferred from GitHub artifacts when the Galaxy trace has not been copied explicitly.
+
+Approved diagnostic-only comparison before any production policy change:
+
+- Preserve the existing production path and the existing parallel `getCurrentLocation()` A/B unchanged.
+- Add exactly one third probe: framework `network` + bounded `requestLocationUpdates()` using the Android API 31+ `LocationRequest` overload on the S25.
+- Use one deliberately simple profile: request interval **10 seconds**, explicit minimum update interval **0 ms**, minimum distance **0 m**, maximum update delay **0 ms** (no batching), `QUALITY_BALANCED_POWER_ACCURACY`, and a bounded **35-second** observation window/duration.
+- The 10-second request interval is a diagnostic recency bound, not an approved Arihna `FRESH` product threshold. For this probe only, a callback whose monotonic age is `<= 10 seconds` is logged as `ACCEPTED`; an older callback is logged as `REJECTED_TOO_OLD` and observation continues so a subsequent better fix remains visible. Do not use `setMaxUpdates(1)`.
+- Log request configuration, provider state, subscribe time, every callback, callback provider, callback latency, wall/elapsed timestamps, monotonic/wall age, accuracy, decision, listener removal and terminal outcome `ACCEPTED`, `TIMEOUT`, `CANCELLED`, `ERROR`, or API/provider/permission unavailability as applicable.
+- Always remove the listener deterministically after acceptance, timeout, cancellation or error. The probe must not write preferences, persist a fix, update `LocationCoordinator`, alter `LocationResolutionState`, feed prayer calculation, or modify application-visible location state.
+- Keep `ACCESS_COARSE_LOCATION` only. Do not add FINE/background permission, Google Play Services Location, a provider fallback/race, a new production timeout, cache TTL/foreground reuse, or a production freshness threshold.
+- The production 20-second one-shot, 15-minute foreground updates, 5 km/ZoneId acceptance, FRESH/CACHED semantics, persistence and lifecycle remain unchanged until real S25 evidence from the three methods is reviewed.
+- Remaining location-change/warm-cache experiments are optional controls after the comparative APK exists; the separate Home latency investigation remains out of scope.
