@@ -36,15 +36,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           test "$(git rev-parse HEAD)" = "$TARGET_SHA"
-          test "$(git rev-parse HEAD^)" = "$PRODUCTION_PARENT_SHA" || {
-            git fetch --depth=2 origin "$TARGET_SHA"
-            test "$(git rev-parse HEAD^)" = "$PRODUCTION_PARENT_SHA"
-          }
+          PARENT="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_SHA" --jq '[((.parents|length)|tostring), .parents[0].sha] | join(" ")')"
+          echo "Verified parent: $PARENT"
+          test "$PARENT" = "1 $PRODUCTION_PARENT_SHA"
           test -f app/src/main/java/com/archimedeprojects/arihna/feature/debug/LocationDiagnosticOverlay.kt
           GATE="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$VERIFIED_GATE_RUN" --jq '.head_sha + " " + .conclusion')"
           echo "Verified gate: $GATE"
           test "$GATE" = "$TARGET_SHA success"
-          JOB="$(gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$VERIFIED_GATE_JOB" --jq '.id|tostring + " " + .conclusion')"
+          JOB="$(gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$VERIFIED_GATE_JOB" --jq '[(.id|tostring), .conclusion] | join(" ")')"
           echo "Verified rerun job: $JOB"
           test "$JOB" = "$VERIFIED_GATE_JOB success"
 
