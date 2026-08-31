@@ -1,23 +1,35 @@
 package com.archimedeprojects.arihna.app
 
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.archimedeprojects.arihna.core.location.diagnostics.LocationDiagnosticTrace
 import com.archimedeprojects.arihna.core.prayer.calculation.AdhanPrayerTimeCalculator
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaTheme
+import com.archimedeprojects.arihna.feature.debug.LocationDiagnosticOverlay
+import com.archimedeprojects.arihna.feature.debug.TracingPrayerScheduleRepository
+import com.archimedeprojects.arihna.feature.debug.TracingPrayerSettingsRepository
+import com.archimedeprojects.arihna.feature.debug.TracingPrayerTimeCalculator
 import com.archimedeprojects.arihna.feature.prayerschedule.domain.DefaultPrayerScheduleRepository
 import com.archimedeprojects.arihna.feature.prayerschedule.presentation.OneSecondPrayerScheduleTicker
+import com.archimedeprojects.arihna.feature.prayerschedule.presentation.PrayerScheduleUiState
 import com.archimedeprojects.arihna.feature.prayerschedule.presentation.PrayerScheduleViewModel
 import com.archimedeprojects.arihna.feature.settings.LocationSettingsViewModel
 import java.time.Clock
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 
 @Composable
 fun ArihnaApp(
@@ -40,13 +52,37 @@ fun ArihnaApp(
     val locationViewModel: LocationSettingsViewModel = viewModel(factory = locationViewModelFactory)
 
     val prayerClock = remember { Clock.systemUTC() }
-    val prayerScheduleRepository = remember(appContainer, locationViewModel, prayerClock) {
+    val tracedLocationStates = remember(locationViewModel) {
+        locationViewModel.uiState
+            .map { it.resolutionState }
+            .onEach { state ->
+                LocationDiagnosticTrace.record(
+                    "SCHEDULE_LOCATION_INPUT",
+                    state.javaClass.simpleName,
+                )
+            }
+    }
+    val tracedPrayerSettings = remember(appContainer) {
+        TracingPrayerSettingsRepository(appContainer.prayerSettingsRepository)
+    }
+    val tracedPrayerCalculator = remember {
+        TracingPrayerTimeCalculator(AdhanPrayerTimeCalculator())
+    }
+    val corePrayerScheduleRepository = remember(
+        tracedLocationStates,
+        tracedPrayerSettings,
+        tracedPrayerCalculator,
+        prayerClock,
+    ) {
         DefaultPrayerScheduleRepository(
-            locationStates = locationViewModel.uiState.map { it.resolutionState },
-            prayerSettingsRepository = appContainer.prayerSettingsRepository,
-            prayerTimeCalculator = AdhanPrayerTimeCalculator(),
+            locationStates = tracedLocationStates,
+            prayerSettingsRepository = tracedPrayerSettings,
+            prayerTimeCalculator = tracedPrayerCalculator,
             clock = prayerClock,
         )
+    }
+    val prayerScheduleRepository = remember(corePrayerScheduleRepository) {
+        TracingPrayerScheduleRepository(corePrayerScheduleRepository)
     }
     val prayerScheduleViewModelFactory = remember(prayerScheduleRepository, prayerClock) {
         viewModelFactory {
@@ -63,43 +99,90 @@ fun ArihnaApp(
         factory = prayerScheduleViewModelFactory,
     )
 
+    LaunchedEffect(locationViewModel) {
+        locationViewModel.uiState
+            .map { state ->
+                "resolution=${state.resolutionState.javaClass.simpleName} mode=${state.activeMode} rationale=${state.rationaleVisible} permissionRequested=${state.hasRequestedPermissionBefore}"
+            }
+            .distinctUntilChanged()
+            .collect { snapshot ->
+                LocationDiagnosticTrace.record("LOCATION_VM_STATE", snapshot)
+            }
+    }
+
+    LaunchedEffect(prayerScheduleViewModel) {
+        prayerScheduleViewModel.uiState
+            .map { state -> state.diagnosticLabel() }
+            .distinctUntilChanged()
+            .collect { snapshot ->
+                LocationDiagnosticTrace.record("PRAYER_UI_STATE", snapshot)
+            }
+    }
+
     DisposableEffect(activity, locationViewModel) {
-        fun refreshForegroundLocation() {
+        fun refreshForegroundLocation(origin: String) {
             val permissionState = appContainer.locationPermissionStateResolver.resolve(
                 activity = activity,
                 hasRequestedBefore = locationViewModel.hasRequestedPermissionBefore(),
             )
+            val servicesEnabled = appContainer.locationEnvironment.isLocationServicesEnabled()
+            LocationDiagnosticTrace.record(
+                "APP_ON_FOREGROUND",
+                "origin=$origin permission=$permissionState servicesEnabled=$servicesEnabled",
+            )
             locationViewModel.onForeground(
                 permissionState = permissionState,
-                locationServicesEnabled = appContainer.locationEnvironment.isLocationServicesEnabled(),
+                locationServicesEnabled = servicesEnabled,
             )
         }
 
         val observer = LifecycleEventObserver { _, event ->
+            LocationDiagnosticTrace.record("ACTIVITY_LIFECYCLE", event.name)
             when (event) {
-                Lifecycle.Event.ON_START -> refreshForegroundLocation()
-                Lifecycle.Event.ON_STOP -> locationViewModel.onBackground()
+                Lifecycle.Event.ON_START -> refreshForegroundLocation("ON_START")
+                Lifecycle.Event.ON_STOP -> {
+                    LocationDiagnosticTrace.record("APP_ON_BACKGROUND", "origin=ON_STOP")
+                    locationViewModel.onBackground()
+                }
                 else -> Unit
             }
         }
         activity.lifecycle.addObserver(observer)
+        LocationDiagnosticTrace.record(
+            "LIFECYCLE_OBSERVER_ATTACHED",
+            "state=${activity.lifecycle.currentState}",
+        )
         if (activity.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
-            refreshForegroundLocation()
+            refreshForegroundLocation("INITIAL_STARTED")
         }
 
         onDispose {
+            LocationDiagnosticTrace.record("LIFECYCLE_EFFECT_DISPOSED")
             activity.lifecycle.removeObserver(observer)
             locationViewModel.onBackground()
         }
     }
 
     ArihnaTheme {
-        ArihnaNavHost(
-            activity = activity,
-            locationSettingsViewModel = locationViewModel,
-            prayerScheduleViewModel = prayerScheduleViewModel,
-            locationEnvironment = appContainer.locationEnvironment,
-            locationPermissionStateResolver = appContainer.locationPermissionStateResolver,
-        )
+        Box(modifier = Modifier.fillMaxSize()) {
+            ArihnaNavHost(
+                activity = activity,
+                locationSettingsViewModel = locationViewModel,
+                prayerScheduleViewModel = prayerScheduleViewModel,
+                locationEnvironment = appContainer.locationEnvironment,
+                locationPermissionStateResolver = appContainer.locationPermissionStateResolver,
+            )
+            LocationDiagnosticOverlay(
+                providerProbe = appContainer.providerCurrentLocationProbe,
+            )
+        }
     }
+}
+
+private fun PrayerScheduleUiState.diagnosticLabel(): String = when (this) {
+    PrayerScheduleUiState.Loading -> "Loading"
+    is PrayerScheduleUiState.NoLocation -> "NoLocation(${locationState.javaClass.simpleName})"
+    is PrayerScheduleUiState.CalculationUnavailable -> "CalculationUnavailable(reason=$reason)"
+    is PrayerScheduleUiState.Ready ->
+        "Ready(location=${location.displayName} date=$localDate next=${nextPrayer?.prayer}@${nextPrayer?.time})"
 }

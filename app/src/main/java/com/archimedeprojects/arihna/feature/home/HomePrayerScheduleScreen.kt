@@ -16,10 +16,12 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.archimedeprojects.arihna.core.location.diagnostics.LocationDiagnosticTrace
 import com.archimedeprojects.arihna.core.prayer.model.PrayerCalculationMethod
 import com.archimedeprojects.arihna.feature.prayerschedule.domain.PrayerName
 import com.archimedeprojects.arihna.feature.prayerschedule.presentation.PrayerScheduleLocationSourceUi
@@ -38,6 +40,13 @@ fun HomePrayerScheduleRoute(
     onOpenLocationSettings: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val diagnosticState = uiState.homeDiagnosticLabel()
+    LaunchedEffect(Unit) {
+        LocationDiagnosticTrace.record("HOME_ROUTE_ENTER")
+    }
+    LaunchedEffect(diagnosticState) {
+        LocationDiagnosticTrace.record("HOME_UI_STATE", diagnosticState)
+    }
     HomePrayerScheduleScreen(
         contentPadding = contentPadding,
         uiState = uiState,
@@ -211,6 +220,14 @@ private fun PrayerTimeRow(
         }
         HorizontalDivider()
     }
+}
+
+private fun PrayerScheduleUiState.homeDiagnosticLabel(): String = when (this) {
+    PrayerScheduleUiState.Loading -> "Loading"
+    is PrayerScheduleUiState.NoLocation -> "NoLocation(${locationState.javaClass.simpleName})"
+    is PrayerScheduleUiState.CalculationUnavailable -> "CalculationUnavailable(reason=$reason)"
+    is PrayerScheduleUiState.Ready ->
+        "Ready(location=${location.displayName} date=$localDate next=${nextPrayer?.prayer}@${nextPrayer?.time})"
 }
 
 private fun prayerLabel(prayer: PrayerName): String = when (prayer) {

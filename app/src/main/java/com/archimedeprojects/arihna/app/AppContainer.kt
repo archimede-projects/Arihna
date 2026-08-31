@@ -7,10 +7,13 @@ import com.archimedeprojects.arihna.core.location.data.DeviceLocationDataSource
 import com.archimedeprojects.arihna.core.location.data.LocationPreferencesRepository
 import com.archimedeprojects.arihna.core.location.data.preferences.PreferencesDataStoreLocationPreferencesRepository
 import com.archimedeprojects.arihna.core.location.data.sqlite.SQLiteCityRepository
+import com.archimedeprojects.arihna.core.location.diagnostics.ProviderCurrentLocationProbe
 import com.archimedeprojects.arihna.core.location.domain.LocationCoordinator
 import com.archimedeprojects.arihna.core.location.platform.AndroidLocationEnvironment
 import com.archimedeprojects.arihna.core.location.platform.AndroidLocationPermissionStateResolver
 import com.archimedeprojects.arihna.core.location.platform.LocationManagerDeviceLocationDataSource
+import com.archimedeprojects.arihna.core.location.platform.TracingDeviceLocationDataSource
+import com.archimedeprojects.arihna.core.location.platform.tracingCoarseProviderSelector
 import com.archimedeprojects.arihna.feature.prayerschedule.data.PrayerSettingsRepository
 import com.archimedeprojects.arihna.feature.prayerschedule.data.preferences.PreferencesDataStorePrayerSettingsRepository
 
@@ -24,7 +27,18 @@ class AppContainer(context: Context) {
     }
 
     val deviceLocationDataSource: DeviceLocationDataSource by lazy {
-        LocationManagerDeviceLocationDataSource(appContext)
+        val productionBridge = LocationManagerDeviceLocationDataSource(
+            context = appContext,
+            providerSelector = ::tracingCoarseProviderSelector,
+        )
+        TracingDeviceLocationDataSource(
+            context = appContext,
+            delegate = productionBridge,
+        )
+    }
+
+    val providerCurrentLocationProbe: ProviderCurrentLocationProbe by lazy {
+        ProviderCurrentLocationProbe(appContext)
     }
 
     val locationPreferencesRepository: LocationPreferencesRepository by lazy {
