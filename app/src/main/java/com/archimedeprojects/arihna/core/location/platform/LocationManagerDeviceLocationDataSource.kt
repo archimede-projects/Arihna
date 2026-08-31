@@ -39,6 +39,7 @@ class LocationManagerDeviceLocationDataSource(
     private val callbackExecutor: Executor = ContextCompat.getMainExecutor(context.applicationContext),
     private val zoneIdProvider: () -> ZoneId = ZoneId::systemDefault,
     private val clock: Clock = Clock.systemUTC(),
+    private val currentLocationProviderSelector: (LocationManager) -> String? = ::selectCurrentLocationProvider,
     private val providerSelector: (LocationManager) -> String? = ::selectCoarseProvider,
     private val updatePolicy: LocationUpdatePolicy = LocationUpdatePolicy(),
 ) : DeviceLocationDataSource {
@@ -48,7 +49,7 @@ class LocationManagerDeviceLocationDataSource(
         if (!hasCoarsePermission() || !LocationManagerCompat.isLocationEnabled(locationManager)) {
             return DeviceLocationResult.Unavailable(LocationFailure.NO_PROVIDER)
         }
-        val provider = providerSelector(locationManager)
+        val provider = currentLocationProviderSelector(locationManager)
             ?: return DeviceLocationResult.Unavailable(LocationFailure.NO_PROVIDER)
 
         return suspendCancellableCoroutine { continuation ->
@@ -161,6 +162,15 @@ internal fun foregroundLocationRequestSpec(policy: LocationUpdatePolicy): Foregr
         // The domain layer must see candidates below 5 km so a ZoneId change can still be significant.
         minDistanceMeters = 0f,
     )
+
+internal fun selectCurrentLocationProvider(locationManager: LocationManager): String? {
+    val enabled = runCatching { locationManager.getProviders(true).toSet() }.getOrDefault(emptySet())
+    return selectCurrentLocationProviderFromEnabledProviders(enabled)
+}
+
+internal fun selectCurrentLocationProviderFromEnabledProviders(enabledProviders: Set<String>): String? =
+    listOf(LocationManager.NETWORK_PROVIDER, FRAMEWORK_FUSED_PROVIDER)
+        .firstOrNull { it in enabledProviders }
 
 @Suppress("DEPRECATION")
 internal fun selectCoarseProvider(locationManager: LocationManager): String? {

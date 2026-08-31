@@ -26,6 +26,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -82,7 +83,9 @@ class LocationManagerDeviceLocationDataSourceAndroidTest {
 
     @Test
     fun currentLocationRegistersWithFrameworkAndCancellationRemovesRequest() = runBlocking {
-        val awaiting = async(Dispatchers.Default) { dataSource().getCurrentLocation() }
+        val awaiting = async(Dispatchers.Default) {
+            dataSource(providerSelector = { null }).getCurrentLocation()
+        }
 
         val registration = waitForRegistration(expectedPresent = true)
         assertTrue(
@@ -102,7 +105,9 @@ class LocationManagerDeviceLocationDataSourceAndroidTest {
     @Test
     fun foregroundFlowRegistersApprovedIntervalAndCancellationRemovesListener() = runBlocking {
         val awaiting = async(Dispatchers.Default) {
-            dataSource().observeSignificantUpdates().collect { }
+            dataSource(currentLocationProviderSelector = { null })
+                .observeSignificantUpdates()
+                .collect { }
         }
 
         val registration = waitForRegistration(expectedPresent = true)
@@ -125,14 +130,34 @@ class LocationManagerDeviceLocationDataSourceAndroidTest {
     }
 
     @Test
-    fun noSelectedCoarseProviderReturnsControlledNoProvider() = runBlocking {
+    fun oneShotProviderSelectionIsNetworkFirstWithFrameworkFusedFallback() {
+        assertEquals(
+            LocationManager.NETWORK_PROVIDER,
+            selectCurrentLocationProviderFromEnabledProviders(
+                setOf("fused", LocationManager.NETWORK_PROVIDER),
+            ),
+        )
+        assertEquals(
+            "fused",
+            selectCurrentLocationProviderFromEnabledProviders(setOf("fused")),
+        )
+        assertNull(
+            selectCurrentLocationProviderFromEnabledProviders(
+                setOf(LocationManager.GPS_PROVIDER, LocationManager.PASSIVE_PROVIDER),
+            ),
+        )
+    }
+
+    @Test
+    fun noSelectedCurrentProviderReturnsControlledNoProvider() = runBlocking {
         val dataSource = LocationManagerDeviceLocationDataSource(
             context = targetContext,
             locationManager = locationManager,
             callbackExecutor = directExecutor,
             zoneIdProvider = { fixedZone },
             clock = fixedClock,
-            providerSelector = { null },
+            currentLocationProviderSelector = { null },
+            providerSelector = { providerName },
             updatePolicy = LocationUpdatePolicy(),
         )
 
@@ -179,14 +204,18 @@ class LocationManagerDeviceLocationDataSourceAndroidTest {
         assertTrue(AndroidLocationEnvironment(targetContext).isCoarsePermissionGranted())
     }
 
-    private fun dataSource(): LocationManagerDeviceLocationDataSource =
+    private fun dataSource(
+        currentLocationProviderSelector: (LocationManager) -> String? = { providerName },
+        providerSelector: (LocationManager) -> String? = { providerName },
+    ): LocationManagerDeviceLocationDataSource =
         LocationManagerDeviceLocationDataSource(
             context = targetContext,
             locationManager = locationManager,
             callbackExecutor = directExecutor,
             zoneIdProvider = { fixedZone },
             clock = fixedClock,
-            providerSelector = { providerName },
+            currentLocationProviderSelector = currentLocationProviderSelector,
+            providerSelector = providerSelector,
             updatePolicy = LocationUpdatePolicy(
                 significantDistanceMeters = 5_000.0,
                 minimumForegroundUpdateInterval = Duration.ofMinutes(15),
