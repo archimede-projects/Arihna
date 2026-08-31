@@ -1,0 +1,155 @@
+name: Diagnostic S25 Provider A/B + Home Latency prerelease temp
+
+on:
+  push:
+    branches:
+      - diagnostic-s25-provider-home-latency-release-temp
+    paths:
+      - .github/workflows/diagnostic-s25-provider-home-latency-release-temp.yml
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-24.04
+    env:
+      TARGET_SHA: f1955dff772a10ebe7d9141b5ffc5600d216a3f4
+      PRODUCTION_PARENT_SHA: 78270a93bf68c0829d6d2621cef40f41dc4a0862
+      VERIFIED_GATE_RUN: '33372427895'
+      VERIFIED_GATE_JOB: '99429833777'
+      SIGNING_SOURCE_SHA: ce23a7f78695be95c7f8dfd2bcedbe22544da94c
+      RELEASE_TAG: diagnostic-s25-provider-home-latency-f1955dff-20260831
+      APK_NAME: arihna-diagnostic-s25-provider-home-latency.apk
+      DEBUG_CERT_SHA256: 13:97:00:8C:1F:96:2D:BB:D3:6D:D8:A8:EA:02:16:AF:DD:06:E4:B2:B3:E0:8B:C0:F6:D4:B5:43:44:D7:B0:FA
+      DEBUG_KEYSTORE_SHA256: bc9057f26ad6de7efb70a5df06effb1ed259f1d015c3f062d0f757b3f0983b72
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: f1955dff772a10ebe7d9141b5ffc5600d216a3f4
+          fetch-depth: 1
+
+      - name: Verify exact diagnostic source and green gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^)" = "$PRODUCTION_PARENT_SHA" || {
+            git fetch --depth=2 origin "$TARGET_SHA"
+            test "$(git rev-parse HEAD^)" = "$PRODUCTION_PARENT_SHA"
+          }
+          test -f app/src/main/java/com/archimedeprojects/arihna/feature/debug/LocationDiagnosticOverlay.kt
+          GATE="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$VERIFIED_GATE_RUN" --jq '.head_sha + " " + .conclusion')"
+          echo "Verified gate: $GATE"
+          test "$GATE" = "$TARGET_SHA success"
+          JOB="$(gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$VERIFIED_GATE_JOB" --jq '.id|tostring + " " + .conclusion')"
+          echo "Verified rerun job: $JOB"
+          test "$JOB" = "$VERIFIED_GATE_JOB success"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Keep SDK setup aligned with verified gate
+        run: android sdk install platforms/android-37 --canary || true
+
+      - name: Verify diagnostic permission policy
+        run: |
+          grep -q 'android.permission.ACCESS_COARSE_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.ACCESS_FINE_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.ACCESS_BACKGROUND_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -R -q 'com.google.android.gms.location' app/src/main gradle
+
+      - name: Restore exact STEP 4 city asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rm -rf /tmp/step4-asset app/src/main/assets/geonames
+          mkdir -p /tmp/step4-asset app/src/main/assets/geonames
+          gh run download 33296099459 \
+            --repo "$GITHUB_REPOSITORY" \
+            --name geonames-step4-runtime-minimal \
+            --dir /tmp/step4-asset
+          DB="$(find /tmp/step4-asset -type f -name cities.db -print -quit)"
+          test -n "$DB"
+          cp "$DB" app/src/main/assets/geonames/cities.db
+          echo '7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb  app/src/main/assets/geonames/cities.db' | sha256sum -c -
+
+      - name: Restore previously verified persistent debug signing key
+        run: |
+          git fetch --depth=1 origin location-step5-device-test
+          mkdir -p "$HOME/.android"
+          git show "$SIGNING_SOURCE_SHA:.github/test-signing/arihna-debug.keystore.b64" \
+            | base64 --decode > "$HOME/.android/debug.keystore"
+          test "$(sha256sum "$HOME/.android/debug.keystore" | awk '{print $1}')" = "$DEBUG_KEYSTORE_SHA256"
+          keytool -list -v \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storepass android \
+            -alias androiddebugkey | grep -F "$DEBUG_CERT_SHA256"
+
+      - name: Apply transient persistent-debug signing configuration
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('app/build.gradle.kts')
+          text = path.read_text()
+          marker = '    buildFeatures {\n'
+          block = '''    signingConfigs {
+              getByName("debug") {
+                  storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
+                  storePassword = "android"
+                  keyAlias = "androiddebugkey"
+                  keyPassword = "android"
+              }
+          }
+
+          '''
+          if marker not in text:
+              raise SystemExit('buildFeatures marker not found')
+          if 'storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")' in text:
+              raise SystemExit('unexpected persistent signing config already present in target source')
+          path.write_text(text.replace(marker, block + marker, 1))
+          PY
+          git diff --check -- app/build.gradle.kts
+
+      - name: Unit regression before diagnostic package
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build installable diagnostic APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Verify APK signature, identity and digest
+        run: |
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee /tmp/apksigner.txt
+          grep -Fi '1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa' /tmp/apksigner.txt
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$AAPT" dump badging "$APK" | grep -F "package: name='com.archimedeprojects.arihna'"
+          cp "$APK" "$APK_NAME"
+          sha256sum "$APK_NAME" | tee /tmp/apk-sha256.txt
+          stat -c '%s' "$APK_NAME" | tee /tmp/apk-size.txt
+
+      - name: Publish diagnostic GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test ! "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" 2>/dev/null || true)"
+          APK_SHA="$(awk '{print $1}' /tmp/apk-sha256.txt)"
+          APK_SIZE="$(cat /tmp/apk-size.txt)"
+          gh release create "$RELEASE_TAG" "$APK_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$TARGET_SHA" \
+            --title 'Diagnostic S25 provider A/B + Home latency — f1955dff' \
+            --prerelease \
+            --notes "DIAGNOSTIC ONLY — no production fix. Built from diagnostic SHA $TARGET_SHA, whose sole parent is production STEP 5 main $PRODUCTION_PARENT_SHA. Verified gate: run $VERIFIED_GATE_RUN, rerun job $VERIFIED_GATE_JOB; API28 connected tests 39/39, 0 skipped, 0 failed. This build adds explicit one-shot provider diagnostics for network vs fused (including real fix age) and end-to-end Home latency tracing from Location through prayer settings/calculator/repository/ViewModel/Compose. It does not apply the proposed production provider fix and does not change timeout/lifecycle/5km/cache policies. ACCESS_COARSE_LOCATION only; no FINE/background location and no Play Services Location. Persistent debug signing certificate SHA-256: $DEBUG_CERT_SHA256. APK SHA-256: $APK_SHA. APK bytes: $APK_SIZE. STEP 6 remains not started; production main remains unchanged."
