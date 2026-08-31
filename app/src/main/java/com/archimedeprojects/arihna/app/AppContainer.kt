@@ -11,6 +11,8 @@ import com.archimedeprojects.arihna.core.location.domain.LocationCoordinator
 import com.archimedeprojects.arihna.core.location.platform.AndroidLocationEnvironment
 import com.archimedeprojects.arihna.core.location.platform.AndroidLocationPermissionStateResolver
 import com.archimedeprojects.arihna.core.location.platform.LocationManagerDeviceLocationDataSource
+import com.archimedeprojects.arihna.core.location.platform.TracingDeviceLocationDataSource
+import com.archimedeprojects.arihna.core.location.platform.tracingCoarseProviderSelector
 import com.archimedeprojects.arihna.feature.prayerschedule.data.PrayerSettingsRepository
 import com.archimedeprojects.arihna.feature.prayerschedule.data.preferences.PreferencesDataStorePrayerSettingsRepository
 
@@ -24,7 +26,14 @@ class AppContainer(context: Context) {
     }
 
     val deviceLocationDataSource: DeviceLocationDataSource by lazy {
-        LocationManagerDeviceLocationDataSource(appContext)
+        val productionBridge = LocationManagerDeviceLocationDataSource(
+            context = appContext,
+            providerSelector = ::tracingCoarseProviderSelector,
+        )
+        TracingDeviceLocationDataSource(
+            context = appContext,
+            delegate = productionBridge,
+        )
     }
 
     val locationPreferencesRepository: LocationPreferencesRepository by lazy {
