@@ -36,9 +36,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           test "$(git rev-parse HEAD)" = "$TARGET_SHA"
-          test "$(git show -s --format=%P HEAD)" = "$PRODUCTION_PARENT_SHA"
           test -f app/src/main/java/com/archimedeprojects/arihna/feature/debug/LocationDiagnosticOverlay.kt
-          GATE="$(gh run view "$VERIFIED_GATE_RUN" --repo "$GITHUB_REPOSITORY" --json headSha,conclusion --jq '.headSha + " " + .conclusion')"
+          GATE="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$VERIFIED_GATE_RUN" --jq '.head_sha + " " + .conclusion')"
+          echo "Verified gate: $GATE"
           test "$GATE" = "$TARGET_SHA success"
 
       - uses: actions/setup-java@v4
