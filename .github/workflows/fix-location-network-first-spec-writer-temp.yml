@@ -1,0 +1,52 @@
+name: Location network-first spec writer temp
+
+on:
+  push:
+    branches:
+      - fix-location-network-first-spec-writer-temp
+    paths:
+      - .github/workflows/fix-location-network-first-spec-writer-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  write-spec:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix-location-one-shot-network-first
+          fetch-depth: 0
+
+      - name: Verify exact production base
+        run: |
+          test "$(git rev-parse HEAD)" = "78270a93bf68c0829d6d2621cef40f41dc4a0862"
+
+      - name: Record approved one-shot provider correction
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('PROJECT_SPEC.md')
+          text = path.read_text()
+          marker = '#### S25 one-shot provider timeout correction — APPROVED 2026-08-31'
+          if marker in text:
+              raise SystemExit('spec decision already present')
+
+          needle = '''- Foreground location only; no `ACCESS_BACKGROUND_LOCATION` and no foreground location service.\n\n#### Permission policy'''
+          if needle not in text:
+              raise SystemExit('expected Location technology/permission boundary not found')
+
+          block = '''- Foreground location only; no `ACCESS_BACKGROUND_LOCATION` and no foreground location service.\n\n#### S25 one-shot provider timeout correction — APPROVED 2026-08-31\n\nReal-device diagnostics on the primary Galaxy S25 established that the Android framework provider selected by the shared coarse selector can be `fused`, and that `LocationManagerCompat.getCurrentLocation(...)` against that framework `fused` provider can systematically fail to deliver a genuinely new fix inside the existing 20-second current-fix timeout. In the same sessions the foreground update channel can still emit a previously captured fix whose age continues increasing; such an update does not prove that the one-shot request produced a fresh fix.\n\nA direct source comparison with the current Timzguida app does **not** invalidate this diagnosis: Timzguida declares both `ACCESS_COARSE_LOCATION` and `ACCESS_FINE_LOCATION`, depends on Google Play Services Location, and uses `FusedLocationProviderClient`. Its automatic-location path immediately consumes `fused.lastLocation`, while also issuing `getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, ...)` and `requestLocationUpdates(...)`. Timzguida's observed instant result can therefore come from Play Services cached location and/or a different provider engine; it is not evidence that Arihna's framework one-shot should behave identically. Arihna keeps its deliberate no-Play-Services and COARSE-only policies.\n\nApproved production correction:\n\n- `getCurrentLocation()` gets a **dedicated one-shot provider selector**: enabled `LocationManager.NETWORK_PROVIDER` first, framework `fused` only as fallback when network is unavailable.\n- `observeSignificantUpdates()` continues to use the existing coarse provider selector unchanged; this correction must not alter its provider choice or update registration behavior.\n- Do not change the 20-second timeout, foreground lifecycle, 5 km acceptance policy, 15-minute minimum update interval, cache/FRESH semantics, permission policy, or location persistence behavior.\n- Do not add `ACCESS_FINE_LOCATION`, `ACCESS_BACKGROUND_LOCATION`, Google Play Services Location, or a new fallback based on invented/default coordinates.\n- The separate Home latency investigation remains diagnostic-only and is not part of this correction.\n\n#### Permission policy'''
+          path.write_text(text.replace(needle, block, 1))
+          PY
+          git diff --check -- PROJECT_SPEC.md
+
+      - name: Commit spec before implementation
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add PROJECT_SPEC.md
+          git commit -m "docs(location): approve network-first one-shot provider"
+          git push origin HEAD:fix-location-one-shot-network-first
