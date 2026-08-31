@@ -394,7 +394,7 @@ User can:
 - understand permission denied, services disabled, timeout/cached, unsupported-timezone and unconfigured states;
 - see GeoNames attribution in relevant functional/about path.
 
-### 5.3 Prayer Engine + Location integration — MILESTONE OPEN / STEP 3 IN PROGRESS
+### 5.3 Prayer Engine + Location integration — MILESTONE OPEN / STEP 3 CLOSED
 
 This milestone connects the already-closed Prayer Engine and Location milestones without reopening or duplicating their internal logic. Location remains the sole authority that produces a valid `SelectedLocation`; the Prayer Engine remains the sole authority for prayer-time calculation from explicit `Coordinates + ZoneId + PrayerCalculationSettings + LocalDate`. The integration layer derives a UI-consumable schedule only when Location is `Ready` and never invents coordinates, timezone, calculation results or fallback prayer times.
 
@@ -955,7 +955,7 @@ Current Prayer Engine + Location integration milestone additionally excludes:
 3. Prayer-time calculation — CLOSED; final commit `e5987f878e253085425f9bfebf7bf714c8405de3`; JDK21/API28 regression passed.
 4. **Location (Device + manual city) — MILESTONE CLOSED.** STEP 1 through STEP 7 are closed after exact-SHA final regression on `b41dd6a4b8a29204a4cb01b0d640a44504139cfc`.
 5. Location sequence/status: STEP 1 spec/architecture — **CLOSED** → STEP 2 pure Kotlin domain/state/policies + fake tests — **CLOSED** → STEP 3 Preferences DataStore — **CLOSED** → STEP 4 GeoNames generation/read-only SQLite + APK-size measurement + CityRepository/timezone/data/API28 gate — **CLOSED** → STEP 5 Android `LocationManager` + permission/resolution — **CLOSED** → STEP 6 minimal functional Device/Manual UI — **CLOSED** → STEP 7 full unit/build/API28 + Prayer/data/APK final regression — **CLOSED** → **STOP**.
-6. **Current: Prayer Engine + Location integration — MILESTONE OPEN / STEP 3 IN PROGRESS.** Seven-step sequence approved: STEP 1 spec-first — **CLOSED** → STEP 2 Prayer settings persistence — **CLOSED** → STEP 3 schedule orchestration — **IN PROGRESS** → STEP 4 presentation/countdown — **NOT STARTED** → STEP 5 functional Home panel — NOT STARTED → STEP 6 full Prayer+Location+Integration regression — NOT STARTED → STEP 7 docs-only closure — NOT STARTED → STOP. STEP 3 is explicitly authorized; no STEP 4 work is authorized before STEP 3 closure and confirmation.
+6. **Current: Prayer Engine + Location integration — MILESTONE OPEN / STEP 3 CLOSED.** Seven-step sequence approved: STEP 1 spec-first — **CLOSED** → STEP 2 Prayer settings persistence — **CLOSED** → STEP 3 schedule orchestration — **CLOSED** → STEP 4 presentation/countdown — **NOT STARTED** → STEP 5 functional Home panel — NOT STARTED → STEP 6 full Prayer+Location+Integration regression — NOT STARTED → STEP 7 docs-only closure — NOT STARTED → STOP. STEP 3 is closed on clean technical commit `2476ae86f585a6849f6f2104cddd215c6abf7d0f` after definitive exact-SHA run `33357287019` / job `99381759479`; no STEP 4 work is authorized without separate confirmation.
 7. Qibla, notifications/AlarmManager, adhan audio, custom alarms, Quran and definitive Hero Dashboard remain separate future milestones and must not begin before this integration milestone is closed.
 
 ## 17. Change log
