@@ -1,0 +1,73 @@
+name: Diagnostic S25 request-updates bootstrap temp
+
+on:
+  push:
+    branches:
+      - diagnostic-s25-request-updates-bounded
+    paths:
+      - .github/workflows/diagnostic-s25-request-updates-bootstrap-temp.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  record-diagnostic-decision:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify diagnostic ancestry and production isolation
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 94d3a7461fbad66bb9c467459cf8cb1f5fc34cc8 HEAD
+          git merge-base --is-ancestor df5bcaa8c394cc332547453f30fbe4fdeaee8900 HEAD
+          test "$(git rev-parse origin/main)" = "df5bcaa8c394cc332547453f30fbe4fdeaee8900"
+
+      - name: Record bounded request-updates diagnostic in PROJECT_SPEC
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          path = Path('PROJECT_SPEC.md')
+          text = path.read_text()
+          marker = '#### S25 bounded requestLocationUpdates comparison — DIAGNOSTIC 2026-08-31'
+          if marker in text:
+              print('Diagnostic marker already present.')
+              raise SystemExit(0)
+
+          section = textwrap.dedent('''
+          #### S25 bounded requestLocationUpdates comparison — DIAGNOSTIC 2026-08-31
+
+          Real Galaxy S25 traces now prove that production commit `df5bcaa8c394cc332547453f30fbe4fdeaee8900` selects framework `network` for the one-shot while both `network` and framework `fused` are enabled, yet the production `getCurrentLocation()` path is cancelled at essentially the full 20-second boundary (`20002 ms` in the first captured trace). A separate outdoor test with good visibility and Wi-Fi/mobile data active repeated the same result (`network`, timeout at `20001 ms`). In that outdoor session the ordinary update stream emitted a real historical fix with age about 95 seconds; this proves that comparatively recent location data existed in the system stack, but does not identify which client produced it and does not by itself prove that a new fix was generated during Arihna's request.
+
+          The existing 35-second diagnostic A/B for framework `network` versus framework `fused` remains required evidence for the eventual production decision. Its runtime trace is intentionally local/in-memory plus Logcat and is not uploaded by Arihna, so no A/B result may be inferred from GitHub artifacts when the Galaxy trace has not been copied explicitly.
+
+          Approved diagnostic-only comparison before any production policy change:
+
+          - Preserve the existing production path and the existing parallel `getCurrentLocation()` A/B unchanged.
+          - Add exactly one third probe: framework `network` + bounded `requestLocationUpdates()` using the Android API 31+ `LocationRequest` overload on the S25.
+          - Use one deliberately simple profile: request interval **10 seconds**, explicit minimum update interval **0 ms**, minimum distance **0 m**, maximum update delay **0 ms** (no batching), `QUALITY_BALANCED_POWER_ACCURACY`, and a bounded **35-second** observation window/duration.
+          - The 10-second request interval is a diagnostic recency bound, not an approved Arihna `FRESH` product threshold. For this probe only, a callback whose monotonic age is `<= 10 seconds` is logged as `ACCEPTED`; an older callback is logged as `REJECTED_TOO_OLD` and observation continues so a subsequent better fix remains visible. Do not use `setMaxUpdates(1)`.
+          - Log request configuration, provider state, subscribe time, every callback, callback provider, callback latency, wall/elapsed timestamps, monotonic/wall age, accuracy, decision, listener removal and terminal outcome `ACCEPTED`, `TIMEOUT`, `CANCELLED`, `ERROR`, or API/provider/permission unavailability as applicable.
+          - Always remove the listener deterministically after acceptance, timeout, cancellation or error. The probe must not write preferences, persist a fix, update `LocationCoordinator`, alter `LocationResolutionState`, feed prayer calculation, or modify application-visible location state.
+          - Keep `ACCESS_COARSE_LOCATION` only. Do not add FINE/background permission, Google Play Services Location, a provider fallback/race, a new production timeout, cache TTL/foreground reuse, or a production freshness threshold.
+          - The production 20-second one-shot, 15-minute foreground updates, 5 km/ZoneId acceptance, FRESH/CACHED semantics, persistence and lifecycle remain unchanged until real S25 evidence from the three methods is reviewed.
+          - Remaining location-change/warm-cache experiments are optional controls after the comparative APK exists; the separate Home latency investigation remains out of scope.
+          ''')
+          path.write_text(text.rstrip() + '\n\n' + section.strip() + '\n')
+          PY
+          git diff --check -- PROJECT_SPEC.md
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add PROJECT_SPEC.md
+          if git diff --cached --quiet; then
+            echo 'No spec change needed.'
+            exit 0
+          fi
+          git commit -m 'docs(diagnostics): approve bounded request updates comparison'
+          git push origin HEAD:diagnostic-s25-request-updates-bounded
