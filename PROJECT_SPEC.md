@@ -114,6 +114,20 @@ The Location layer supplies real or user-selected `Coordinates + ZoneId` to the 
 - Domain terminology is `Device`, not `GPS`, because Android may use GNSS/GPS, Wi-Fi, cellular or other system providers.
 - Foreground location only; no `ACCESS_BACKGROUND_LOCATION` and no foreground location service.
 
+#### S25 one-shot provider timeout correction — APPROVED 2026-08-31
+
+Real-device diagnostics on the primary Galaxy S25 established that the Android framework provider selected by the shared coarse selector can be `fused`, and that `LocationManagerCompat.getCurrentLocation(...)` against that framework `fused` provider can systematically fail to deliver a genuinely new fix inside the existing 20-second current-fix timeout. In the same sessions the foreground update channel can still emit a previously captured fix whose age continues increasing; such an update does not prove that the one-shot request produced a fresh fix.
+
+A direct source comparison with the current Timzguida app does **not** invalidate this diagnosis: Timzguida declares both `ACCESS_COARSE_LOCATION` and `ACCESS_FINE_LOCATION`, depends on Google Play Services Location, and uses `FusedLocationProviderClient`. Its automatic-location path immediately consumes `fused.lastLocation`, while also issuing `getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, ...)` and `requestLocationUpdates(...)`. Timzguida's observed instant result can therefore come from Play Services cached location and/or a different provider engine; it is not evidence that Arihna's framework one-shot should behave identically. Arihna keeps its deliberate no-Play-Services and COARSE-only policies.
+
+Approved production correction:
+
+- `getCurrentLocation()` gets a **dedicated one-shot provider selector**: enabled `LocationManager.NETWORK_PROVIDER` first, framework `fused` only as fallback when network is unavailable.
+- `observeSignificantUpdates()` continues to use the existing coarse provider selector unchanged; this correction must not alter its provider choice or update registration behavior.
+- Do not change the 20-second timeout, foreground lifecycle, 5 km acceptance policy, 15-minute minimum update interval, cache/FRESH semantics, permission policy, or location persistence behavior.
+- Do not add `ACCESS_FINE_LOCATION`, `ACCESS_BACKGROUND_LOCATION`, Google Play Services Location, or a new fallback based on invented/default coordinates.
+- The separate Home latency investigation remains diagnostic-only and is not part of this correction.
+
 #### Permission policy
 
 - Request only `android.permission.ACCESS_COARSE_LOCATION` in this milestone.
