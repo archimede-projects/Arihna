@@ -26,6 +26,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
@@ -44,6 +45,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class DefaultPrayerScheduleRepositoryTest {
     @Test
     fun nonReadyStatesNeverInvokeCalculator() = runTest {
@@ -315,7 +317,7 @@ class DefaultPrayerScheduleRepositoryTest {
 
     @Test
     fun zoneChangeCancelsOldMidnightAndSchedulesNewBoundary() = runTest {
-        val initial = Instant.parse("2026-01-01T22:30:00Z")
+        val initial = Instant.parse("2026-01-01T18:00:00Z")
         val clock = MutableClock(initial)
         val locationStates = MutableStateFlow<LocationResolutionState>(
             ready(manualLocation(1L, "Roma", Coordinates(41.9028, 12.4964), ZoneId.of("Europe/Rome"))),
@@ -342,7 +344,7 @@ class DefaultPrayerScheduleRepositoryTest {
         assertEquals(ZoneId.of("America/New_York"), calculator.calls.last().zoneId)
 
         clock.setInstant(Instant.parse("2026-01-01T23:00:00Z"))
-        advanceTimeBy(Duration.ofMinutes(30).toMillis())
+        advanceTimeBy(Duration.ofHours(5).toMillis())
         runCurrent()
         assertEquals(2, calculator.calls.size)
 
@@ -493,6 +495,7 @@ class DefaultPrayerScheduleRepositoryTest {
 
         assertTrue(calculator.firstStarted.await(2, TimeUnit.SECONDS))
         locationStates.value = ready(milano)
+        Thread.sleep(100)
         calculator.releaseFirst.countDown()
 
         assertTrue(milanoReady.await(3, TimeUnit.SECONDS))
