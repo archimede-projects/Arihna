@@ -1,0 +1,165 @@
+name: Diagnostic S25 native network freshness prerelease temp
+
+on:
+  push:
+    branches:
+      - diagnostic-s25-network-native-freshness-release-temp
+    paths:
+      - .github/workflows/diagnostic-s25-network-native-freshness-release-temp.yml
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-24.04
+    env:
+      TARGET_SHA: 94d3a7461fbad66bb9c467459cf8cb1f5fc34cc8
+      SPEC_SHA: 3b186fb75821ba54eca5c8098e160f761f8858bc
+      PRODUCTION_BASE_SHA: df5bcaa8c394cc332547453f30fbe4fdeaee8900
+      VERIFIED_GATE_RUN: '33383462926'
+      VERIFIED_GATE_JOB: '99460739092'
+      SIGNING_SOURCE_SHA: ce23a7f78695be95c7f8dfd2bcedbe22544da94c
+      RELEASE_TAG: diagnostic-s25-network-native-freshness-94d3a746-20260831
+      APK_NAME: arihna-diagnostic-s25-network-native-freshness.apk
+      DEBUG_CERT_SHA256: 13:97:00:8C:1F:96:2D:BB:D3:6D:D8:A8:EA:02:16:AF:DD:06:E4:B2:B3:E0:8B:C0:F6:D4:B5:43:44:D7:B0:FA
+      DEBUG_KEYSTORE_SHA256: bc9057f26ad6de7efb70a5df06effb1ed259f1d015c3f062d0f757b3f0983b72
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 94d3a7461fbad66bb9c467459cf8cb1f5fc34cc8
+          fetch-depth: 0
+
+      - name: Verify exact diagnostic source, ancestry and green gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^1)" = "$SPEC_SHA"
+          git merge-base --is-ancestor "$PRODUCTION_BASE_SHA" "$TARGET_SHA"
+          MAIN_SHA="$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq '.commit.sha')"
+          echo "Current main: $MAIN_SHA"
+          test "$MAIN_SHA" = "$PRODUCTION_BASE_SHA"
+          GATE="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$VERIFIED_GATE_RUN" --jq '.head_sha + " " + .conclusion')"
+          echo "Verified gate: $GATE"
+          test "$GATE" = "$TARGET_SHA success"
+          JOB="$(gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$VERIFIED_GATE_JOB" --jq '[(.id|tostring), .conclusion] | join(" ")')"
+          echo "Verified gate job: $JOB"
+          test "$JOB" = "$VERIFIED_GATE_JOB success"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Verify diagnostic scope and permission policy
+        run: |
+          set -euo pipefail
+          grep -q 'PRODUCTION_ONE_SHOT_PROVIDER_SELECTED' app/src/main/java/com/archimedeprojects/arihna/core/location/platform/TracingDeviceLocationDataSource.kt
+          grep -q 'AB_CURRENT_REQUEST' app/src/main/java/com/archimedeprojects/arihna/core/location/diagnostics/ProviderCurrentLocationProbe.kt
+          grep -q 'AB_LAST_KNOWN' app/src/main/java/com/archimedeprojects/arihna/core/location/diagnostics/ProviderCurrentLocationProbe.kt
+          grep -q 'CITY_NEAREST_RETURN' app/src/main/java/com/archimedeprojects/arihna/core/location/diagnostics/TracingCityRepository.kt
+          grep -q 'A/B network vs fused' app/src/main/java/com/archimedeprojects/arihna/feature/debug/LocationDiagnosticOverlay.kt
+          grep -q 'android.permission.ACCESS_COARSE_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.ACCESS_FINE_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.ACCESS_BACKGROUND_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -R -q 'com.google.android.gms.location' app/src/main gradle
+
+      - name: Restore exact STEP 4 city asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/step4-asset app/src/main/assets/geonames
+          mkdir -p /tmp/step4-asset app/src/main/assets/geonames
+          gh run download 33296099459 \
+            --repo "$GITHUB_REPOSITORY" \
+            --name geonames-step4-runtime-minimal \
+            --dir /tmp/step4-asset
+          DB="$(find /tmp/step4-asset -type f -name cities.db -print -quit)"
+          test -n "$DB"
+          cp "$DB" app/src/main/assets/geonames/cities.db
+          echo '7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb  app/src/main/assets/geonames/cities.db' | sha256sum -c -
+
+      - name: Restore previously verified persistent debug signing key
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin location-step5-device-test
+          mkdir -p "$HOME/.android"
+          git show "$SIGNING_SOURCE_SHA:.github/test-signing/arihna-debug.keystore.b64" \
+            | base64 --decode > "$HOME/.android/debug.keystore"
+          test "$(sha256sum "$HOME/.android/debug.keystore" | awk '{print $1}')" = "$DEBUG_KEYSTORE_SHA256"
+          keytool -list -v \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storepass android \
+            -alias androiddebugkey | grep -F "$DEBUG_CERT_SHA256"
+
+      - name: Apply transient persistent-debug signing configuration
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('app/build.gradle.kts')
+          text = path.read_text()
+          marker = '    buildFeatures {\n'
+          block = '''    signingConfigs {
+              getByName("debug") {
+                  storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
+                  storePassword = "android"
+                  keyAlias = "androiddebugkey"
+                  keyPassword = "android"
+              }
+          }
+
+          '''
+          if marker not in text:
+              raise SystemExit('buildFeatures marker not found')
+          if 'storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")' in text:
+              raise SystemExit('unexpected persistent signing config already present in target source')
+          path.write_text(text.replace(marker, block + marker, 1))
+          PY
+          git diff --check -- app/build.gradle.kts
+
+      - name: Unit regression before diagnostic package
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build installable diagnostic APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Verify APK signature identity and digest
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee /tmp/apksigner.txt
+          grep -Fi '1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa' /tmp/apksigner.txt
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$AAPT" dump badging "$APK" | grep -F "package: name='com.archimedeprojects.arihna'"
+          cp "$APK" "$APK_NAME"
+          sha256sum "$APK_NAME" | tee /tmp/apk-sha256.txt
+          stat -c '%s' "$APK_NAME" | tee /tmp/apk-size.txt
+
+      - name: Publish S25 diagnostic prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test ! "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" 2>/dev/null || true)"
+          APK_SHA="$(awk '{print $1}' /tmp/apk-sha256.txt)"
+          APK_SIZE="$(cat /tmp/apk-size.txt)"
+          gh release create "$RELEASE_TAG" "$APK_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$TARGET_SHA" \
+            --title 'Diagnostic S25 native network freshness — 94d3a746' \
+            --prerelease \
+            --notes "DIAGNOSTIC ONLY. Built from diagnostic SHA $TARGET_SHA, whose parent is spec-only diagnostic decision $SPEC_SHA; production base/main remains $PRODUCTION_BASE_SHA. Gate run $VERIFIED_GATE_RUN / job $VERIFIED_GATE_JOB passed unit regression, assembleDebug and Android 9/API28 connected tests 40/40 with 0 skipped and 0 failed. This build logs the actual production one-shot selector result, enabled network/fused providers, production one-shot latency/result, update-stream fix age, nearest-city timing, last-known network/fused timestamps and ages, provider properties where available, plus explicit diagnostic-only network-vs-fused getCurrentLocation probes with 35-second observation windows. The A/B probe never feeds app state. ACCESS_COARSE_LOCATION only; no FINE/background permission, no Google Play Services Location, no timeout/lifecycle/5 km/15-minute/cache policy changes. Persistent debug signing certificate SHA-256: $DEBUG_CERT_SHA256. APK SHA-256: $APK_SHA. APK bytes: $APK_SIZE. Home latency remains a separate unresolved investigation."
