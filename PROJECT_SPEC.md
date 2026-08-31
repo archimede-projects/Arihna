@@ -1164,3 +1164,21 @@ Approved diagnostic-only comparison before any production policy change:
 - Keep `ACCESS_COARSE_LOCATION` only. Do not add FINE/background permission, Google Play Services Location, a provider fallback/race, a new production timeout, cache TTL/foreground reuse, or a production freshness threshold.
 - The production 20-second one-shot, 15-minute foreground updates, 5 km/ZoneId acceptance, FRESH/CACHED semantics, persistence and lifecycle remain unchanged until real S25 evidence from the three methods is reviewed.
 - Remaining location-change/warm-cache experiments are optional controls after the comparative APK exists; the separate Home latency investigation remains out of scope.
+
+#### S25 fused bounded requestLocationUpdates comparison — DIAGNOSTIC 2026-08-31
+
+Real Galaxy S25 comparative traces now resolve the previous provider/API fork more sharply. In the same 35-second A/B session, framework `fused` `getCurrentLocation()` returned a genuinely current coarse fix after **22,838 ms** (`elapsedAgeMs=14`, `accuracyM=2000.0`), while framework `network` completed after **30,018 ms** with `location=null`. In the separate bounded `network` `requestLocationUpdates()` probe, Android delivered an immediate historical callback after **39 ms** whose monotonic age was **284,536 ms** despite the diagnostic request interval being 10 seconds; Arihna correctly rejected it by explicit elapsed-realtime age validation, observed no subsequent acceptable network fix, and terminated at **35,027 ms** with `TIMEOUT`.
+
+These traces invalidate the current diagnostic hypothesis that framework `network` is the promising acquisition path on this Galaxy S25 context. They also demonstrate that Arihna must validate callback age explicitly rather than trusting provider/cache recency assumptions. No production behavior is changed by this conclusion: production remains at commit `df5bcaa8c394cc332547453f30fbe4fdeaee8900` until a separate production decision is approved.
+
+Approved diagnostic-only fourth comparison:
+
+- Preserve production behavior, the existing parallel network-versus-fused `getCurrentLocation()` A/B, and the existing bounded framework `network` `requestLocationUpdates()` probe unchanged.
+- Add exactly one fourth probe: framework `fused` + bounded `requestLocationUpdates()`.
+- The fused probe must be identical to the existing network bounded-updates probe except for the requested provider: interval **10 seconds**, minimum update interval **0 ms**, minimum distance **0 m**, maximum update delay **0 ms** (no batching), `QUALITY_BALANCED_POWER_ACCURACY`, bounded duration **35 seconds**, and no `setMaxUpdates(1)`.
+- Use the same diagnostic-only monotonic recency decision: `elapsedAgeMs <= 10,000` is logged as `ACCEPTED`; older callbacks are logged as `REJECTED_TOO_OLD` and observation continues. This remains an experimental bound only and is not an approved product `FRESH` threshold.
+- Log provider/configuration, subscribe/registration, every callback, requested/callback provider, latency, wall/monotonic timestamps and ages, accuracy, decision, deterministic listener removal and terminal outcome. Keep network and fused bounded-probe events distinguishable in the copied trace.
+- The fused bounded probe must not persist data, feed `LocationCoordinator`, modify `LocationResolutionState`, affect prayer calculations, or alter any application-visible location state.
+- Keep `ACCESS_COARSE_LOCATION` only. Do not add FINE/background permission, Google Play Services Location, provider racing/fallback in production, a new production timeout, cache TTL/foreground reuse, or a production freshness threshold.
+- No production decision is authorized until the real Galaxy S25 result for the fourth cell (`fused + requestLocationUpdates bounded`) is reviewed against the other three methods.
+- Cache/TTL re-entry optimization and the separate Home latency investigation remain explicitly out of scope.
