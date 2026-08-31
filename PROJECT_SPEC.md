@@ -1127,3 +1127,22 @@ Closed palette, Hero Dashboard, Prayer Times timeline, final A/minaret/crescent/
 ### 2026-08-29 — Initial specification
 
 Captured native Kotlin/Compose, zero-cost/private-GitHub/sideload distribution, prayer times, Qibla, alarms, offline Quran, optional Italian translation, daily content, permissions/exact alarms/offline behavior, UI/logo gate, GitHub Releases signing and religious-source verification requirements.
+
+#### S25 network-first validation follow-up — DIAGNOSTIC 2026-08-31
+
+Real-device validation of production commit `df5bcaa8c394cc332547453f30fbe4fdeaee8900` on the primary Galaxy S25 did not show a meaningful latency improvement after the network-first one-shot correction: three separate foreground/select-device attempts still took about 23 seconds each, consistent with the existing 20-second fresh-fix timeout plus surrounding work.
+
+The validation build has no runtime provider trace, so this observation does not yet distinguish between two materially different causes: (1) Android framework `network` was not enabled/available and the production selector fell back to framework `fused`; or (2) `network` was selected but `LocationManager.getCurrentLocation()` itself could not produce a sufficiently current framework fix before cancellation. On API 30+ `LocationManagerCompat.getCurrentLocation()` delegates to the framework API; therefore provider selection alone is not sufficient evidence that a fresh fix can be produced quickly on the target device.
+
+Approved diagnostic-only follow-up:
+
+- Base the diagnostic build exactly on production `df5bcaa8c394cc332547453f30fbe4fdeaee8900`; do not modify `main` for this investigation.
+- Record the enabled-provider set and the actual provider selected by the production one-shot selector, separately from the provider selected by `observeSignificantUpdates()`.
+- Record `isProviderEnabled` for framework `network` and `fused`; where supported, record provider properties relevant to network/cell requirements.
+- Record `getLastKnownLocation()` for network and fused with callback provider, accuracy, wall-clock timestamp, elapsed-realtime timestamp, and age calculated from both clocks.
+- Run explicit diagnostic `getCurrentLocation()` probes for network and fused and record request time, callback time/latency, callback provider, null/timeout outcome, accuracy, timestamps, and real fix age. These probes are observability only and must not feed application state.
+- Trace the production one-shot request and foreground update stream with real fix age/captured timestamp.
+- Trace timing around cached-fix restoration / nearest-city lookup and the 20-second production one-shot so the observed approximately 23-second wall latency can be decomposed rather than attributed entirely to the provider.
+- Keep permission policy COARSE-only. Do not add FINE/background location, Google Play Services Location, new provider fallbacks, cache shortcuts, new timeout values, or changes to lifecycle/5 km/15-minute policies in this diagnostic build.
+- The existing foreground behavior remains unchanged during diagnosis: Device mode requests a fresh fix on each foreground transition, while a persisted real fix is retained only as explicitly CACHED fallback if the fresh resolution fails. Any age-based foreground reuse optimization is a separate future UX/policy decision and is not part of this diagnostic.
+- The separate Home latency investigation remains unresolved and is not modified by this diagnostic-only follow-up.
