@@ -136,6 +136,7 @@ fun ArihnaApp(
             )
             LocationDiagnosticOverlay(
                 providerProbe = appContainer.providerCurrentLocationProbe,
+                requestUpdatesProbe = appContainer.networkLocationUpdatesProbe,
             )
         }
     }

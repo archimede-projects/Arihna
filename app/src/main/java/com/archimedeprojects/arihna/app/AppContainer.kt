@@ -7,6 +7,7 @@ import com.archimedeprojects.arihna.core.location.data.DeviceLocationDataSource
 import com.archimedeprojects.arihna.core.location.data.LocationPreferencesRepository
 import com.archimedeprojects.arihna.core.location.data.preferences.PreferencesDataStoreLocationPreferencesRepository
 import com.archimedeprojects.arihna.core.location.data.sqlite.SQLiteCityRepository
+import com.archimedeprojects.arihna.core.location.diagnostics.NetworkLocationUpdatesProbe
 import com.archimedeprojects.arihna.core.location.diagnostics.ProviderCurrentLocationProbe
 import com.archimedeprojects.arihna.core.location.diagnostics.TracingCityRepository
 import com.archimedeprojects.arihna.core.location.domain.LocationCoordinator
@@ -42,6 +43,10 @@ class AppContainer(context: Context) {
 
     val providerCurrentLocationProbe: ProviderCurrentLocationProbe by lazy {
         ProviderCurrentLocationProbe(appContext)
+    }
+
+    val networkLocationUpdatesProbe: NetworkLocationUpdatesProbe by lazy {
+        NetworkLocationUpdatesProbe(appContext)
     }
 
     val locationPreferencesRepository: LocationPreferencesRepository by lazy {

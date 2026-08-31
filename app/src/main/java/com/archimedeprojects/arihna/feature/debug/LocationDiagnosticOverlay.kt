@@ -30,6 +30,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.archimedeprojects.arihna.core.location.diagnostics.LocationDiagnosticTrace
+import com.archimedeprojects.arihna.core.location.diagnostics.NetworkLocationUpdatesProbe
 import com.archimedeprojects.arihna.core.location.diagnostics.ProviderCurrentLocationProbe
 import com.archimedeprojects.arihna.core.location.diagnostics.render
 import kotlinx.coroutines.launch
@@ -37,13 +38,14 @@ import kotlinx.coroutines.launch
 @Composable
 fun LocationDiagnosticOverlay(
     providerProbe: ProviderCurrentLocationProbe,
+    requestUpdatesProbe: NetworkLocationUpdatesProbe,
     modifier: Modifier = Modifier,
 ) {
     val events by LocationDiagnosticTrace.events.collectAsState()
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboardManager.current
     var open by remember { mutableStateOf(false) }
-    var probeRunning by remember { mutableStateOf(false) }
+    var activeProbe by remember { mutableStateOf<String?>(null) }
 
     Box(modifier = modifier.fillMaxSize()) {
         OutlinedButton(
@@ -69,9 +71,9 @@ fun LocationDiagnosticOverlay(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Text("Diagnostica S25 — provider/freshness", style = MaterialTheme.typography.titleLarge)
+                    Text("Diagnostica S25 — current vs updates", style = MaterialTheme.typography.titleLarge)
                     Text(
-                        "Solo osservabilità: nessun cambio production. Per misurare il percorso reale: Pulisci, chiudi DIAG, usa 'Usa posizione attuale', poi riapri e Copia. Esegui A/B solo dopo, perché può aggiornare le cache del sistema.",
+                        "Solo osservabilità: nessun cambio production. Misura prima il percorso reale (Pulisci → Chiudi → Usa posizione attuale → Copia). I probe possono modificare le cache di sistema: eseguili separatamente e copia la traccia dopo ciascuno.",
                         style = MaterialTheme.typography.bodySmall,
                     )
 
@@ -93,10 +95,10 @@ fun LocationDiagnosticOverlay(
                     }
 
                     Button(
-                        enabled = !probeRunning,
+                        enabled = activeProbe == null,
                         onClick = {
                             scope.launch {
-                                probeRunning = true
+                                activeProbe = "AB"
                                 try {
                                     providerProbe.runParallel()
                                 } catch (error: Throwable) {
@@ -105,17 +107,49 @@ fun LocationDiagnosticOverlay(
                                         "${error.javaClass.simpleName}: ${error.message}",
                                     )
                                 } finally {
-                                    probeRunning = false
+                                    activeProbe = null
                                 }
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text(if (probeRunning) "A/B in corso…" else "A/B network vs fused (35s)")
+                        Text(if (activeProbe == "AB") "A/B in corso…" else "A/B getCurrent network vs fused (35s)")
+                    }
+
+                    Button(
+                        enabled = activeProbe == null,
+                        onClick = {
+                            scope.launch {
+                                activeProbe = "RU"
+                                try {
+                                    requestUpdatesProbe.run()
+                                } catch (error: Throwable) {
+                                    LocationDiagnosticTrace.record(
+                                        "RU_PROBE_THROW",
+                                        "${error.javaClass.simpleName}: ${error.message}",
+                                    )
+                                } finally {
+                                    activeProbe = null
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            if (activeProbe == "RU") {
+                                "Piano B in corso…"
+                            } else {
+                                "Piano B network updates bounded (35s)"
+                            },
+                        )
                     }
 
                     Text(
-                        "Cerca soprattutto: PRODUCTION_ONE_SHOT_PROVIDER_SELECTED, PRODUCTION_ONE_SHOT_*, CITY_NEAREST_*, UPDATES_FIX e AB_*.",
+                        "Piano B diagnostico: interval=10s, minInterval=0, distance=0, no batching, balanced, duration=35s. ACCEPTED significa solo age≤10s nel probe; NON definisce FRESH production.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Text(
+                        "Cerca: PRODUCTION_ONE_SHOT_*, AB_*, RU_PROBE_START, RU_SUBSCRIBE, RU_REGISTERED, RU_CALLBACK, RU_LISTENER_REMOVED, RU_TERMINAL, CITY_NEAREST_*, UPDATES_FIX.",
                         style = MaterialTheme.typography.bodySmall,
                     )
 
