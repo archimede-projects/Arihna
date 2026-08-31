@@ -17,8 +17,9 @@ import androidx.navigation.compose.rememberNavController
 import com.archimedeprojects.arihna.core.location.platform.AndroidLocationEnvironment
 import com.archimedeprojects.arihna.core.location.platform.AndroidLocationPermissionStateResolver
 import com.archimedeprojects.arihna.feature.alarms.AlarmsPlaceholderScreen
-import com.archimedeprojects.arihna.feature.home.HomePlaceholderScreen
+import com.archimedeprojects.arihna.feature.home.HomePrayerScheduleRoute
 import com.archimedeprojects.arihna.feature.prayers.PrayerTimesPlaceholderScreen
+import com.archimedeprojects.arihna.feature.prayerschedule.presentation.PrayerScheduleViewModel
 import com.archimedeprojects.arihna.feature.qibla.QiblaPlaceholderScreen
 import com.archimedeprojects.arihna.feature.quran.QuranPlaceholderScreen
 import com.archimedeprojects.arihna.feature.settings.LocationSettingsRoute
@@ -41,6 +42,7 @@ private enum class Destination(
 fun ArihnaNavHost(
     activity: Activity,
     locationSettingsViewModel: LocationSettingsViewModel,
+    prayerScheduleViewModel: PrayerScheduleViewModel,
     locationEnvironment: AndroidLocationEnvironment,
     locationPermissionStateResolver: AndroidLocationPermissionStateResolver,
 ) {
@@ -77,7 +79,17 @@ fun ArihnaNavHost(
             startDestination = Destination.Home.route,
             modifier = Modifier.fillMaxSize(),
         ) {
-            composable(Destination.Home.route) { HomePlaceholderScreen(innerPadding) }
+            composable(Destination.Home.route) {
+                HomePrayerScheduleRoute(
+                    contentPadding = innerPadding,
+                    viewModel = prayerScheduleViewModel,
+                    onOpenLocationSettings = {
+                        navController.navigate(Destination.Settings.route) {
+                            launchSingleTop = true
+                        }
+                    },
+                )
+            }
             composable(Destination.Prayers.route) { PrayerTimesPlaceholderScreen(innerPadding) }
             composable(Destination.Qibla.route) { QiblaPlaceholderScreen(innerPadding) }
             composable(Destination.Quran.route) { QuranPlaceholderScreen(innerPadding) }

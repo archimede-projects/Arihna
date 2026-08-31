@@ -10,8 +10,14 @@ import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.archimedeprojects.arihna.core.prayer.calculation.AdhanPrayerTimeCalculator
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaTheme
+import com.archimedeprojects.arihna.feature.prayerschedule.domain.DefaultPrayerScheduleRepository
+import com.archimedeprojects.arihna.feature.prayerschedule.presentation.OneSecondPrayerScheduleTicker
+import com.archimedeprojects.arihna.feature.prayerschedule.presentation.PrayerScheduleViewModel
 import com.archimedeprojects.arihna.feature.settings.LocationSettingsViewModel
+import java.time.Clock
+import kotlinx.coroutines.flow.map
 
 @Composable
 fun ArihnaApp(
@@ -32,6 +38,30 @@ fun ArihnaApp(
         }
     }
     val locationViewModel: LocationSettingsViewModel = viewModel(factory = locationViewModelFactory)
+
+    val prayerClock = remember { Clock.systemUTC() }
+    val prayerScheduleRepository = remember(appContainer, locationViewModel, prayerClock) {
+        DefaultPrayerScheduleRepository(
+            locationStates = locationViewModel.uiState.map { it.resolutionState },
+            prayerSettingsRepository = appContainer.prayerSettingsRepository,
+            prayerTimeCalculator = AdhanPrayerTimeCalculator(),
+            clock = prayerClock,
+        )
+    }
+    val prayerScheduleViewModelFactory = remember(prayerScheduleRepository, prayerClock) {
+        viewModelFactory {
+            initializer {
+                PrayerScheduleViewModel(
+                    repository = prayerScheduleRepository,
+                    clock = prayerClock,
+                    ticker = OneSecondPrayerScheduleTicker(),
+                )
+            }
+        }
+    }
+    val prayerScheduleViewModel: PrayerScheduleViewModel = viewModel(
+        factory = prayerScheduleViewModelFactory,
+    )
 
     DisposableEffect(activity, locationViewModel) {
         fun refreshForegroundLocation() {
@@ -67,6 +97,7 @@ fun ArihnaApp(
         ArihnaNavHost(
             activity = activity,
             locationSettingsViewModel = locationViewModel,
+            prayerScheduleViewModel = prayerScheduleViewModel,
             locationEnvironment = appContainer.locationEnvironment,
             locationPermissionStateResolver = appContainer.locationPermissionStateResolver,
         )
