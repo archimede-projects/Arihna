@@ -1,0 +1,40 @@
+name: Prayer STEP 3 spec temp
+
+on:
+  push:
+    branches:
+      - prayer-integration-step3-spec-temp
+    paths:
+      - .github/workflows/prayer-step3-spec-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  authorize-spec:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Patch STEP 3 authorization spec
+        run: python3 tools/step3_authorize_spec_temp.py
+
+      - name: Verify authorization markers and clean diff
+        run: |
+          grep -q 'MILESTONE OPEN / STEP 3 IN PROGRESS' PROJECT_SPEC.md
+          grep -q 'STEP 3 — schedule orchestration: IN PROGRESS' PROJECT_SPEC.md
+          grep -q 'STEP 3 authorization / scope' PROJECT_SPEC.md
+          grep -q 'STEP 4 remains \*\*NOT STARTED\*\*' PROJECT_SPEC.md
+          grep -q 'ad6d4ac5d81230e613b09547bd45a7c44035ddba' PROJECT_SPEC.md
+          git diff --check
+
+      - name: Commit validated PROJECT_SPEC only
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add PROJECT_SPEC.md
+          git diff --cached --check
+          test "$(git diff --cached --name-only)" = 'PROJECT_SPEC.md'
+          git commit -m 'docs(integration): authorize Prayer schedule STEP 3 [temp]'
+          git push origin HEAD:prayer-integration-step3-spec-temp
