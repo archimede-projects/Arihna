@@ -1,0 +1,73 @@
+name: Diagnostic S25 network freshness bootstrap temp
+
+on:
+  push:
+    branches:
+      - diagnostic-s25-network-native-freshness
+    paths:
+      - .github/workflows/diagnostic-s25-network-native-freshness-bootstrap-temp.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  record-diagnostic-decision:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify diagnostic base ancestry
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor df5bcaa8c394cc332547453f30fbe4fdeaee8900 HEAD
+
+      - name: Record diagnostic-only follow-up in PROJECT_SPEC
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          path = Path('PROJECT_SPEC.md')
+          text = path.read_text()
+          marker = '#### S25 network-first validation follow-up — DIAGNOSTIC 2026-08-31'
+          if marker in text:
+              print('Diagnostic marker already present.')
+              raise SystemExit(0)
+
+          section = textwrap.dedent('''
+
+          #### S25 network-first validation follow-up — DIAGNOSTIC 2026-08-31
+
+          Real-device validation of production commit `df5bcaa8c394cc332547453f30fbe4fdeaee8900` on the primary Galaxy S25 did not show a meaningful latency improvement after the network-first one-shot correction: three separate foreground/select-device attempts still took about 23 seconds each, consistent with the existing 20-second fresh-fix timeout plus surrounding work.
+
+          The validation build has no runtime provider trace, so this observation does not yet distinguish between two materially different causes: (1) Android framework `network` was not enabled/available and the production selector fell back to framework `fused`; or (2) `network` was selected but `LocationManager.getCurrentLocation()` itself could not produce a sufficiently current framework fix before cancellation. On API 30+ `LocationManagerCompat.getCurrentLocation()` delegates to the framework API; therefore provider selection alone is not sufficient evidence that a fresh fix can be produced quickly on the target device.
+
+          Approved diagnostic-only follow-up:
+
+          - Base the diagnostic build exactly on production `df5bcaa8c394cc332547453f30fbe4fdeaee8900`; do not modify `main` for this investigation.
+          - Record the enabled-provider set and the actual provider selected by the production one-shot selector, separately from the provider selected by `observeSignificantUpdates()`.
+          - Record `isProviderEnabled` for framework `network` and `fused`; where supported, record provider properties relevant to network/cell requirements.
+          - Record `getLastKnownLocation()` for network and fused with callback provider, accuracy, wall-clock timestamp, elapsed-realtime timestamp, and age calculated from both clocks.
+          - Run explicit diagnostic `getCurrentLocation()` probes for network and fused and record request time, callback time/latency, callback provider, null/timeout outcome, accuracy, timestamps, and real fix age. These probes are observability only and must not feed application state.
+          - Trace the production one-shot request and foreground update stream with real fix age/captured timestamp.
+          - Trace timing around cached-fix restoration / nearest-city lookup and the 20-second production one-shot so the observed approximately 23-second wall latency can be decomposed rather than attributed entirely to the provider.
+          - Keep permission policy COARSE-only. Do not add FINE/background location, Google Play Services Location, new provider fallbacks, cache shortcuts, new timeout values, or changes to lifecycle/5 km/15-minute policies in this diagnostic build.
+          - The existing foreground behavior remains unchanged during diagnosis: Device mode requests a fresh fix on each foreground transition, while a persisted real fix is retained only as explicitly CACHED fallback if the fresh resolution fails. Any age-based foreground reuse optimization is a separate future UX/policy decision and is not part of this diagnostic.
+          - The separate Home latency investigation remains unresolved and is not modified by this diagnostic-only follow-up.
+          ''')
+          path.write_text(text.rstrip() + section + '\n')
+          PY
+          git diff --check -- PROJECT_SPEC.md
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add PROJECT_SPEC.md
+          if git diff --cached --quiet; then
+            echo 'No spec change needed.'
+            exit 0
+          fi
+          git commit -m 'docs(diagnostics): record S25 network freshness follow-up'
+          git push origin HEAD:diagnostic-s25-network-native-freshness
