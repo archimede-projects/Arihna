@@ -1,0 +1,24 @@
+name: Prayer STEP 3 docs helper v2
+
+on:
+  push:
+    branches: [prayer-integration-step3-docs-helper]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/step3_close_docs_temp.py
+      - run: git diff --check
+      - run: test "$(git diff --name-only)" = "PROJECT_SPEC.md"
+      - run: |
+          git config user.name github-actions-bot
+          git config user.email github-actions-bot@users.noreply.github.com
+          git add PROJECT_SPEC.md
+          test "$(git diff --cached --name-only)" = "PROJECT_SPEC.md"
+          git commit -m "docs(integration): close Prayer schedule STEP 3"
+          git push
