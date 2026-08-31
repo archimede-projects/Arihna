@@ -1,0 +1,31 @@
+name: Prayer STEP 3 test fix temp
+
+on:
+  push:
+    branches:
+      - prayer-integration-step3-dev
+    paths:
+      - .github/workflows/prayer-step3-fix-test-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Remove invalid backgroundScope import
+        run: python3 tools/step3_fix_test_import_temp.py
+
+      - name: Verify and commit test-only patch
+        run: |
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/test/java/com/archimedeprojects/arihna/feature/prayerschedule/domain/DefaultPrayerScheduleRepositoryTest.kt
+          test "$(git diff --cached --name-only)" = 'app/src/test/java/com/archimedeprojects/arihna/feature/prayerschedule/domain/DefaultPrayerScheduleRepositoryTest.kt'
+          git commit -m 'test(integration): fix TestScope backgroundScope usage'
+          git push origin HEAD:prayer-integration-step3-dev
