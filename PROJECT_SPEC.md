@@ -394,7 +394,7 @@ User can:
 - understand permission denied, services disabled, timeout/cached, unsupported-timezone and unconfigured states;
 - see GeoNames attribution in relevant functional/about path.
 
-### 5.3 Prayer Engine + Location integration — MILESTONE OPEN / STEP 2 CLOSED
+### 5.3 Prayer Engine + Location integration — MILESTONE OPEN / STEP 3 IN PROGRESS
 
 This milestone connects the already-closed Prayer Engine and Location milestones without reopening or duplicating their internal logic. Location remains the sole authority that produces a valid `SelectedLocation`; the Prayer Engine remains the sole authority for prayer-time calculation from explicit `Coordinates + ZoneId + PrayerCalculationSettings + LocalDate`. The integration layer derives a UI-consumable schedule only when Location is `Ready` and never invents coordinates, timezone, calculation results or fallback prayer times.
 
@@ -488,6 +488,14 @@ Diagnostic history is retained for traceability but is not definitive gate evide
 
 No STEP 2 production change touched `PrayerTimeCalculator`, Location behavior, existing Location keys, or UI. The documented MWL/STANDARD/AUTOMATIC bootstrap-default limitation remains tracked until the separately scoped Prayer settings UI exists. STEP 3 is **NOT STARTED**.
 
+#### STEP 3 authorization / scope
+
+STEP 3 schedule orchestration is explicitly authorized after STEP 2 closure. Implement `PrayerScheduleRepository.observeSchedule(): Flow<PrayerScheduleState>` plus idempotent `refresh()` exactly within the already-approved orchestration contract: consume closed `LocationResolutionState`, persisted `PrayerCalculationSettings` and an injected testable `Clock`; derive `PrayerScheduleInput(coordinates, zoneId, settings, localDate)` from only `LocationResolutionState.Ready`; deduplicate identical inputs; use cancellation-aware latest-input semantics (`mapLatest`/equivalent) so stale calculations cannot overwrite newer selections; calculate today and only the following day when needed for next-prayer continuity; use selected-zone `Instant`/`ZonedDateTime` semantics and DST-aware next-local-midnight boundaries; and recalculate only for the inputs/events already enumerated in the Recalculation policy. A same-input refresh may reuse in-memory calculated days and re-derive next-prayer state without invoking the calculator.
+
+STEP 3 tests must be pure/JVM orchestration contract tests using fake Location state and a fake/recording `PrayerTimeCalculator`; no real GPS, `LocationManager`, Android geocoder, Adhan internals or prayer-formula retesting. Cover the complete STEP 1 matrix, including all non-Ready states → zero calculator calls, exact Manual/Device coordinate+ZoneId forwarding, Device/Manual/input/settings/date changes, identical-input dedup, raw non-accepted update non-effect, bootstrap once, selected-zone midnight including DST and replacement after ZoneId change, before-first/after-last next-prayer behavior, controlled `CalculationUnavailable`, today-valid/tomorrow-unavailable preservation, and stale Roma→Milano cancellation/race protection.
+
+No UI, `PrayerScheduleViewModel`, countdown ticker, Home panel, `PrayerTimeCalculator` implementation/formula change, Location behavior/key change, or Prayer Settings behavior/key change is authorized in STEP 3. STEP 4 remains **NOT STARTED** until STEP 3 is closed on a new gate that tests the exact clean candidate SHA.
+
 #### Recalculation policy
 
 Recalculate only when a mathematical input changes:
@@ -572,7 +580,7 @@ Final milestone regression must run unfiltered `testDebugUnitTest`, `assembleDeb
 
 1. **STEP 1 — spec-first architecture: CLOSED by this documentation step.** Define orchestration, exact repository interfaces, settings/default policy, recalculation, error discipline, Home scope and tests before code.
 2. **STEP 2 — Prayer settings persistence: CLOSED.** `PrayerSettingsRepository` is implemented on the exact same existing Preferences DataStore instance used by Location (the current `name = "location"` store remains unchanged), with Prayer-only keys `prayer.method`, `prayer.asr`, `prayer.high_latitude_rule`, and `prayer.offset.*`. First use materializes the complete canonical MWL/STANDARD/AUTOMATIC/zero-offset record; partial or malformed Prayer data is recovered atomically to that same complete canonical record without clearing or rewriting Location entries. Focused JVM coverage and real Android 9/API28 shared-DataStore instrumentation passed on exact clean technical commit `ffb391846481a38cca0786be238bddae912ba862` in definitive run `33338723836` / job `99330268698`, including **35/35 instrumentation tests, 0 failed and 0 skipped**. No UI, `PrayerTimeCalculator`, Location behavior, or existing Location keys were changed.
-3. **STEP 3 — schedule orchestration: NOT STARTED.** Implement `PrayerScheduleRepository` and pure fake-Location/fake-calculator contract tests.
+3. **STEP 3 — schedule orchestration: IN PROGRESS.** Implement `PrayerScheduleRepository` using only closed Location state, closed `PrayerTimeCalculator`, persisted Prayer settings and an injected testable `Clock`; cover the approved pure fake-Location/fake/recording-calculator contract matrix. No UI, presentation/countdown, Prayer Engine changes, Location changes or Prayer Settings changes are authorized in STEP 3.
 4. **STEP 4 — presentation/countdown: NOT STARTED.** Implement `PrayerScheduleViewModel`, next-prayer/countdown behavior and tests.
 5. **STEP 5 — functional Home panel: NOT STARTED.** Render the minimal Prayer Schedule UI without final Hero Dashboard scope.
 6. **STEP 6 — full regression gate: NOT STARTED.** Run Prayer + Location + Integration unit/build/API28 regressions plus permission/asset checks and final APK/data non-regression where practical.
@@ -888,14 +896,14 @@ Future milestones add Qibla math, exact-alarm reboot/timezone/time changes, noti
 - **STEP 6 — minimal functional Device/Manual Compose UI: CLOSED.** Exact clean candidate `df53f71c07cd3da743604898941f6b4ef39e86aa`; definitive run `33325240888` passed toolchain/permission policy, exact STEP 4 asset restore/SHA, `testDebugUnitTest`, `assembleDebug`, and Android 9/API28 instrumentation (**25/25, 0 failed, 0 skipped**). The functional Location panel remains scoped to `Impostazioni`, gates `ACCESS_COARSE_LOCATION` behind explicit Arihna rationale/confirmation, supports offline manual-city search/selection and controlled unsupported-timezone presentation, and does not implement the definitive Hero Dashboard.
 - **STEP 7 — full Location unit/build/API28 regression and milestone closure: CLOSED.** Exact pre-closure `main` SHA `b41dd6a4b8a29204a4cb01b0d640a44504139cfc`; runs `33326121715` and `33326126008` both passed the accumulated host/API28 regression with 25/25 instrumentation tests, 0 failed and 0 skipped. The complementary data gate reconfirmed the 15,033,263-byte GeoNames APK increment below the 20 MiB threshold and the prior Prayer Engine regression remained green.
 
-### Prayer Engine + Location integration milestone — OPEN / STEP 1 SPEC CLOSED
+### Prayer Engine + Location integration milestone — OPEN / STEP 3 IN PROGRESS
 
 - Approved orchestration boundary: `PrayerScheduleRepository.observeSchedule(): Flow<PrayerScheduleState>` + idempotent `refresh()`, consuming only closed Location state, persisted Prayer settings, the existing `PrayerTimeCalculator`, and an injected testable `Clock`.
 - Canonical temporary default: MWL / STANDARD / AUTOMATIC / zero offsets, materialized in the existing Preferences DataStore under separate Prayer keys. This is explicitly a known temporary convention limitation until the dedicated Prayer settings UI exists; no location-based automatic method selection is authorized.
 - Recalculate only on distinct selected Location, settings or selected-zone local-date change/bootstrap; countdown is presentation-only and never a Prayer recalculation trigger.
 - UI scope is a minimal functional Prayer Schedule panel on Home; the existing Location panel remains in `Impostazioni`; final Hero Dashboard is deferred.
 - Error discipline: non-Ready Location means no prayer schedule; Prayer calculation unavailable remains a controlled unavailable state with no invented fallback.
-- Seven-step sequence is approved. **STEP 2 Prayer settings persistence is IN PROGRESS** after explicit authorization; STEP 3 remains NOT STARTED and requires confirmation after STEP 2 closure.
+- Seven-step sequence is approved. **STEP 2 Prayer settings persistence is CLOSED** after exact-SHA gate `33338723836` on `ffb391846481a38cca0786be238bddae912ba862`. **STEP 3 schedule orchestration is IN PROGRESS** after explicit authorization; STEP 4 remains NOT STARTED and requires confirmation after STEP 3 closure.
 
 ### Pending
 
@@ -947,10 +955,14 @@ Current Prayer Engine + Location integration milestone additionally excludes:
 3. Prayer-time calculation — CLOSED; final commit `e5987f878e253085425f9bfebf7bf714c8405de3`; JDK21/API28 regression passed.
 4. **Location (Device + manual city) — MILESTONE CLOSED.** STEP 1 through STEP 7 are closed after exact-SHA final regression on `b41dd6a4b8a29204a4cb01b0d640a44504139cfc`.
 5. Location sequence/status: STEP 1 spec/architecture — **CLOSED** → STEP 2 pure Kotlin domain/state/policies + fake tests — **CLOSED** → STEP 3 Preferences DataStore — **CLOSED** → STEP 4 GeoNames generation/read-only SQLite + APK-size measurement + CityRepository/timezone/data/API28 gate — **CLOSED** → STEP 5 Android `LocationManager` + permission/resolution — **CLOSED** → STEP 6 minimal functional Device/Manual UI — **CLOSED** → STEP 7 full unit/build/API28 + Prayer/data/APK final regression — **CLOSED** → **STOP**.
-6. **Current: Prayer Engine + Location integration — MILESTONE OPEN / STEP 2 CLOSED.** Seven-step sequence approved: STEP 1 spec-first — **CLOSED** → STEP 2 Prayer settings persistence — **CLOSED** → STEP 3 schedule orchestration — **NOT STARTED** → STEP 4 presentation/countdown — NOT STARTED → STEP 5 functional Home panel — NOT STARTED → STEP 6 full Prayer+Location+Integration regression — NOT STARTED → STEP 7 docs-only closure — NOT STARTED → STOP. No STEP 3 work is authorized by the STEP 2 closure.
+6. **Current: Prayer Engine + Location integration — MILESTONE OPEN / STEP 3 IN PROGRESS.** Seven-step sequence approved: STEP 1 spec-first — **CLOSED** → STEP 2 Prayer settings persistence — **CLOSED** → STEP 3 schedule orchestration — **IN PROGRESS** → STEP 4 presentation/countdown — **NOT STARTED** → STEP 5 functional Home panel — NOT STARTED → STEP 6 full Prayer+Location+Integration regression — NOT STARTED → STEP 7 docs-only closure — NOT STARTED → STOP. STEP 3 is explicitly authorized; no STEP 4 work is authorized before STEP 3 closure and confirmation.
 7. Qibla, notifications/AlarmManager, adhan audio, custom alarms, Quran and definitive Hero Dashboard remain separate future milestones and must not begin before this integration milestone is closed.
 
 ## 17. Change log
+
+### 2026-08-31 — Prayer Engine + Location integration STEP 3 schedule orchestration authorized
+
+STEP 2 is formally closed on `main` at docs-only commit `ad6d4ac5d81230e613b09547bd45a7c44035ddba`. STEP 3 is now explicitly authorized and limited to `PrayerScheduleRepository` orchestration plus pure/JVM contract tests with fake Location and fake/recording `PrayerTimeCalculator`. Implement the already-specified `PrayerScheduleInput` deduplication, cancellation-aware latest-input behavior, exact Ready Location coordinate/ZoneId forwarding, selected-zone local-date and DST-aware midnight handling, today+tomorrow next-prayer continuity and controlled unavailable states. No UI/presentation/countdown/Home work and no changes to the closed Prayer Engine, Location or Prayer Settings behavior are authorized. The technical candidate must be rebuilt cleanly above this spec-first commit and receive a new full gate on its exact SHA before promotion; STEP 4 remains **NOT STARTED** until STEP 3 closure is reported and confirmed.
 
 ### 2026-08-31 — Prayer Engine + Location integration STEP 2 CLOSED after exact-SHA persistence gate
 
