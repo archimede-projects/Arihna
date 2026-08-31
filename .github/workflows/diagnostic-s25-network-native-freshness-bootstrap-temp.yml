@@ -39,7 +39,6 @@ jobs:
               raise SystemExit(0)
 
           section = textwrap.dedent('''
-
           #### S25 network-first validation follow-up — DIAGNOSTIC 2026-08-31
 
           Real-device validation of production commit `df5bcaa8c394cc332547453f30fbe4fdeaee8900` on the primary Galaxy S25 did not show a meaningful latency improvement after the network-first one-shot correction: three separate foreground/select-device attempts still took about 23 seconds each, consistent with the existing 20-second fresh-fix timeout plus surrounding work.
@@ -59,7 +58,7 @@ jobs:
           - The existing foreground behavior remains unchanged during diagnosis: Device mode requests a fresh fix on each foreground transition, while a persisted real fix is retained only as explicitly CACHED fallback if the fresh resolution fails. Any age-based foreground reuse optimization is a separate future UX/policy decision and is not part of this diagnostic.
           - The separate Home latency investigation remains unresolved and is not modified by this diagnostic-only follow-up.
           ''')
-          path.write_text(text.rstrip() + section + '\n')
+          path.write_text(text.rstrip() + '\n\n' + section.strip() + '\n')
           PY
           git diff --check -- PROJECT_SPEC.md
           git config user.name 'github-actions[bot]'
