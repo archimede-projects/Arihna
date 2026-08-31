@@ -1,0 +1,44 @@
+name: Integration STEP 5 docs temp
+
+on:
+  push:
+    branches:
+      - integration-step5-docs-temp
+    paths:
+      - tools/integration_step5_docs_temp.py
+      - .github/workflows/integration-step5-docs-temp.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-spec:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Apply exact STEP 5 closure patch
+        run: python3 tools/integration_step5_docs_temp.py
+
+      - name: Validate docs-only semantic update
+        run: |
+          grep -q '### 5.3 Prayer Engine + Location integration — MILESTONE OPEN / STEP 5 CLOSED' PROJECT_SPEC.md
+          grep -q 'STEP 5 functional Home panel: CLOSED' PROJECT_SPEC.md
+          grep -q '33362751963' PROJECT_SPEC.md
+          grep -q '99397193018' PROJECT_SPEC.md
+          grep -q '39/39' PROJECT_SPEC.md
+          grep -q 'STEP 6 remains \*\*NOT STARTED / NEXT\*\*' PROJECT_SPEC.md
+          git diff --check
+          test "$(git diff --name-only | wc -l)" -eq 1
+          test "$(git diff --name-only)" = 'PROJECT_SPEC.md'
+
+      - name: Commit transformed specification on temp branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add PROJECT_SPEC.md
+          git commit -m 'docs(integration): close functional home panel step'
+          git push origin HEAD:integration-step5-docs-temp
