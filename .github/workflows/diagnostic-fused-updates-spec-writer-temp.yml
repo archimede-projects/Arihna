@@ -4,49 +4,67 @@ on:
   push:
     branches:
       - diagnostic-s25-fused-request-updates-bounded
+    paths:
+      - .github/workflows/diagnostic-fused-updates-spec-writer-temp.yml
 
 permissions:
   contents: write
 
 jobs:
-  write-spec:
-    if: github.event.head_commit.message == 'chore(temp): bootstrap fused request-updates spec writer'
+  record-diagnostic-decision:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: diagnostic-s25-fused-request-updates-bounded
           fetch-depth: 0
-      - name: Verify base and append approved diagnostic decision
-        env:
-          EXPECTED_BASE: e144b66f9971569e08af57ef0d1662ee117bbc9b
+
+      - name: Verify diagnostic ancestry
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^1)" = "$EXPECTED_BASE"
-          cat >> PROJECT_SPEC.md <<'EOF'
+          git merge-base --is-ancestor e144b66f9971569e08af57ef0d1662ee117bbc9b HEAD
 
-#### S25 fused bounded requestLocationUpdates comparison — DIAGNOSTIC 2026-08-31
+      - name: Record fused bounded-updates comparison in PROJECT_SPEC
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import textwrap
 
-Real Galaxy S25 comparative traces now resolve the previous provider/API fork more sharply. In the same 35-second A/B session, framework `fused` `getCurrentLocation()` returned a genuinely current coarse fix after **22,838 ms** (`elapsedAgeMs=14`, `accuracyM=2000.0`), while framework `network` completed after **30,018 ms** with `location=null`. In the separate bounded `network` `requestLocationUpdates()` probe, Android delivered an immediate historical callback after **39 ms** whose monotonic age was **284,536 ms** despite the diagnostic request interval being 10 seconds; Arihna correctly rejected it by explicit elapsed-realtime age validation, observed no subsequent acceptable network fix, and terminated at **35,027 ms** with `TIMEOUT`.
+          path = Path('PROJECT_SPEC.md')
+          text = path.read_text()
+          marker = '#### S25 fused bounded requestLocationUpdates comparison — DIAGNOSTIC 2026-08-31'
+          if marker in text:
+              print('Diagnostic marker already present.')
+              raise SystemExit(0)
 
-These traces invalidate the current diagnostic hypothesis that framework `network` is the promising acquisition path on this Galaxy S25 context. They also demonstrate that Arihna must validate callback age explicitly rather than trusting provider/cache recency assumptions. No production behavior is changed by this conclusion: production remains at commit `df5bcaa8c394cc332547453f30fbe4fdeaee8900` until a separate production decision is approved.
+          section = textwrap.dedent('''
+          #### S25 fused bounded requestLocationUpdates comparison — DIAGNOSTIC 2026-08-31
 
-Approved diagnostic-only fourth comparison:
+          Real Galaxy S25 comparative traces now resolve the previous provider/API fork more sharply. In the same 35-second A/B session, framework `fused` `getCurrentLocation()` returned a genuinely current coarse fix after **22,838 ms** (`elapsedAgeMs=14`, `accuracyM=2000.0`), while framework `network` completed after **30,018 ms** with `location=null`. In the separate bounded `network` `requestLocationUpdates()` probe, Android delivered an immediate historical callback after **39 ms** whose monotonic age was **284,536 ms** despite the diagnostic request interval being 10 seconds; Arihna correctly rejected it by explicit elapsed-realtime age validation, observed no subsequent acceptable network fix, and terminated at **35,027 ms** with `TIMEOUT`.
 
-- Preserve production behavior, the existing parallel network-versus-fused `getCurrentLocation()` A/B, and the existing bounded framework `network` `requestLocationUpdates()` probe unchanged.
-- Add exactly one fourth probe: framework `fused` + bounded `requestLocationUpdates()`.
-- The fused probe must be identical to the existing network bounded-updates probe except for the requested provider: interval **10 seconds**, minimum update interval **0 ms**, minimum distance **0 m**, maximum update delay **0 ms** (no batching), `QUALITY_BALANCED_POWER_ACCURACY`, bounded duration **35 seconds**, and no `setMaxUpdates(1)`.
-- Use the same diagnostic-only monotonic recency decision: `elapsedAgeMs <= 10,000` is logged as `ACCEPTED`; older callbacks are logged as `REJECTED_TOO_OLD` and observation continues. This remains an experimental bound only and is not an approved product `FRESH` threshold.
-- Log provider/configuration, subscribe/registration, every callback, requested/callback provider, latency, wall/monotonic timestamps and ages, accuracy, decision, deterministic listener removal and terminal outcome. Keep network and fused bounded-probe events distinguishable in the copied trace.
-- The fused bounded probe must not persist data, feed `LocationCoordinator`, modify `LocationResolutionState`, affect prayer calculations, or alter any application-visible location state.
-- Keep `ACCESS_COARSE_LOCATION` only. Do not add FINE/background permission, Google Play Services Location, provider racing/fallback in production, a new production timeout, cache TTL/foreground reuse, or a production freshness threshold.
-- No production decision is authorized until the real Galaxy S25 result for the fourth cell (`fused + requestLocationUpdates bounded`) is reviewed against the other three methods.
-- Cache/TTL re-entry optimization and the separate Home latency investigation remain explicitly out of scope.
-EOF
-          git diff --check
-          rm .github/workflows/diagnostic-fused-updates-spec-writer-temp.yml
-          git add PROJECT_SPEC.md .github/workflows/diagnostic-fused-updates-spec-writer-temp.yml
+          These traces invalidate the current diagnostic hypothesis that framework `network` is the promising acquisition path on this Galaxy S25 context. They also demonstrate that Arihna must validate callback age explicitly rather than trusting provider/cache recency assumptions. No production behavior is changed by this conclusion: production remains at commit `df5bcaa8c394cc332547453f30fbe4fdeaee8900` until a separate production decision is approved.
+
+          Approved diagnostic-only fourth comparison:
+
+          - Preserve production behavior, the existing parallel network-versus-fused `getCurrentLocation()` A/B, and the existing bounded framework `network` `requestLocationUpdates()` probe unchanged.
+          - Add exactly one fourth probe: framework `fused` + bounded `requestLocationUpdates()`.
+          - The fused probe must be identical to the existing network bounded-updates probe except for the requested provider: interval **10 seconds**, minimum update interval **0 ms**, minimum distance **0 m**, maximum update delay **0 ms** (no batching), `QUALITY_BALANCED_POWER_ACCURACY`, bounded duration **35 seconds**, and no `setMaxUpdates(1)`.
+          - Use the same diagnostic-only monotonic recency decision: `elapsedAgeMs <= 10,000` is logged as `ACCEPTED`; older callbacks are logged as `REJECTED_TOO_OLD` and observation continues. This remains an experimental bound only and is not an approved product `FRESH` threshold.
+          - Log provider/configuration, subscribe/registration, every callback, requested/callback provider, latency, wall/monotonic timestamps and ages, accuracy, decision, deterministic listener removal and terminal outcome. Keep network and fused bounded-probe events distinguishable in the copied trace.
+          - The fused bounded probe must not persist data, feed `LocationCoordinator`, modify `LocationResolutionState`, affect prayer calculations, or alter any application-visible location state.
+          - Keep `ACCESS_COARSE_LOCATION` only. Do not add FINE/background permission, Google Play Services Location, provider racing/fallback in production, a new production timeout, cache TTL/foreground reuse, or a production freshness threshold.
+          - No production decision is authorized until the real Galaxy S25 result for the fourth cell (`fused + requestLocationUpdates bounded`) is reviewed against the other three methods.
+          - Cache/TTL re-entry optimization and the separate Home latency investigation remain explicitly out of scope.
+          ''')
+          path.write_text(text.rstrip() + '\n\n' + section.strip() + '\n')
+          PY
+          git diff --check -- PROJECT_SPEC.md
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add PROJECT_SPEC.md
+          if git diff --cached --quiet; then
+            echo 'No spec change needed.'
+            exit 0
+          fi
           git commit -m 'docs(diagnostics): approve bounded fused updates comparison'
           git push origin HEAD:diagnostic-s25-fused-request-updates-bounded
