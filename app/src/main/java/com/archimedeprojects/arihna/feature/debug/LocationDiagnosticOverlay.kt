@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.archimedeprojects.arihna.core.location.diagnostics.FusedLocationUpdatesProbe
 import com.archimedeprojects.arihna.core.location.diagnostics.LocationDiagnosticTrace
 import com.archimedeprojects.arihna.core.location.diagnostics.NetworkLocationUpdatesProbe
 import com.archimedeprojects.arihna.core.location.diagnostics.ProviderCurrentLocationProbe
@@ -39,6 +40,7 @@ import kotlinx.coroutines.launch
 fun LocationDiagnosticOverlay(
     providerProbe: ProviderCurrentLocationProbe,
     requestUpdatesProbe: NetworkLocationUpdatesProbe,
+    fusedRequestUpdatesProbe: FusedLocationUpdatesProbe,
     modifier: Modifier = Modifier,
 ) {
     val events by LocationDiagnosticTrace.events.collectAsState()
@@ -73,7 +75,7 @@ fun LocationDiagnosticOverlay(
                 ) {
                     Text("Diagnostica S25 — current vs updates", style = MaterialTheme.typography.titleLarge)
                     Text(
-                        "Solo osservabilità: nessun cambio production. Misura prima il percorso reale (Pulisci → Chiudi → Usa posizione attuale → Copia). I probe possono modificare le cache di sistema: eseguili separatamente e copia la traccia dopo ciascuno.",
+                        "Solo osservabilità: nessun cambio production. I probe possono modificare le cache di sistema: eseguili separatamente, Pulisci prima di ciascuno e copia la traccia solo dopo il terminale.",
                         style = MaterialTheme.typography.bodySmall,
                     )
 
@@ -137,19 +139,47 @@ fun LocationDiagnosticOverlay(
                     ) {
                         Text(
                             if (activeProbe == "RU") {
-                                "Piano B in corso…"
+                                "Network updates in corso…"
                             } else {
                                 "Piano B network updates bounded (35s)"
                             },
                         )
                     }
 
+                    Button(
+                        enabled = activeProbe == null,
+                        onClick = {
+                            scope.launch {
+                                activeProbe = "FRU"
+                                try {
+                                    fusedRequestUpdatesProbe.run()
+                                } catch (error: Throwable) {
+                                    LocationDiagnosticTrace.record(
+                                        "FRU_PROBE_THROW",
+                                        "${error.javaClass.simpleName}: ${error.message}",
+                                    )
+                                } finally {
+                                    activeProbe = null
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            if (activeProbe == "FRU") {
+                                "Fused updates in corso…"
+                            } else {
+                                "Piano B fused updates bounded (35s)"
+                            },
+                        )
+                    }
+
                     Text(
-                        "Piano B diagnostico: interval=10s, minInterval=0, distance=0, no batching, balanced, duration=35s. ACCEPTED significa solo age≤10s nel probe; NON definisce FRESH production.",
+                        "Probe bounded network/fused: interval=10s, minInterval=0, distance=0, no batching, balanced, duration=35s. ACCEPTED significa solo age≤10s nel probe; NON definisce FRESH production.",
                         style = MaterialTheme.typography.bodySmall,
                     )
                     Text(
-                        "Cerca: PRODUCTION_ONE_SHOT_*, AB_*, RU_PROBE_START, RU_SUBSCRIBE, RU_REGISTERED, RU_CALLBACK, RU_LISTENER_REMOVED, RU_TERMINAL, CITY_NEAREST_*, UPDATES_FIX.",
+                        "Cerca: PRODUCTION_ONE_SHOT_*, AB_*, RU_*, FRU_*, CITY_NEAREST_*, UPDATES_FIX.",
                         style = MaterialTheme.typography.bodySmall,
                     )
 
