@@ -1,0 +1,35 @@
+name: Build final location cache fallback candidate temp
+
+on:
+  push:
+    branches:
+      - location-cache-fallback-final-impl-writer-temp
+    paths:
+      - .github/workflows/location-cache-fallback-final-impl-writer-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  write-implementation:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build clean implementation directly above final spec
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .github/scripts/build-final-cache-fallback.py /tmp/build-final-cache-fallback.py
+          git checkout --detach bf325658c69cb3fc1fbd76ab0b23f01e2a1b3035
+          git diff --binary df5bcaa8c394cc332547453f30fbe4fdeaee8900 dea3de8f0c870ed6f44f52e58951cf97f5128049 -- app > /tmp/cache-impl.patch
+          git apply /tmp/cache-impl.patch
+          python3 /tmp/build-final-cache-fallback.py
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app
+          git commit -m 'fix(location): use provenance-safe cached fallback'
+          git branch -f fix-location-cache-fallback-final HEAD
+          git push origin fix-location-cache-fallback-final --force
