@@ -39,6 +39,20 @@ class LocationCoordinator(
         }
     }
 
+    suspend fun restorePersistedState(
+        permissionState: LocationPermissionState,
+        locationServicesEnabled: Boolean,
+    ): LocationResolutionState {
+        val preference = readPreference()
+            ?: return LocationResolutionState.Unavailable(LocationFailure.PERSISTENCE_ERROR, null)
+
+        return when (preference) {
+            LocationPreference.Unset -> LocationResolutionState.Unconfigured
+            LocationPreference.Device -> restorePersistedDeviceState(permissionState, locationServicesEnabled)
+            is LocationPreference.Manual -> restoreManual(preference)
+        }
+    }
+
     suspend fun selectDevice(
         permissionState: LocationPermissionState,
         locationServicesEnabled: Boolean,
@@ -71,6 +85,39 @@ class LocationCoordinator(
         } ?: return LocationResolutionState.Unavailable(LocationFailure.CITY_NOT_FOUND, null)
 
         return selectManual(city)
+    }
+
+    private suspend fun restorePersistedDeviceState(
+        permissionState: LocationPermissionState,
+        locationServicesEnabled: Boolean,
+    ): LocationResolutionState {
+        val cachedFix = readCachedDeviceFix()?.takeIf { it.isValid }
+        val cachedLocation = cachedFix?.let { toSelectedDeviceLocation(it, LocationFreshness.CACHED) }
+
+        when (permissionState) {
+            LocationPermissionState.NotRequested -> {
+                return LocationResolutionState.PermissionDenied(
+                    canRequestAgain = true,
+                    cachedLocation = cachedLocation,
+                )
+            }
+
+            is LocationPermissionState.Denied -> {
+                return LocationResolutionState.PermissionDenied(
+                    canRequestAgain = permissionState.canRequestAgain,
+                    cachedLocation = cachedLocation,
+                )
+            }
+
+            LocationPermissionState.Granted -> Unit
+        }
+
+        if (!locationServicesEnabled) {
+            return LocationResolutionState.LocationServicesDisabled(cachedLocation)
+        }
+
+        return cachedLocation?.let(LocationResolutionState::Ready)
+            ?: LocationResolutionState.Resolving
     }
 
     suspend fun resolveDevice(
