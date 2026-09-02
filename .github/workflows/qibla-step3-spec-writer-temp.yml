@@ -1,0 +1,45 @@
+name: Qibla STEP 3 spec writer temp
+
+on:
+  push:
+    branches: [qibla-step3-spec-writer-temp]
+
+permissions:
+  contents: write
+
+jobs:
+  write-spec:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: a1012621f1efa87138b1bce8503fbbbe819ee962
+          fetch-depth: 0
+
+      - name: Authorize STEP 3 in PROJECT_SPEC
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('PROJECT_SPEC.md')
+          text = p.read_text()
+          old = '3. **STEP 3 — Android heading/sensor layer: NOT STARTED.** Implement foreground sensor capability/heading datasource, declination correction, screen-axis remap, accuracy and lifecycle with focused tests. No final UI.'
+          new = '''3. **STEP 3 — Android heading/sensor layer: AUTHORIZED / IN PROGRESS.** Implement the foreground Android heading datasource only, preserving the STEP 1 hierarchy and true-north contract. The datasource may accept Arihna `Coordinates` as an explicit session input solely so magnetic-reference fallbacks can construct `GeomagneticField`; it must not read `LocationResolutionState`, `SelectedLocation`, `LocationManager`, DataStore, `CityRepository`, Prayer state or provider callbacks directly. Collection owns sensor lifecycle: register at `SENSOR_DELAY_UI` when the heading flow is collected and unregister promptly on cancellation. Source selection is deterministic: API 33+ `TYPE_HEADING` when exposed, then `TYPE_ROTATION_VECTOR`, then `TYPE_GEOMAGNETIC_ROTATION_VECTOR`, then calibrated accelerometer + magnetic-field pair. `TYPE_HEADING` uses its direct true-north degrees and degree accuracy and never receives declination correction. Magnetic-reference paths derive display-axis azimuth via rotation matrix/remap/orientation, compute platform `GeomagneticField` declination once per observation/session from the supplied coordinates and injected/testable time at altitude `0 m`, and publish `normalize(magneticHeading + declination)`. Display rotation must be handled so the heading refers to the top of the active display rather than silently assuming natural portrait orientation. Mirror Android sensor accuracy into Arihna `HeadingQuality`; retain numeric accuracy only where Android supplies it. Missing capability or failed registration returns controlled `Unavailable`; no deprecated `TYPE_ORIENTATION`, game rotation vector, fastest sampling, background sensor work or fabricated heading is allowed. No Compose UI, Qibla/Location orchestration, Location-provider change, dependency addition, manifest sensor requirement or runtime permission is authorized in STEP 3. Focused JVM tests must cover source hierarchy, true/magnetic correction, wrap/rotation behavior, quality mapping and registration lifecycle through testable boundaries; API28 instrumentation must prove compatibility/capability discovery and no-crash register/cancel behavior where feasible. Full unit, assemble, API28 Prayer+Location+Home regression and policy gates are required before closure. STEP 4 remains **NOT STARTED**.'''
+          if old not in text:
+              raise SystemExit('STEP 3 marker not found')
+          text = text.replace(old, new, 1)
+          p.write_text(text)
+          PY
+          grep -Fq 'STEP 3 — Android heading/sensor layer: AUTHORIZED / IN PROGRESS.' PROJECT_SPEC.md
+          grep -Fq 'STEP 4 — Location/Qibla orchestration: NOT STARTED.' PROJECT_SPEC.md
+
+      - name: Commit spec-first authorization
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add PROJECT_SPEC.md
+          git commit -m 'docs(qibla): authorize step3 heading layer'
+          git push origin HEAD:refs/heads/qibla-step3-spec
