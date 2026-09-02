@@ -8,6 +8,7 @@ import com.archimedeprojects.arihna.core.location.data.DeviceLocationDataSource
 import com.archimedeprojects.arihna.core.location.data.LocationPreferencesRepository
 import com.archimedeprojects.arihna.core.location.domain.LocationCoordinator
 import com.archimedeprojects.arihna.core.location.model.CitySearchResult
+import com.archimedeprojects.arihna.core.location.model.LocationFreshness
 import com.archimedeprojects.arihna.core.location.model.LocationPermissionState
 import com.archimedeprojects.arihna.core.location.model.LocationPreference
 import com.archimedeprojects.arihna.core.location.model.LocationResolutionState
@@ -84,10 +85,9 @@ class LocationSettingsViewModel(
         locationServicesEnabled: Boolean,
     ) {
         foreground = true
-        resolve(
+        restoreForeground(
             permissionState = permissionState,
             locationServicesEnabled = locationServicesEnabled,
-            selectDevice = false,
         )
     }
 
@@ -104,10 +104,9 @@ class LocationSettingsViewModel(
         locationServicesEnabled: Boolean,
     ) {
         _uiState.update { it.copy(rationaleVisible = false) }
-        resolve(
+        resolveSelectedDevice(
             permissionState = permissionState,
             locationServicesEnabled = locationServicesEnabled,
-            selectDevice = true,
         )
     }
 
@@ -193,20 +192,67 @@ class LocationSettingsViewModel(
         }
     }
 
-    private fun resolve(
+    private fun restoreForeground(
         permissionState: LocationPermissionState,
         locationServicesEnabled: Boolean,
-        selectDevice: Boolean,
+    ) {
+        resolutionJob?.cancel()
+        resolutionJob = viewModelScope.launch {
+            val persistedState = coordinator.restorePersistedState(
+                permissionState = permissionState,
+                locationServicesEnabled = locationServicesEnabled,
+            )
+            val mode = readMode()
+            _uiState.update {
+                it.copy(
+                    resolutionState = persistedState,
+                    activeMode = mode,
+                )
+            }
+
+            val shouldRevalidate =
+                mode == LocationModeUi.Device &&
+                    permissionState == LocationPermissionState.Granted &&
+                    locationServicesEnabled &&
+                    (persistedState is LocationResolutionState.Ready ||
+                        persistedState == LocationResolutionState.Resolving)
+
+            if (shouldRevalidate) {
+                val revalidatedState = coordinator.resolveDevice(
+                    permissionState = permissionState,
+                    locationServicesEnabled = locationServicesEnabled,
+                )
+                if (!foreground || readMode() != LocationModeUi.Device) return@launch
+
+                val visibleState = preserveCachedReadyDuringRevalidation(
+                    persistedState = persistedState,
+                    revalidatedState = revalidatedState,
+                )
+                _uiState.update {
+                    it.copy(
+                        resolutionState = visibleState,
+                        activeMode = LocationModeUi.Device,
+                    )
+                }
+            }
+
+            configureForegroundUpdates(
+                mode = mode,
+                permissionState = permissionState,
+                locationServicesEnabled = locationServicesEnabled,
+            )
+        }
+    }
+
+    private fun resolveSelectedDevice(
+        permissionState: LocationPermissionState,
+        locationServicesEnabled: Boolean,
     ) {
         resolutionJob?.cancel()
         resolutionJob = viewModelScope.launch {
             _uiState.update { it.copy(resolutionState = LocationResolutionState.Resolving) }
 
-            val state = if (selectDevice) {
-                coordinator.selectDevice(permissionState, locationServicesEnabled)
-            } else {
-                coordinator.restore(permissionState, locationServicesEnabled)
-            }
+            val state = coordinator.selectDevice(permissionState, locationServicesEnabled)
             val mode = readMode()
             _uiState.update {
                 it.copy(
@@ -221,6 +267,19 @@ class LocationSettingsViewModel(
                 locationServicesEnabled = locationServicesEnabled,
             )
         }
+    }
+
+    private fun preserveCachedReadyDuringRevalidation(
+        persistedState: LocationResolutionState,
+        revalidatedState: LocationResolutionState,
+    ): LocationResolutionState = if (
+        persistedState is LocationResolutionState.Ready &&
+        persistedState.freshness == LocationFreshness.CACHED &&
+        revalidatedState !is LocationResolutionState.Ready
+    ) {
+        persistedState
+    } else {
+        revalidatedState
     }
 
     private fun configureForegroundUpdates(
