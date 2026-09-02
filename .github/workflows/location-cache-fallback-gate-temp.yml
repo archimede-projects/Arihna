@@ -18,14 +18,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 01f09fe98ee2eb25a244ceb6739bdfe0d10cad48
+          ref: dea3de8f0c870ed6f44f52e58951cf97f5128049
           fetch-depth: 0
 
       - name: Verify exact candidate and ancestry
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "01f09fe98ee2eb25a244ceb6739bdfe0d10cad48"
+          test "$(git rev-parse HEAD)" = "dea3de8f0c870ed6f44f52e58951cf97f5128049"
           test "$(git rev-parse HEAD^)" = "cde5eb3d60fe482c05dfa74315d99b8e55372a5b"
           test "$(git rev-parse HEAD^^)" = "df5bcaa8c394cc332547453f30fbe4fdeaee8900"
 
@@ -39,9 +39,6 @@ jobs:
           cache-read-only: true
 
       - uses: android-actions/setup-android@v3
-
-      - name: Install Android API 37
-        run: android sdk install platforms/android-37 --canary || true
 
       - name: Verify production policy and cache fallback contract
         shell: bash
