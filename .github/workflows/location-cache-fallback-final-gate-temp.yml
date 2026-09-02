@@ -1,0 +1,173 @@
+name: Location cache fallback final exact-SHA gate
+
+on:
+  push:
+    branches:
+      - location-cache-fallback-final-gate-temp
+    paths:
+      - .github/workflows/location-cache-fallback-final-gate-temp.yml
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e90a4371913c3556901f9c3d1d5fdd4b49472647
+          fetch-depth: 0
+
+      - name: Verify exact candidate and spec-first ancestry
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "e90a4371913c3556901f9c3d1d5fdd4b49472647"
+          test "$(git rev-parse HEAD^)" = "bf325658c69cb3fc1fbd76ab0b23f01e2a1b3035"
+          test "$(git rev-parse HEAD^^)" = "cde5eb3d60fe482c05dfa74315d99b8e55372a5b"
+          test "$(git rev-parse HEAD^^^)" = "df5bcaa8c394cc332547453f30fbe4fdeaee8900"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android API 37
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-37" >/dev/null
+
+      - name: Verify production policy and cache fallback contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'sourceCompatibility = JavaVersion.VERSION_17' app/build.gradle.kts
+          grep -q 'targetCompatibility = JavaVersion.VERSION_17' app/build.gradle.kts
+          grep -q 'jvmTarget.set(JvmTarget.JVM_17)' app/build.gradle.kts
+          grep -q 'android.permission.ACCESS_COARSE_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.ACCESS_FINE_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.ACCESS_BACKGROUND_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -R -q 'com.google.android.gms.location' app/src/main gradle
+          ! grep -R -q '@Ignore' app/src/androidTest app/src/test
+          grep -q 'Duration.ofSeconds(30)' app/src/main/java/com/archimedeprojects/arihna/core/location/domain/LocationUpdatePolicy.kt
+          grep -q 'Duration.ofMinutes(15)' app/src/main/java/com/archimedeprojects/arihna/core/location/domain/LocationUpdatePolicy.kt
+          grep -q '5_000.0' app/src/main/java/com/archimedeprojects/arihna/core/location/domain/LocationUpdatePolicy.kt
+          grep -q 'FRAMEWORK_FUSED_PROVIDER.takeIf' app/src/main/java/com/archimedeprojects/arihna/core/location/platform/LocationManagerDeviceLocationDataSource.kt
+          grep -q 'DeviceLocationResult.Cached' app/src/main/java/com/archimedeprojects/arihna/core/location/platform/LocationManagerDeviceLocationDataSource.kt
+          grep -q 'val freshness: LocationFreshness?' app/src/main/java/com/archimedeprojects/arihna/core/location/model/SelectedLocation.kt
+          grep -q 'cachedFrameworkLocationMatchesPersistedFix' app/src/main/java/com/archimedeprojects/arihna/core/location/domain/LocationCoordinator.kt
+          grep -q 'Basato su posizione di' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+          grep -q 'Aggiorna posizione' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/archimedeprojects/arihna/core/location/platform/LocationManagerDeviceLocationDataSource.kt').read_text()
+          block = p.split('private fun lastKnownLocationResult(): DeviceLocationResult {', 1)[1].split('private fun hasCoarsePermission()', 1)[0]
+          assert 'DeviceLocationResult.Cached' in block
+          assert 'zoneIdProvider()' not in block, 'raw last-known must not sample current timezone'
+          assert 'toDeviceFix()' not in block, 'raw last-known must not become a zoned fix inside platform fallback'
+          s = Path('PROJECT_SPEC.md').read_text()
+          assert 'does **not** contain the historical `ZoneId`' in s
+          assert 'freshness? (`FRESH`/`CACHED` for Device; null for Manual)' in s
+          PY
+
+      - name: Restore exact STEP 4 city asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/step4-asset app/src/main/assets/geonames
+          mkdir -p /tmp/step4-asset app/src/main/assets/geonames
+          gh run download 33296099459 \
+            --repo "$GITHUB_REPOSITORY" \
+            --name geonames-step4-runtime-minimal \
+            --dir /tmp/step4-asset
+          DB="$(find /tmp/step4-asset -type f -name cities.db -print -quit)"
+          test -n "$DB"
+          cp "$DB" app/src/main/assets/geonames/cities.db
+          echo '7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb  app/src/main/assets/geonames/cities.db' | sha256sum -c -
+
+      - name: Run complete unit regression
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Verify unit reports have zero failures and zero skipped
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          files = list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*.xml'))
+          assert files, 'unit XML reports missing'
+          tests = failures = errors = skipped = 0
+          for f in files:
+              root = ET.parse(f).getroot()
+              tests += int(root.attrib.get('tests', 0))
+              failures += int(root.attrib.get('failures', 0))
+              errors += int(root.attrib.get('errors', 0))
+              skipped += int(root.attrib.get('skipped', 0))
+          print(f'UNIT_SUMMARY tests={tests} failures={failures} errors={errors} skipped={skipped}')
+          assert tests > 0 and failures == 0 and errors == 0 and skipped == 0
+          PY
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Run complete Android 9 API28 connected regression
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 28
+          arch: x86_64
+          target: default
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
+
+      - name: Verify API28 reports zero skipped and include Prayer regression
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          roots = [Path('app/build/outputs/androidTest-results/connected'), Path('app/build/outputs/androidTest-results/connected/debug')]
+          files = []
+          for root in roots:
+              if root.exists():
+                  files.extend(root.rglob('*.xml'))
+          files = sorted(set(files))
+          assert files, 'connected AndroidTest XML reports missing'
+          tests = failures = errors = skipped = 0
+          prayer_cases = 0
+          seen = set()
+          for f in files:
+              try:
+                  root = ET.parse(f).getroot()
+              except ET.ParseError:
+                  continue
+              for suite in ([root] if root.tag == 'testsuite' else root.findall('.//testsuite')):
+                  key = (str(f), suite.attrib.get('name'))
+                  if key in seen:
+                      continue
+                  seen.add(key)
+                  tests += int(suite.attrib.get('tests', 0))
+                  failures += int(suite.attrib.get('failures', 0))
+                  errors += int(suite.attrib.get('errors', 0))
+                  skipped += int(suite.attrib.get('skipped', 0))
+              for case in root.findall('.//testcase'):
+                  hay = (case.attrib.get('classname', '') + ' ' + case.attrib.get('name', '')).lower()
+                  if 'prayer' in hay:
+                      prayer_cases += 1
+          print(f'API28_SUMMARY tests={tests} failures={failures} errors={errors} skipped={skipped} prayerCases={prayer_cases}')
+          assert tests > 0 and failures == 0 and errors == 0 and skipped == 0
+          assert prayer_cases > 0, 'Prayer Engine/integration regression not present in connected test report'
+          PY
