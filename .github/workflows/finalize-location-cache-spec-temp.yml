@@ -1,0 +1,33 @@
+name: Finalize location cache fallback spec temp
+
+on:
+  push:
+    branches:
+      - location-cache-zone-safety-spec-temp
+    paths:
+      - .github/workflows/finalize-location-cache-spec-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  write-spec:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build final spec-only commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .github/scripts/finalize-location-cache-spec.py /tmp/finalize-location-cache-spec.py
+          git checkout --detach cde5eb3d60fe482c05dfa74315d99b8e55372a5b
+          python3 /tmp/finalize-location-cache-spec.py
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add PROJECT_SPEC.md
+          git commit -m 'docs(location): finalize cache fallback provenance policy'
+          git branch -f fix-location-cache-fallback-final HEAD
+          git push origin fix-location-cache-fallback-final --force
