@@ -41,12 +41,6 @@ jobs:
 
       - uses: android-actions/setup-android@v3
 
-      - name: Install Android API 37
-        shell: bash
-        run: |
-          set -euo pipefail
-          sdkmanager "platforms;android-37" >/dev/null
-
       - name: Verify production policy and cache fallback contract
         shell: bash
         run: |
