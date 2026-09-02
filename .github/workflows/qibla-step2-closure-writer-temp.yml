@@ -1,0 +1,50 @@
+name: Qibla STEP 2 closure writer temp
+
+on:
+  push:
+    branches:
+      - qibla-step2-closure-writer-temp
+    paths:
+      - .github/workflows/qibla-step2-closure-writer-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  close:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: c4bf58ab341bc69127d9075cd093a4c4080c6062
+          fetch-depth: 0
+      - name: Verify exact technical base
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "c4bf58ab341bc69127d9075cd093a4c4080c6062"
+          test "$(git rev-parse origin/main)" = "c4bf58ab341bc69127d9075cd093a4c4080c6062"
+          test "$(git rev-parse HEAD^)" = "1062bc33eda946351c799d694c4e8eecf849ace2"
+      - name: Patch STEP 2 closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL 'https://raw.githubusercontent.com/archimede-projects/Arihna/qibla-step2-closure-writer-temp/tools/qibla_step2_closure_patch.py' -o /tmp/patch.py
+          python3 /tmp/patch.py
+          git diff --check
+          test "$(git diff --name-only)" = "PROJECT_SPEC.md"
+          grep -Fq 'STEP 2 — pure bearing engine: CLOSED.' PROJECT_SPEC.md
+          grep -Fq '105/105' PROJECT_SPEC.md
+          grep -Fq '41/41' PROJECT_SPEC.md
+          grep -Fq 'STEP 3 Android heading/sensor layer remains **NOT STARTED**' PROJECT_SPEC.md
+      - name: Commit clean closure branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add PROJECT_SPEC.md
+          git commit -m 'docs(qibla): close step2 bearing engine'
+          test "$(git diff-tree --no-commit-id --name-only -r HEAD)" = "PROJECT_SPEC.md"
+          test "$(git rev-parse HEAD^)" = "c4bf58ab341bc69127d9075cd093a4c4080c6062"
+          git push origin HEAD:refs/heads/qibla-step2-closure
