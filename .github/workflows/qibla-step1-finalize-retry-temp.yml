@@ -1,0 +1,46 @@
+name: Qibla STEP 1 finalize retry temp
+
+on:
+  push:
+    branches:
+      - qibla-step1-finalize-retry-temp
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 2600a2f13fc126acbae48cae28fefca377500da7
+          fetch-depth: 0
+
+      - name: Build final spec from reviewed source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "2600a2f13fc126acbae48cae28fefca377500da7"
+          test "$(git rev-parse origin/main)" = "2600a2f13fc126acbae48cae28fefca377500da7"
+          git show ec0744afdee696365c2429b8b40464057c56ea91:PROJECT_SPEC.md > PROJECT_SPEC.md
+          curl -fsSL 'https://raw.githubusercontent.com/archimede-projects/Arihna/qibla-step1-finalize-retry-temp/.github/qibla-step1-finalize-temp.py' -o /tmp/finalize.py
+          python3 /tmp/finalize.py
+          git diff --check
+          test "$(git diff --name-only)" = "PROJECT_SPEC.md"
+          grep -Fq 'API 33+ `Sensor.TYPE_HEADING`' PROJECT_SPEC.md
+          grep -Fq 'TRUE_HEADING_SENSOR' PROJECT_SPEC.md
+          grep -Fq 'API28 exercising the no-`TYPE_HEADING` compatibility path' PROJECT_SPEC.md
+          grep -Fq 'STEP 2 — pure bearing engine: NOT STARTED.' PROJECT_SPEC.md
+
+      - name: Commit clean one-file candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add PROJECT_SPEC.md
+          git commit -m 'docs(qibla): approve step1 architecture'
+          test "$(git rev-parse HEAD^)" = "2600a2f13fc126acbae48cae28fefca377500da7"
+          test "$(git diff-tree --no-commit-id --name-only -r HEAD)" = "PROJECT_SPEC.md"
+          git push origin HEAD:refs/heads/qibla-step1-spec-final
