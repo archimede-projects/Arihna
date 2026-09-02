@@ -1,0 +1,26 @@
+from pathlib import Path
+
+path = Path("PROJECT_SPEC.md")
+text = path.read_text()
+marker = "## 17. Change log\n"
+if marker not in text:
+    raise SystemExit("change-log marker not found")
+
+heading = "### 2026-09-02 — Cache-first foreground re-entry approved; provider decision deferred"
+section = """### 2026-09-02 — Cache-first foreground re-entry approved; provider decision deferred
+
+Real-device validation of prerelease `location-cache-fallback-s25-validation-685f3733-20260902` on the Samsung Galaxy S25 successfully exercised the CACHED path: the current framework fused attempt did not yield the selected fresh fix, while Arihna recovered and used the persisted provenance-safe Device fix and exposed it as CACHED. Commit `685f37336fffc1cbfcd7169b74e2f0866c23498c` is therefore the validated production baseline for this follow-up correction.
+
+The next Location behavior correction is **cache-first foreground re-entry**. When Device mode is selected and a valid complete persisted `DeviceLocationFix` exists, an app foreground transition must make that fix immediately available as `LocationResolutionState.Ready(... CACHED)` so Home/prayer calculation is not blocked behind a new current-location attempt. Arihna may still start the existing framework fused current-location attempt on foreground, but that attempt is a **non-blocking revalidation**: the already usable CACHED state remains authoritative while acquisition is pending. A successful current fix may replace/update the selected Device fix only through the existing acceptance policy; a current fix that does not satisfy the existing significant-change rules must not silently alter those rules. Timeout, `null`, provider failure or cancellation of the revalidation must leave the already displayed CACHED state usable rather than regress the UI to Resolving/Unavailable solely because revalidation failed.
+
+This correction does **not** add a freshness TTL or suppress foreground revalidation yet. The question of whether a sufficiently recent persisted/verified fix should skip a later `ON_START` current attempt remains a separate decision. The existing 30-second current budget, 5 km significant-movement threshold, timezone-change significance, 15-minute foreground update stream, COARSE-only permission policy, provenance-safe historical ZoneId rule, manual-location behavior and Prayer calculation boundary remain unchanged.
+
+The choice between Android framework LocationManager and Google Play Services `FusedLocationProviderClient` is explicitly **deferred**. No Play Services Location dependency, `ACCESS_FINE_LOCATION`, background location or foreground location service is authorized by this decision. A future provider change requires a separate spec decision and, if considered, should be supported by same-device comparative evidence rather than by assumption.
+
+Implementation must remain spec-first and must not be promoted until the exact implementation SHA passes the complete unit regression, `assembleDebug`, Android 9/API28 `connectedDebugAndroidTest` with zero skipped tests and Prayer regression presence, plus the existing manifest/dependency and exact GeoNames asset checks. Real-device Galaxy S25 validation remains required before treating the cache-first lifecycle correction as closed.
+
+"""
+
+if heading not in text:
+    text = text.replace(marker, marker + "\n" + section, 1)
+    path.write_text(text)
