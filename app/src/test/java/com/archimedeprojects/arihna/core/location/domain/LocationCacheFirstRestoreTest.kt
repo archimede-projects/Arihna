@@ -21,7 +21,6 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 
 class LocationCacheFirstRestoreTest {
@@ -82,7 +81,7 @@ class LocationCacheFirstRestoreTest {
         assertEquals(false, denied.canRequestAgain)
         assertEquals(cached.coordinates, denied.cachedLocation?.coordinates)
         assertEquals(0, device.currentCalls)
-        assertNull(device.lastKnownResultOrNull)
+        assertEquals(0, device.lastKnownCalls)
     }
 
     private fun coordinator(
@@ -104,7 +103,6 @@ class LocationCacheFirstRestoreTest {
     private class FakeDeviceLocationDataSource : DeviceLocationDataSource {
         var currentCalls: Int = 0
         var lastKnownCalls: Int = 0
-        var lastKnownResultOrNull: DeviceLocationResult? = null
         private val updates = MutableSharedFlow<DeviceLocationFix>()
 
         override suspend fun getCurrentLocation(): DeviceLocationResult {
