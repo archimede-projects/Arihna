@@ -1,0 +1,33 @@
+name: Location cache fallback implementation writer temp
+
+on:
+  push:
+    branches:
+      - location-cache-fallback-impl-writer-temp
+    paths:
+      - .github/workflows/location-cache-fallback-impl-writer-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  write-implementation:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build clean technical commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .github/scripts/location-cache-fallback-impl-patch.py /tmp/location-cache-fallback-impl-patch.py
+          git checkout --detach cde5eb3d60fe482c05dfa74315d99b8e55372a5b
+          python3 /tmp/location-cache-fallback-impl-patch.py
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app
+          git commit -m 'fix(location): use transparent cached fallback'
+          git branch -f fix-location-cache-fallback HEAD
+          git push origin fix-location-cache-fallback --force
