@@ -1,0 +1,888 @@
+name: Qibla STEP 3 implementation writer temp
+
+on:
+  push:
+    branches: [qibla-step3-impl-writer-temp]
+
+permissions:
+  contents: write
+
+jobs:
+  write-implementation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 27245561525e2a403a3642d19de8d723f0a4e455
+          fetch-depth: 0
+
+      - name: Write STEP 3 implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p app/src/main/java/com/archimedeprojects/arihna/core/qibla/heading
+          mkdir -p app/src/main/java/com/archimedeprojects/arihna/core/qibla/platform
+          mkdir -p app/src/test/java/com/archimedeprojects/arihna/core/qibla/heading
+          mkdir -p app/src/androidTest/java/com/archimedeprojects/arihna/core/qibla/platform
+
+          cat > app/src/main/java/com/archimedeprojects/arihna/core/qibla/heading/DeviceHeadingModels.kt <<'EOF'
+          package com.archimedeprojects.arihna.core.qibla.heading
+
+          enum class HeadingSource {
+              TRUE_HEADING_SENSOR,
+              ROTATION_VECTOR,
+              GEOMAGNETIC_ROTATION_VECTOR,
+              ACCELEROMETER_MAGNETIC_FIELD,
+          }
+
+          enum class HeadingQuality {
+              HIGH,
+              MEDIUM,
+              LOW,
+              UNRELIABLE,
+              UNKNOWN,
+          }
+
+          enum class HeadingUnavailableReason {
+              NO_SUPPORTED_SENSOR,
+              REGISTRATION_FAILED,
+              INVALID_COORDINATES,
+              INVALID_SENSOR_READING,
+              INVALID_DECLINATION,
+          }
+
+          sealed interface DeviceHeadingState {
+              data class Unavailable(
+                  val reason: HeadingUnavailableReason,
+              ) : DeviceHeadingState
+
+              data class Reading(
+                  val trueHeadingDegrees: Double,
+                  val quality: HeadingQuality,
+                  val estimatedAccuracyDegrees: Double?,
+                  val source: HeadingSource,
+                  val magneticHeadingDegrees: Double?,
+                  val declinationDegrees: Double?,
+              ) : DeviceHeadingState
+          }
+          EOF
+
+          cat > app/src/main/java/com/archimedeprojects/arihna/core/qibla/heading/HeadingMath.kt <<'EOF'
+          package com.archimedeprojects.arihna.core.qibla.heading
+
+          import com.archimedeprojects.arihna.core.qibla.calculation.normalizeDegrees
+
+          private val SOURCE_PRIORITY = listOf(
+              HeadingSource.TRUE_HEADING_SENSOR,
+              HeadingSource.ROTATION_VECTOR,
+              HeadingSource.GEOMAGNETIC_ROTATION_VECTOR,
+              HeadingSource.ACCELEROMETER_MAGNETIC_FIELD,
+          )
+
+          fun selectHeadingSource(availableSources: Set<HeadingSource>): HeadingSource? =
+              SOURCE_PRIORITY.firstOrNull(availableSources::contains)
+
+          fun trueHeadingFromMagneticDegrees(
+              magneticHeadingDegrees: Double,
+              declinationDegrees: Double,
+          ): Double = normalizeDegrees(magneticHeadingDegrees + declinationDegrees)
+
+          fun headingForDisplayQuarterTurns(
+              naturalOrientationHeadingDegrees: Double,
+              clockwiseQuarterTurns: Int,
+          ): Double {
+              require(clockwiseQuarterTurns in 0..3) { "Display rotation must be 0..3 quarter turns" }
+              return normalizeDegrees(naturalOrientationHeadingDegrees - clockwiseQuarterTurns * 90.0)
+          }
+
+          fun headingQualityFromPlatformAccuracy(accuracy: Int): HeadingQuality = when (accuracy) {
+              3 -> HeadingQuality.HIGH
+              2 -> HeadingQuality.MEDIUM
+              1 -> HeadingQuality.LOW
+              0 -> HeadingQuality.UNRELIABLE
+              else -> HeadingQuality.UNKNOWN
+          }
+
+          fun combineHeadingQuality(
+              first: HeadingQuality,
+              second: HeadingQuality,
+          ): HeadingQuality = when {
+              HeadingQuality.UNRELIABLE in setOf(first, second) -> HeadingQuality.UNRELIABLE
+              HeadingQuality.LOW in setOf(first, second) -> HeadingQuality.LOW
+              HeadingQuality.UNKNOWN in setOf(first, second) -> HeadingQuality.UNKNOWN
+              HeadingQuality.MEDIUM in setOf(first, second) -> HeadingQuality.MEDIUM
+              else -> HeadingQuality.HIGH
+          }
+          EOF
+
+          cat > app/src/main/java/com/archimedeprojects/arihna/core/qibla/heading/HeadingSensorBackend.kt <<'EOF'
+          package com.archimedeprojects.arihna.core.qibla.heading
+
+          import kotlinx.coroutines.flow.Flow
+
+          interface HeadingSensorBackend {
+              fun availableSources(): Set<HeadingSource>
+
+              fun observe(source: HeadingSource): Flow<HeadingSensorEvent>
+          }
+
+          sealed interface HeadingSensorEvent {
+              data class Reading(
+                  val headingDegrees: Double,
+                  val quality: HeadingQuality,
+                  val estimatedAccuracyDegrees: Double?,
+              ) : HeadingSensorEvent
+
+              data object RegistrationFailed : HeadingSensorEvent
+          }
+          EOF
+
+          cat > app/src/main/java/com/archimedeprojects/arihna/core/qibla/heading/DeviceHeadingDataSource.kt <<'EOF'
+          package com.archimedeprojects.arihna.core.qibla.heading
+
+          import com.archimedeprojects.arihna.core.prayer.model.Coordinates
+          import kotlinx.coroutines.flow.Flow
+          import kotlinx.coroutines.flow.collect
+          import kotlinx.coroutines.flow.flow
+
+          interface DeviceHeadingDataSource {
+              fun observeHeading(origin: Coordinates): Flow<DeviceHeadingState>
+          }
+
+          fun interface MagneticDeclinationProvider {
+              fun declinationDegrees(origin: Coordinates): Double
+          }
+
+          class DefaultDeviceHeadingDataSource(
+              private val backend: HeadingSensorBackend,
+              private val magneticDeclinationProvider: MagneticDeclinationProvider,
+          ) : DeviceHeadingDataSource {
+              override fun observeHeading(origin: Coordinates): Flow<DeviceHeadingState> = flow {
+                  if (!origin.isValid) {
+                      emit(DeviceHeadingState.Unavailable(HeadingUnavailableReason.INVALID_COORDINATES))
+                      return@flow
+                  }
+
+                  val source = selectHeadingSource(backend.availableSources())
+                  if (source == null) {
+                      emit(DeviceHeadingState.Unavailable(HeadingUnavailableReason.NO_SUPPORTED_SENSOR))
+                      return@flow
+                  }
+
+                  val declinationDegrees = if (source == HeadingSource.TRUE_HEADING_SENSOR) {
+                      null
+                  } else {
+                      magneticDeclinationProvider.declinationDegrees(origin).also {
+                          if (!it.isFinite()) {
+                              emit(DeviceHeadingState.Unavailable(HeadingUnavailableReason.INVALID_DECLINATION))
+                              return@flow
+                          }
+                      }
+                  }
+
+                  backend.observe(source).collect { event ->
+                      when (event) {
+                          HeadingSensorEvent.RegistrationFailed -> {
+                              emit(DeviceHeadingState.Unavailable(HeadingUnavailableReason.REGISTRATION_FAILED))
+                          }
+
+                          is HeadingSensorEvent.Reading -> {
+                              val rawHeading = event.headingDegrees
+                              if (!rawHeading.isFinite()) {
+                                  emit(DeviceHeadingState.Unavailable(HeadingUnavailableReason.INVALID_SENSOR_READING))
+                                  return@collect
+                              }
+
+                              val estimatedAccuracy = event.estimatedAccuracyDegrees
+                                  ?.takeIf { it.isFinite() && it >= 0.0 }
+
+                              if (source == HeadingSource.TRUE_HEADING_SENSOR) {
+                                  emit(
+                                      DeviceHeadingState.Reading(
+                                          trueHeadingDegrees = com.archimedeprojects.arihna.core.qibla.calculation.normalizeDegrees(rawHeading),
+                                          quality = event.quality,
+                                          estimatedAccuracyDegrees = estimatedAccuracy,
+                                          source = source,
+                                          magneticHeadingDegrees = null,
+                                          declinationDegrees = null,
+                                      ),
+                                  )
+                              } else {
+                                  val magneticHeading = com.archimedeprojects.arihna.core.qibla.calculation.normalizeDegrees(rawHeading)
+                                  emit(
+                                      DeviceHeadingState.Reading(
+                                          trueHeadingDegrees = trueHeadingFromMagneticDegrees(
+                                              magneticHeadingDegrees = magneticHeading,
+                                              declinationDegrees = requireNotNull(declinationDegrees),
+                                          ),
+                                          quality = event.quality,
+                                          estimatedAccuracyDegrees = estimatedAccuracy,
+                                          source = source,
+                                          magneticHeadingDegrees = magneticHeading,
+                                          declinationDegrees = declinationDegrees,
+                                      ),
+                                  )
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+
+          cat > app/src/main/java/com/archimedeprojects/arihna/core/qibla/platform/AndroidGeomagneticDeclinationProvider.kt <<'EOF'
+          package com.archimedeprojects.arihna.core.qibla.platform
+
+          import android.hardware.GeomagneticField
+          import com.archimedeprojects.arihna.core.prayer.model.Coordinates
+          import com.archimedeprojects.arihna.core.qibla.heading.MagneticDeclinationProvider
+          import java.time.Clock
+
+          class AndroidGeomagneticDeclinationProvider(
+              private val clock: Clock,
+          ) : MagneticDeclinationProvider {
+              override fun declinationDegrees(origin: Coordinates): Double {
+                  require(origin.isValid) { "Coordinates must be valid" }
+                  return GeomagneticField(
+                      origin.latitude.toFloat(),
+                      origin.longitude.toFloat(),
+                      0f,
+                      clock.millis(),
+                  ).declination.toDouble()
+              }
+          }
+          EOF
+
+          cat > app/src/main/java/com/archimedeprojects/arihna/core/qibla/platform/AndroidHeadingSensorBackend.kt <<'EOF'
+          package com.archimedeprojects.arihna.core.qibla.platform
+
+          import android.content.Context
+          import android.hardware.Sensor
+          import android.hardware.SensorEvent
+          import android.hardware.SensorEventListener
+          import android.hardware.SensorManager
+          import android.hardware.display.DisplayManager
+          import android.os.Build
+          import android.view.Display
+          import android.view.Surface
+          import com.archimedeprojects.arihna.core.qibla.heading.HeadingQuality
+          import com.archimedeprojects.arihna.core.qibla.heading.HeadingSensorBackend
+          import com.archimedeprojects.arihna.core.qibla.heading.HeadingSensorEvent
+          import com.archimedeprojects.arihna.core.qibla.heading.HeadingSource
+          import com.archimedeprojects.arihna.core.qibla.heading.combineHeadingQuality
+          import com.archimedeprojects.arihna.core.qibla.heading.headingForDisplayQuarterTurns
+          import com.archimedeprojects.arihna.core.qibla.heading.headingQualityFromPlatformAccuracy
+          import kotlinx.coroutines.channels.awaitClose
+          import kotlinx.coroutines.flow.Flow
+          import kotlinx.coroutines.flow.callbackFlow
+          import kotlin.math.PI
+
+          class AndroidHeadingSensorBackend(
+              context: Context,
+          ) : HeadingSensorBackend {
+              private val appContext = context.applicationContext
+              private val sensorManager = appContext.getSystemService(SensorManager::class.java)
+              private val displayManager = appContext.getSystemService(DisplayManager::class.java)
+
+              override fun availableSources(): Set<HeadingSource> = buildSet {
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                      sensorManager.getDefaultSensor(Sensor.TYPE_HEADING) != null
+                  ) {
+                      add(HeadingSource.TRUE_HEADING_SENSOR)
+                  }
+                  if (sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR) != null) {
+                      add(HeadingSource.ROTATION_VECTOR)
+                  }
+                  if (sensorManager.getDefaultSensor(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR) != null) {
+                      add(HeadingSource.GEOMAGNETIC_ROTATION_VECTOR)
+                  }
+                  if (sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null &&
+                      sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD) != null
+                  ) {
+                      add(HeadingSource.ACCELEROMETER_MAGNETIC_FIELD)
+                  }
+              }
+
+              override fun observe(source: HeadingSource): Flow<HeadingSensorEvent> = callbackFlow {
+                  val registration = sensorsFor(source)
+                  if (registration == null) {
+                      trySend(HeadingSensorEvent.RegistrationFailed)
+                      close()
+                      return@callbackFlow
+                  }
+
+                  var accelerometerValues: FloatArray? = null
+                  var magneticFieldValues: FloatArray? = null
+                  var accelerometerQuality = HeadingQuality.UNKNOWN
+                  var magneticFieldQuality = HeadingQuality.UNKNOWN
+
+                  val listener = object : SensorEventListener {
+                      override fun onSensorChanged(event: SensorEvent) {
+                          when (source) {
+                              HeadingSource.TRUE_HEADING_SENSOR -> {
+                                  if (event.values.isEmpty()) return
+                                  val heading = headingForDisplayQuarterTurns(
+                                      naturalOrientationHeadingDegrees = event.values[0].toDouble(),
+                                      clockwiseQuarterTurns = displayQuarterTurns(),
+                                  )
+                                  val estimatedAccuracy = event.values.getOrNull(1)?.toDouble()
+                                      ?.takeIf { it.isFinite() && it >= 0.0 }
+                                  trySend(
+                                      HeadingSensorEvent.Reading(
+                                          headingDegrees = heading,
+                                          quality = headingQualityFromPlatformAccuracy(event.accuracy),
+                                          estimatedAccuracyDegrees = estimatedAccuracy,
+                                      ),
+                                  )
+                              }
+
+                              HeadingSource.ROTATION_VECTOR,
+                              HeadingSource.GEOMAGNETIC_ROTATION_VECTOR,
+                              -> {
+                                  val heading = rotationVectorHeadingDegrees(event.values) ?: return
+                                  val estimatedAccuracy = if (source == HeadingSource.ROTATION_VECTOR) {
+                                      event.values.getOrNull(4)?.toDouble()
+                                          ?.takeIf { it.isFinite() && it >= 0.0 }
+                                          ?.let { radians -> radians * 180.0 / PI }
+                                  } else {
+                                      null
+                                  }
+                                  trySend(
+                                      HeadingSensorEvent.Reading(
+                                          headingDegrees = heading,
+                                          quality = headingQualityFromPlatformAccuracy(event.accuracy),
+                                          estimatedAccuracyDegrees = estimatedAccuracy,
+                                      ),
+                                  )
+                              }
+
+                              HeadingSource.ACCELEROMETER_MAGNETIC_FIELD -> {
+                                  when (event.sensor.type) {
+                                      Sensor.TYPE_ACCELEROMETER -> {
+                                          accelerometerValues = event.values.copyOf(3)
+                                          accelerometerQuality = headingQualityFromPlatformAccuracy(event.accuracy)
+                                      }
+
+                                      Sensor.TYPE_MAGNETIC_FIELD -> {
+                                          magneticFieldValues = event.values.copyOf(3)
+                                          magneticFieldQuality = headingQualityFromPlatformAccuracy(event.accuracy)
+                                      }
+                                  }
+
+                                  val acceleration = accelerometerValues ?: return
+                                  val magnetic = magneticFieldValues ?: return
+                                  val heading = accelerometerMagneticHeadingDegrees(
+                                      acceleration = acceleration,
+                                      magnetic = magnetic,
+                                  ) ?: return
+                                  trySend(
+                                      HeadingSensorEvent.Reading(
+                                          headingDegrees = heading,
+                                          quality = combineHeadingQuality(
+                                              accelerometerQuality,
+                                              magneticFieldQuality,
+                                          ),
+                                          estimatedAccuracyDegrees = null,
+                                      ),
+                                  )
+                              }
+                          }
+                      }
+
+                      override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+                  }
+
+                  val registered = registration.all { sensor ->
+                      sensorManager.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_UI)
+                  }
+                  if (!registered) {
+                      sensorManager.unregisterListener(listener)
+                      trySend(HeadingSensorEvent.RegistrationFailed)
+                      close()
+                      return@callbackFlow
+                  }
+
+                  awaitClose {
+                      sensorManager.unregisterListener(listener)
+                  }
+              }
+
+              private fun sensorsFor(source: HeadingSource): List<Sensor>? = when (source) {
+                  HeadingSource.TRUE_HEADING_SENSOR -> {
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                          sensorManager.getDefaultSensor(Sensor.TYPE_HEADING)?.let(::listOf)
+                      } else {
+                          null
+                      }
+                  }
+
+                  HeadingSource.ROTATION_VECTOR ->
+                      sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)?.let(::listOf)
+
+                  HeadingSource.GEOMAGNETIC_ROTATION_VECTOR ->
+                      sensorManager.getDefaultSensor(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR)?.let(::listOf)
+
+                  HeadingSource.ACCELEROMETER_MAGNETIC_FIELD -> {
+                      val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+                      val magneticField = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
+                      if (accelerometer != null && magneticField != null) {
+                          listOf(accelerometer, magneticField)
+                      } else {
+                          null
+                      }
+                  }
+              }
+
+              private fun rotationVectorHeadingDegrees(values: FloatArray): Double? {
+                  if (values.size < 3) return null
+                  val rotationMatrix = FloatArray(9)
+                  SensorManager.getRotationMatrixFromVector(rotationMatrix, values)
+                  return azimuthFromRotationMatrix(rotationMatrix)
+              }
+
+              private fun accelerometerMagneticHeadingDegrees(
+                  acceleration: FloatArray,
+                  magnetic: FloatArray,
+              ): Double? {
+                  val rotationMatrix = FloatArray(9)
+                  if (!SensorManager.getRotationMatrix(rotationMatrix, null, acceleration, magnetic)) {
+                      return null
+                  }
+                  return azimuthFromRotationMatrix(rotationMatrix)
+              }
+
+              private fun azimuthFromRotationMatrix(rotationMatrix: FloatArray): Double? {
+                  val remapped = FloatArray(9)
+                  val (axisX, axisY) = axesForDisplayRotation(currentDisplayRotation())
+                  if (!SensorManager.remapCoordinateSystem(rotationMatrix, axisX, axisY, remapped)) {
+                      return null
+                  }
+                  val orientation = FloatArray(3)
+                  SensorManager.getOrientation(remapped, orientation)
+                  val azimuth = orientation[0].toDouble() * 180.0 / PI
+                  return com.archimedeprojects.arihna.core.qibla.calculation.normalizeDegrees(azimuth)
+              }
+
+              private fun currentDisplayRotation(): Int =
+                  displayManager.getDisplay(Display.DEFAULT_DISPLAY)?.rotation ?: Surface.ROTATION_0
+
+              private fun displayQuarterTurns(): Int = when (currentDisplayRotation()) {
+                  Surface.ROTATION_0 -> 0
+                  Surface.ROTATION_90 -> 1
+                  Surface.ROTATION_180 -> 2
+                  Surface.ROTATION_270 -> 3
+                  else -> 0
+              }
+
+              private fun axesForDisplayRotation(rotation: Int): Pair<Int, Int> = when (rotation) {
+                  Surface.ROTATION_0 -> SensorManager.AXIS_X to SensorManager.AXIS_Y
+                  Surface.ROTATION_90 -> SensorManager.AXIS_Y to SensorManager.AXIS_MINUS_X
+                  Surface.ROTATION_180 -> SensorManager.AXIS_MINUS_X to SensorManager.AXIS_MINUS_Y
+                  Surface.ROTATION_270 -> SensorManager.AXIS_MINUS_Y to SensorManager.AXIS_X
+                  else -> SensorManager.AXIS_X to SensorManager.AXIS_Y
+              }
+          }
+          EOF
+
+          cat > app/src/main/java/com/archimedeprojects/arihna/core/qibla/platform/AndroidDeviceHeadingDataSource.kt <<'EOF'
+          package com.archimedeprojects.arihna.core.qibla.platform
+
+          import android.content.Context
+          import com.archimedeprojects.arihna.core.prayer.model.Coordinates
+          import com.archimedeprojects.arihna.core.qibla.heading.DefaultDeviceHeadingDataSource
+          import com.archimedeprojects.arihna.core.qibla.heading.DeviceHeadingDataSource
+          import com.archimedeprojects.arihna.core.qibla.heading.DeviceHeadingState
+          import java.time.Clock
+          import kotlinx.coroutines.flow.Flow
+
+          class AndroidDeviceHeadingDataSource(
+              context: Context,
+              clock: Clock = Clock.systemUTC(),
+          ) : DeviceHeadingDataSource {
+              private val delegate = DefaultDeviceHeadingDataSource(
+                  backend = AndroidHeadingSensorBackend(context),
+                  magneticDeclinationProvider = AndroidGeomagneticDeclinationProvider(clock),
+              )
+
+              override fun observeHeading(origin: Coordinates): Flow<DeviceHeadingState> =
+                  delegate.observeHeading(origin)
+          }
+          EOF
+
+          cat > app/src/test/java/com/archimedeprojects/arihna/core/qibla/heading/HeadingMathTest.kt <<'EOF'
+          package com.archimedeprojects.arihna.core.qibla.heading
+
+          import org.junit.Assert.assertEquals
+          import org.junit.Assert.assertNull
+          import org.junit.Test
+
+          class HeadingMathTest {
+              @Test
+              fun `source hierarchy is deterministic`() {
+                  assertEquals(
+                      HeadingSource.TRUE_HEADING_SENSOR,
+                      selectHeadingSource(HeadingSource.entries.toSet()),
+                  )
+                  assertEquals(
+                      HeadingSource.ROTATION_VECTOR,
+                      selectHeadingSource(
+                          setOf(
+                              HeadingSource.ROTATION_VECTOR,
+                              HeadingSource.GEOMAGNETIC_ROTATION_VECTOR,
+                              HeadingSource.ACCELEROMETER_MAGNETIC_FIELD,
+                          ),
+                      ),
+                  )
+                  assertEquals(
+                      HeadingSource.GEOMAGNETIC_ROTATION_VECTOR,
+                      selectHeadingSource(
+                          setOf(
+                              HeadingSource.GEOMAGNETIC_ROTATION_VECTOR,
+                              HeadingSource.ACCELEROMETER_MAGNETIC_FIELD,
+                          ),
+                      ),
+                  )
+                  assertEquals(
+                      HeadingSource.ACCELEROMETER_MAGNETIC_FIELD,
+                      selectHeadingSource(setOf(HeadingSource.ACCELEROMETER_MAGNETIC_FIELD)),
+                  )
+                  assertNull(selectHeadingSource(emptySet()))
+              }
+
+              @Test
+              fun `magnetic declination converts east-positive to true heading with wrap`() {
+                  assertEquals(15.0, trueHeadingFromMagneticDegrees(10.0, 5.0), 1e-9)
+                  assertEquals(2.0, trueHeadingFromMagneticDegrees(358.0, 4.0), 1e-9)
+                  assertEquals(355.0, trueHeadingFromMagneticDegrees(2.0, -7.0), 1e-9)
+              }
+
+              @Test
+              fun `direct heading follows active display top across quarter turns`() {
+                  assertEquals(90.0, headingForDisplayQuarterTurns(90.0, 0), 1e-9)
+                  assertEquals(0.0, headingForDisplayQuarterTurns(90.0, 1), 1e-9)
+                  assertEquals(270.0, headingForDisplayQuarterTurns(90.0, 2), 1e-9)
+                  assertEquals(180.0, headingForDisplayQuarterTurns(90.0, 3), 1e-9)
+              }
+
+              @Test
+              fun `platform quality mapping mirrors Android status values`() {
+                  assertEquals(HeadingQuality.HIGH, headingQualityFromPlatformAccuracy(3))
+                  assertEquals(HeadingQuality.MEDIUM, headingQualityFromPlatformAccuracy(2))
+                  assertEquals(HeadingQuality.LOW, headingQualityFromPlatformAccuracy(1))
+                  assertEquals(HeadingQuality.UNRELIABLE, headingQualityFromPlatformAccuracy(0))
+                  assertEquals(HeadingQuality.UNKNOWN, headingQualityFromPlatformAccuracy(-1))
+                  assertEquals(HeadingQuality.UNKNOWN, headingQualityFromPlatformAccuracy(99))
+              }
+
+              @Test
+              fun `paired fallback quality keeps the least trustworthy known status`() {
+                  assertEquals(
+                      HeadingQuality.UNRELIABLE,
+                      combineHeadingQuality(HeadingQuality.HIGH, HeadingQuality.UNRELIABLE),
+                  )
+                  assertEquals(
+                      HeadingQuality.LOW,
+                      combineHeadingQuality(HeadingQuality.MEDIUM, HeadingQuality.LOW),
+                  )
+                  assertEquals(
+                      HeadingQuality.UNKNOWN,
+                      combineHeadingQuality(HeadingQuality.HIGH, HeadingQuality.UNKNOWN),
+                  )
+                  assertEquals(
+                      HeadingQuality.MEDIUM,
+                      combineHeadingQuality(HeadingQuality.HIGH, HeadingQuality.MEDIUM),
+                  )
+                  assertEquals(
+                      HeadingQuality.HIGH,
+                      combineHeadingQuality(HeadingQuality.HIGH, HeadingQuality.HIGH),
+                  )
+              }
+          }
+          EOF
+
+          cat > app/src/test/java/com/archimedeprojects/arihna/core/qibla/heading/DefaultDeviceHeadingDataSourceTest.kt <<'EOF'
+          package com.archimedeprojects.arihna.core.qibla.heading
+
+          import com.archimedeprojects.arihna.core.prayer.model.Coordinates
+          import kotlinx.coroutines.awaitCancellation
+          import kotlinx.coroutines.cancelAndJoin
+          import kotlinx.coroutines.flow.Flow
+          import kotlinx.coroutines.flow.flow
+          import kotlinx.coroutines.flow.take
+          import kotlinx.coroutines.flow.toList
+          import kotlinx.coroutines.launch
+          import kotlinx.coroutines.test.runCurrent
+          import kotlinx.coroutines.test.runTest
+          import org.junit.Assert.assertEquals
+          import org.junit.Assert.assertNull
+          import org.junit.Assert.assertTrue
+          import org.junit.Test
+
+          class DefaultDeviceHeadingDataSourceTest {
+              private val rome = Coordinates(41.9028, 12.4964)
+
+              @Test
+              fun `true heading source bypasses declination and keeps direct accuracy`() = runTest {
+                  val backend = FakeBackend(
+                      sources = setOf(HeadingSource.TRUE_HEADING_SENSOR),
+                      events = listOf(
+                          HeadingSensorEvent.Reading(
+                              headingDegrees = 361.0,
+                              quality = HeadingQuality.HIGH,
+                              estimatedAccuracyDegrees = 4.5,
+                          ),
+                      ),
+                  )
+                  var declinationCalls = 0
+                  val dataSource = DefaultDeviceHeadingDataSource(
+                      backend = backend,
+                      magneticDeclinationProvider = MagneticDeclinationProvider {
+                          declinationCalls++
+                          99.0
+                      },
+                  )
+
+                  val state = dataSource.observeHeading(rome).take(1).toList().single()
+                  val reading = state as DeviceHeadingState.Reading
+                  assertEquals(1.0, reading.trueHeadingDegrees, 1e-9)
+                  assertEquals(HeadingSource.TRUE_HEADING_SENSOR, reading.source)
+                  assertEquals(4.5, reading.estimatedAccuracyDegrees!!, 1e-9)
+                  assertNull(reading.magneticHeadingDegrees)
+                  assertNull(reading.declinationDegrees)
+                  assertEquals(0, declinationCalls)
+              }
+
+              @Test
+              fun `magnetic fallback applies declination exactly once per observation`() = runTest {
+                  val backend = FakeBackend(
+                      sources = setOf(HeadingSource.ROTATION_VECTOR),
+                      events = listOf(
+                          HeadingSensorEvent.Reading(358.0, HeadingQuality.MEDIUM, 8.0),
+                          HeadingSensorEvent.Reading(10.0, HeadingQuality.MEDIUM, 7.0),
+                      ),
+                  )
+                  var declinationCalls = 0
+                  val dataSource = DefaultDeviceHeadingDataSource(
+                      backend = backend,
+                      magneticDeclinationProvider = MagneticDeclinationProvider {
+                          declinationCalls++
+                          4.0
+                      },
+                  )
+
+                  val states = dataSource.observeHeading(rome).take(2).toList()
+                  val first = states[0] as DeviceHeadingState.Reading
+                  val second = states[1] as DeviceHeadingState.Reading
+                  assertEquals(2.0, first.trueHeadingDegrees, 1e-9)
+                  assertEquals(358.0, first.magneticHeadingDegrees!!, 1e-9)
+                  assertEquals(4.0, first.declinationDegrees!!, 1e-9)
+                  assertEquals(14.0, second.trueHeadingDegrees, 1e-9)
+                  assertEquals(1, declinationCalls)
+              }
+
+              @Test
+              fun `no supported sensor is controlled unavailable`() = runTest {
+                  val dataSource = DefaultDeviceHeadingDataSource(
+                      backend = FakeBackend(emptySet(), emptyList()),
+                      magneticDeclinationProvider = MagneticDeclinationProvider { 0.0 },
+                  )
+
+                  assertEquals(
+                      DeviceHeadingState.Unavailable(HeadingUnavailableReason.NO_SUPPORTED_SENSOR),
+                      dataSource.observeHeading(rome).take(1).toList().single(),
+                  )
+              }
+
+              @Test
+              fun `invalid coordinates never touch backend or declination`() = runTest {
+                  val backend = FakeBackend(setOf(HeadingSource.ROTATION_VECTOR), emptyList())
+                  var declinationCalls = 0
+                  val dataSource = DefaultDeviceHeadingDataSource(
+                      backend = backend,
+                      magneticDeclinationProvider = MagneticDeclinationProvider {
+                          declinationCalls++
+                          0.0
+                      },
+                  )
+
+                  val state = dataSource.observeHeading(Coordinates(Double.NaN, 0.0))
+                      .take(1)
+                      .toList()
+                      .single()
+                  assertEquals(
+                      DeviceHeadingState.Unavailable(HeadingUnavailableReason.INVALID_COORDINATES),
+                      state,
+                  )
+                  assertEquals(0, backend.availableCalls)
+                  assertEquals(0, declinationCalls)
+              }
+
+              @Test
+              fun `registration failure remains controlled`() = runTest {
+                  val backend = FakeBackend(
+                      sources = setOf(HeadingSource.GEOMAGNETIC_ROTATION_VECTOR),
+                      events = listOf(HeadingSensorEvent.RegistrationFailed),
+                  )
+                  val dataSource = DefaultDeviceHeadingDataSource(
+                      backend = backend,
+                      magneticDeclinationProvider = MagneticDeclinationProvider { 2.0 },
+                  )
+
+                  assertEquals(
+                      DeviceHeadingState.Unavailable(HeadingUnavailableReason.REGISTRATION_FAILED),
+                      dataSource.observeHeading(rome).take(1).toList().single(),
+                  )
+              }
+
+              @Test
+              fun `collection cancellation propagates to sensor backend lifecycle`() = runTest {
+                  val backend = LifecycleBackend()
+                  val dataSource = DefaultDeviceHeadingDataSource(
+                      backend = backend,
+                      magneticDeclinationProvider = MagneticDeclinationProvider { 0.0 },
+                  )
+
+                  val job = launch {
+                      dataSource.observeHeading(rome).collect { }
+                  }
+                  runCurrent()
+                  assertEquals(1, backend.activeCollectors)
+
+                  job.cancelAndJoin()
+                  runCurrent()
+                  assertEquals(0, backend.activeCollectors)
+                  assertEquals(1, backend.starts)
+                  assertEquals(1, backend.stops)
+              }
+
+              @Test
+              fun `invalid declination stops before backend registration`() = runTest {
+                  val backend = FakeBackend(setOf(HeadingSource.ROTATION_VECTOR), emptyList())
+                  val dataSource = DefaultDeviceHeadingDataSource(
+                      backend = backend,
+                      magneticDeclinationProvider = MagneticDeclinationProvider { Double.NaN },
+                  )
+
+                  assertEquals(
+                      DeviceHeadingState.Unavailable(HeadingUnavailableReason.INVALID_DECLINATION),
+                      dataSource.observeHeading(rome).take(1).toList().single(),
+                  )
+                  assertEquals(0, backend.observeCalls)
+              }
+
+              private class FakeBackend(
+                  private val sources: Set<HeadingSource>,
+                  private val events: List<HeadingSensorEvent>,
+              ) : HeadingSensorBackend {
+                  var availableCalls = 0
+                  var observeCalls = 0
+
+                  override fun availableSources(): Set<HeadingSource> {
+                      availableCalls++
+                      return sources
+                  }
+
+                  override fun observe(source: HeadingSource): Flow<HeadingSensorEvent> = flow {
+                      observeCalls++
+                      events.forEach { emit(it) }
+                  }
+              }
+
+              private class LifecycleBackend : HeadingSensorBackend {
+                  var activeCollectors = 0
+                  var starts = 0
+                  var stops = 0
+
+                  override fun availableSources(): Set<HeadingSource> =
+                      setOf(HeadingSource.TRUE_HEADING_SENSOR)
+
+                  override fun observe(source: HeadingSource): Flow<HeadingSensorEvent> = flow {
+                      starts++
+                      activeCollectors++
+                      try {
+                          emit(
+                              HeadingSensorEvent.Reading(
+                                  headingDegrees = 10.0,
+                                  quality = HeadingQuality.UNKNOWN,
+                                  estimatedAccuracyDegrees = null,
+                              ),
+                          )
+                          awaitCancellation()
+                      } finally {
+                          activeCollectors--
+                          stops++
+                      }
+                  }
+              }
+          }
+          EOF
+
+          cat > app/src/androidTest/java/com/archimedeprojects/arihna/core/qibla/platform/AndroidHeadingSensorBackendAndroidTest.kt <<'EOF'
+          package com.archimedeprojects.arihna.core.qibla.platform
+
+          import android.content.Context
+          import android.os.Build
+          import androidx.test.core.app.ApplicationProvider
+          import androidx.test.ext.junit.runners.AndroidJUnit4
+          import com.archimedeprojects.arihna.core.qibla.heading.HeadingSensorEvent
+          import com.archimedeprojects.arihna.core.qibla.heading.HeadingSource
+          import com.archimedeprojects.arihna.core.qibla.heading.selectHeadingSource
+          import kotlinx.coroutines.cancelAndJoin
+          import kotlinx.coroutines.delay
+          import kotlinx.coroutines.flow.collect
+          import kotlinx.coroutines.flow.first
+          import kotlinx.coroutines.launch
+          import kotlinx.coroutines.runBlocking
+          import kotlinx.coroutines.withTimeout
+          import org.junit.Assert.assertFalse
+          import org.junit.Assert.assertTrue
+          import org.junit.Test
+          import org.junit.runner.RunWith
+
+          @RunWith(AndroidJUnit4::class)
+          class AndroidHeadingSensorBackendAndroidTest {
+              @Test
+              fun capabilityDiscoveryAndCollectionCancellationAreApi28Safe() = runBlocking {
+                  val context = ApplicationProvider.getApplicationContext<Context>()
+                  val backend = AndroidHeadingSensorBackend(context)
+                  val sources = backend.availableSources()
+
+                  if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                      assertFalse(sources.contains(HeadingSource.TRUE_HEADING_SENSOR))
+                  }
+
+                  val selected = selectHeadingSource(sources)
+                  if (selected != null) {
+                      val job = launch {
+                          backend.observe(selected).collect { }
+                      }
+                      delay(150)
+                      job.cancelAndJoin()
+                      assertTrue(job.isCancelled)
+                  } else {
+                      val event = withTimeout(1_000) {
+                          backend.observe(HeadingSource.ROTATION_VECTOR).first()
+                      }
+                      assertTrue(event is HeadingSensorEvent.RegistrationFailed)
+                  }
+              }
+          }
+          EOF
+
+          git diff --check
+          test "$(git diff --name-only | wc -l)" -eq 9
+          ! git diff --name-only | grep -qE 'AndroidManifest.xml|build.gradle|libs.versions.toml|feature/|core/location|core/prayer'
+
+      - name: Commit clean STEP 3 candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'IbnKhaldoun-svg'
+          git config user.email 'essalih.idriss.w@gmail.com'
+          git add app/src/main/java/com/archimedeprojects/arihna/core/qibla/heading \
+                  app/src/main/java/com/archimedeprojects/arihna/core/qibla/platform \
+                  app/src/test/java/com/archimedeprojects/arihna/core/qibla/heading \
+                  app/src/androidTest/java/com/archimedeprojects/arihna/core/qibla/platform
+          git commit -m 'feat(qibla): implement Android heading sensor layer'
+          test "$(git rev-parse HEAD^)" = '27245561525e2a403a3642d19de8d723f0a4e455'
+          git push origin HEAD:refs/heads/qibla-step3-heading-layer
