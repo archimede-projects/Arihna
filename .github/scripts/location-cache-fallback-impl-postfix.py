@@ -94,3 +94,26 @@ if old_provider not in text:
     raise SystemExit('old provider test not found')
 text = text.replace(old_provider, new_provider, 1)
 path.write_text(text)
+
+unsupported = Path('app/src/test/java/com/archimedeprojects/arihna/core/location/domain/UnsupportedManualCitySelectionTest.kt')
+unsupported_text = unsupported.read_text()
+old_fake = '''    private class NoDeviceLocation : DeviceLocationDataSource {
+        override suspend fun getCurrentLocation(): DeviceLocationResult =
+            DeviceLocationResult.Unavailable(LocationFailure.NO_PROVIDER)
+
+        override fun observeSignificantUpdates(): Flow<DeviceLocationFix> = emptyFlow()
+    }
+'''
+new_fake = '''    private class NoDeviceLocation : DeviceLocationDataSource {
+        override suspend fun getCurrentLocation(): DeviceLocationResult =
+            DeviceLocationResult.Unavailable(LocationFailure.NO_PROVIDER)
+
+        override suspend fun getLastKnownLocation(): DeviceLocationResult =
+            DeviceLocationResult.Unavailable(LocationFailure.NO_PROVIDER)
+
+        override fun observeSignificantUpdates(): Flow<DeviceLocationFix> = emptyFlow()
+    }
+'''
+if old_fake not in unsupported_text:
+    raise SystemExit('NoDeviceLocation fake not found')
+unsupported.write_text(unsupported_text.replace(old_fake, new_fake, 1))
