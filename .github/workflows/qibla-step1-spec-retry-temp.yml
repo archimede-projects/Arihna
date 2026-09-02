@@ -1,0 +1,67 @@
+name: Qibla STEP 1 spec retry temp
+
+on:
+  push:
+    branches:
+      - qibla-step1-spec-retry-temp
+
+permissions:
+  contents: write
+
+jobs:
+  write:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 2600a2f13fc126acbae48cae28fefca377500da7
+          fetch-depth: 0
+
+      - name: Verify exact production base
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "2600a2f13fc126acbae48cae28fefca377500da7"
+          test "$(git rev-parse origin/main)" = "2600a2f13fc126acbae48cae28fefca377500da7"
+
+      - name: Recover approved Qibla section and patch spec
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL 'https://raw.githubusercontent.com/archimede-projects/Arihna/qibla-step1-spec-writer-temp/.github/workflows/qibla-step1-spec-writer-temp.yml' -o /tmp/source.yml
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path('/tmp/source.yml').read_text(encoding='utf-8')
+          begin = "          section = '''"
+          s = source.index(begin) + len(begin)
+          e = source.index("'''", s)
+          section = source[s:e]
+          if not section.startswith('### 5.4 Qibla'):
+              raise SystemExit('Unexpected Qibla section start')
+          if 'STEP 2 — pure bearing engine: NOT STARTED.' not in section:
+              raise SystemExit('STEP 2 boundary missing')
+          spec = Path('PROJECT_SPEC.md')
+          text = spec.read_text(encoding='utf-8')
+          a = text.index('### 5.4 Qibla\n')
+          b = text.index('\n### 5.5 Alarms', a)
+          spec.write_text(text[:a] + section + text[b:], encoding='utf-8')
+          PY
+          git diff --check
+          test "$(git diff --name-only)" = "PROJECT_SPEC.md"
+          grep -Fq '### 5.4 Qibla — MILESTONE OPEN / STEP 1 SPEC-FIRST CLOSED' PROJECT_SPEC.md
+          grep -Fq 'TYPE_ROTATION_VECTOR' PROJECT_SPEC.md
+          grep -Fq 'TYPE_GAME_ROTATION_VECTOR' PROJECT_SPEC.md
+          grep -Fq '21.42251267' PROJECT_SPEC.md
+          grep -Fq 'STEP 2 — pure bearing engine: NOT STARTED.' PROJECT_SPEC.md
+
+      - name: Commit clean spec branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add PROJECT_SPEC.md
+          git commit -m 'docs(qibla): approve step1 architecture'
+          test "$(git diff-tree --no-commit-id --name-only -r HEAD)" = "PROJECT_SPEC.md"
+          test "$(git rev-parse HEAD^)" = "2600a2f13fc126acbae48cae28fefca377500da7"
+          git push origin HEAD:refs/heads/qibla-step1-spec
