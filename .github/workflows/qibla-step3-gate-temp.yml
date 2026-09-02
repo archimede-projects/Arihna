@@ -1,0 +1,158 @@
+name: Qibla STEP 3 exact-SHA gate
+
+on:
+  push:
+    branches: [qibla-step3-gate-temp]
+    paths: [.github/workflows/qibla-step3-gate-temp.yml]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      TARGET_SHA: f5528b235d07d8504676a2b641f6fa2a381f486a
+      SPEC_SHA: 27245561525e2a403a3642d19de8d723f0a4e455
+      CITY_DB_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: f5528b235d07d8504676a2b641f6fa2a381f486a
+          fetch-depth: 0
+
+      - name: Verify exact candidate and STEP 3 scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          test "$(git rev-parse origin/main)" = "$SPEC_SHA"
+          mapfile -t files < <(git diff --name-only "$SPEC_SHA" "$TARGET_SHA")
+          printf '%s\n' "${files[@]}"
+          test "${#files[@]}" -eq 10
+          test "$(printf '%s\n' "${files[@]}" | grep -c '^app/src/main/java/com/archimedeprojects/arihna/core/qibla/')" -eq 7
+          test "$(printf '%s\n' "${files[@]}" | grep -c '^app/src/test/java/com/archimedeprojects/arihna/core/qibla/')" -eq 2
+          test "$(printf '%s\n' "${files[@]}" | grep -c '^app/src/androidTest/java/com/archimedeprojects/arihna/core/qibla/')" -eq 1
+          ! printf '%s\n' "${files[@]}" | grep -qE 'AndroidManifest.xml|build.gradle|libs.versions.toml|core/location|feature/|PROJECT_SPEC.md'
+          grep -Fq 'STEP 3 — Android heading/sensor layer: AUTHORIZED / IN PROGRESS.' PROJECT_SPEC.md
+          grep -Fq 'STEP 4 — Location/Qibla orchestration: NOT STARTED.' PROJECT_SPEC.md
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Verify STEP 3 contract and production policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          HEADING=app/src/main/java/com/archimedeprojects/arihna/core/qibla/heading
+          PLATFORM=app/src/main/java/com/archimedeprojects/arihna/core/qibla/platform
+          ! grep -R -q '^import android\.' "$HEADING"
+          grep -R -q 'Sensor.TYPE_HEADING' "$PLATFORM"
+          grep -R -q 'Sensor.TYPE_ROTATION_VECTOR' "$PLATFORM"
+          grep -R -q 'Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR' "$PLATFORM"
+          grep -R -q 'Sensor.TYPE_ACCELEROMETER' "$PLATFORM"
+          grep -R -q 'Sensor.TYPE_MAGNETIC_FIELD' "$PLATFORM"
+          grep -R -q 'GeomagneticField' "$PLATFORM"
+          grep -R -q 'SENSOR_DELAY_UI' "$PLATFORM"
+          grep -R -q 'awaitClose' "$PLATFORM"
+          grep -R -q 'remapCoordinateSystem' "$PLATFORM"
+          ! grep -R -q 'TYPE_ORIENTATION' app/src/main/java/com/archimedeprojects/arihna/core/qibla
+          ! grep -R -q 'TYPE_GAME_ROTATION_VECTOR' app/src/main/java/com/archimedeprojects/arihna/core/qibla
+          ! grep -R -q 'LocationManager\|LocationResolutionState\|SelectedLocation\|DataStore\|Composable' app/src/main/java/com/archimedeprojects/arihna/core/qibla
+          grep -q 'android.permission.ACCESS_COARSE_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.ACCESS_FINE_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.ACCESS_BACKGROUND_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.BODY_SENSORS' app/src/main/AndroidManifest.xml
+          ! grep -R -q 'com.google.android.gms.location' app/src/main gradle
+          ! grep -R -q '@Ignore' app/src/test app/src/androidTest
+
+      - name: Restore exact STEP 4 city asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/step4-asset app/src/main/assets/geonames
+          mkdir -p /tmp/step4-asset app/src/main/assets/geonames
+          gh run download 33296099459 --repo "$GITHUB_REPOSITORY" --name geonames-step4-runtime-minimal --dir /tmp/step4-asset
+          DB="$(find /tmp/step4-asset -type f -name cities.db -print -quit)"
+          test -n "$DB"
+          cp "$DB" app/src/main/assets/geonames/cities.db
+          test "$(sha256sum app/src/main/assets/geonames/cities.db | awk '{print $1}')" = "$CITY_DB_SHA256"
+
+      - name: Run complete unit regression
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Verify unit reports and STEP 3 coverage
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          files=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*.xml'))
+          assert files, 'unit XML reports missing'
+          tests=failures=errors=skipped=qibla=heading=0
+          for f in files:
+              root=ET.parse(f).getroot()
+              tests += int(root.attrib.get('tests',0)); failures += int(root.attrib.get('failures',0)); errors += int(root.attrib.get('errors',0)); skipped += int(root.attrib.get('skipped',0))
+              for case in root.findall('.//testcase'):
+                  text=(case.attrib.get('classname','')+' '+case.attrib.get('name','')).lower()
+                  qibla += int('qibla' in text)
+                  heading += int('heading' in text)
+          print(f'UNIT_SUMMARY tests={tests} failures={failures} errors={errors} skipped={skipped} qiblaCases={qibla} headingCases={heading}')
+          assert tests > 0 and failures == 0 and errors == 0 and skipped == 0
+          assert qibla >= 19, 'expected STEP 2 + STEP 3 Qibla cases missing'
+          assert heading >= 12, 'STEP 3 heading JVM cases missing'
+          PY
+
+      - name: Assemble debug
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Run complete Android 9 API28 connected regression
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 28
+          arch: x86_64
+          target: default
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
+
+      - name: Verify API28 reports and heading test
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          files=[]
+          for root in [Path('app/build/outputs/androidTest-results/connected'), Path('app/build/outputs/androidTest-results/connected/debug')]:
+              if root.exists(): files.extend(root.rglob('*.xml'))
+          files=sorted(set(files)); assert files, 'connected AndroidTest XML reports missing'
+          tests=failures=errors=skipped=heading=0; seen=set()
+          for f in files:
+              try: root=ET.parse(f).getroot()
+              except ET.ParseError: continue
+              suites=[root] if root.tag=='testsuite' else root.findall('.//testsuite')
+              for suite in suites:
+                  key=(str(f),suite.attrib.get('name'))
+                  if key in seen: continue
+                  seen.add(key)
+                  tests += int(suite.attrib.get('tests',0)); failures += int(suite.attrib.get('failures',0)); errors += int(suite.attrib.get('errors',0)); skipped += int(suite.attrib.get('skipped',0))
+                  for case in suite.findall('.//testcase'):
+                      heading += int('heading' in (case.attrib.get('classname','')+' '+case.attrib.get('name','')).lower())
+          print(f'API28_SUMMARY tests={tests} failures={failures} errors={errors} skipped={skipped} headingCases={heading}')
+          assert tests > 0 and failures == 0 and errors == 0 and skipped == 0
+          assert heading >= 1, 'STEP 3 heading API28 test missing'
+          PY
