@@ -151,10 +151,10 @@ Approved production strategy — **Approach B: current attempt + transparent cac
 3. A non-null valid result from the explicit current request enters the existing acceptance pipeline as `FRESH` input. The existing 5 km/ZoneId significance policy remains authoritative; this correction does not force persistence of insignificant movement.
 4. If framework current-location returns `null`/provider-unavailable, the Android datasource immediately attempts a **last-known fallback** instead of treating the session as a hard no-location failure.
 5. If the coordinator's 30-second timeout cancels the current request before a result, the coordinator explicitly asks the datasource for the same last-known fallback after cancellation. Timeout ownership remains in `LocationCoordinator`/`LocationUpdatePolicy`; the datasource does not introduce a second independent timeout.
-6. System last-known candidates are real cached fixes only. Inspect the framework `fused` and `network` providers when available and choose the **most recently captured valid** candidate; do not use passive/GPS as an invented extra policy. `getLastKnownLocation()` may return `null`, so no cache is assumed to exist.
-7. Compare a valid system last-known candidate with Arihna's already persisted real Device fix and use the **newer real fix** as the fallback candidate. Do not invent coordinates, city or timezone. Device timezone remains the timezone captured with the real fix according to the existing Device model/persistence policy.
+6. System last-known candidates are real cached framework `Location` objects only. Inspect the framework `fused` and `network` providers when available and choose the **most recently captured valid** raw candidate; do not use passive/GPS as an invented extra policy. `getLastKnownLocation()` may return `null`, so no cache is assumed to exist.
+7. A raw framework last-known `Location` does **not** contain the historical `ZoneId` associated with its capture and therefore is not, by itself, a complete Arihna `DeviceLocationFix`. Never attach `ZoneId.systemDefault()` at fallback time to old coordinates. A raw framework candidate may become a calculable CACHED fix only when Arihna can provenance-match it to an already persisted real Device fix with the same capture instant and coordinates; that persisted record supplies the captured `ZoneId`. Otherwise the framework candidate remains evidence that cached coordinates exist, but the calculable fallback is the newest complete Arihna-persisted Device fix. If no complete cached Device fix exists, return the controlled `Unavailable` state rather than inventing a timezone.
 8. There is **no production maximum-age TTL** in this correction. A real valid cached fix may remain usable even when it is hours or days old; its age/timestamp must be shown explicitly. If neither framework nor persisted cache exists, return the existing controlled `Unavailable` state.
-9. Extend `DeviceLocationResult.Success` (or an equivalent datasource-domain result) with explicit `LocationFreshness.FRESH/CACHED` metadata so a last-known fallback can never be mislabeled as current. `LocationResolutionState.Ready` already carries freshness and remains the authoritative resolved state.
+9. Extend `DeviceLocationResult.Success` (or an equivalent datasource-domain result) with explicit `LocationFreshness.FRESH/CACHED` metadata so a last-known fallback can never be mislabeled as current. `SelectedLocation` also carries the resolved freshness metadata for Device locations (`FRESH` or `CACHED`; Manual has no Device freshness), so downstream Prayer/Home code does not need to infer freshness from timestamps. `LocationResolutionState.Ready` must expose the same authoritative value without allowing the two representations to diverge.
 10. A CACHED fallback is allowed to produce a normal `Ready` location so prayer times continue to calculate from the last real coordinates/ZoneId. This is an intentional UX/reliability change from the current `Unavailable(cachedLocation=...)` behavior: cached real location remains usable for calculations while clearly disclosed as cached.
 11. Prayer Schedule/Home must propagate Device freshness and capture time. When the active Device location is CACHED, show a visible message/badge such as **“Basato su posizione di 2 ore fa”** (or an absolute/date-style equivalent for older data). Do not show this cache-age badge for Manual location.
 12. When Home is using a CACHED Device location, expose **“Aggiorna posizione”**. The action retries the existing Device current-location resolution on demand using current permission/services state; it does not introduce polling, a background service, or a new refresh cycle.
@@ -174,7 +174,7 @@ Required implementation/gate evidence before promotion to `main`:
 - `currentFixTimeout` default is exactly 30 seconds;
 - current callback `null` falls back to real last-known without mislabeling it FRESH;
 - coordinator timeout also falls back to real last-known;
-- newest valid real cache is selected deterministically and absent cache remains controlled unavailable;
+- raw framework last-known selection is deterministic, but no raw cached coordinates are paired with a newly sampled/system-default timezone; only a provenance-matched or already persisted complete Device fix can become calculable CACHED state, and absent complete cache remains controlled unavailable;
 - existing 5 km/ZoneId acceptance and 15-minute foreground-update policy remain unchanged;
 - Prayer Schedule propagates CACHED metadata/capture time and Home renders the cache-age disclosure plus on-demand `Aggiorna posizione` action;
 - unit regression, `assembleDebug`, and Android 9/API28 `connectedDebugAndroidTest` all pass with zero skipped tests;
@@ -334,6 +334,7 @@ SelectedLocation
 - coordinates
 - zoneId
 - displayName
+- freshness? (`FRESH`/`CACHED` for Device; null for Manual)
 
 DeviceLocationFix
 - coordinates
