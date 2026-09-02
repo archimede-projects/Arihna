@@ -1,0 +1,82 @@
+name: Qibla STEP 1 spec writer fix temp
+
+on:
+  push:
+    branches:
+      - qibla-step1-spec-writer-temp
+
+permissions:
+  contents: write
+
+jobs:
+  write:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qibla-step1-spec-writer-temp
+          fetch-depth: 0
+
+      - name: Extract approved section from first writer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path('.github/workflows/qibla-step1-spec-writer-temp.yml').read_text(encoding='utf-8')
+          begin = "          section = '''"
+          start = source.index(begin) + len(begin)
+          end = source.index("'''", start)
+          section = source[start:end]
+          if not section.startswith('### 5.4 Qibla'):
+              raise SystemExit('Unexpected extracted section start')
+          if 'STEP 2 — pure bearing engine: NOT STARTED.' not in section:
+              raise SystemExit('Expected STEP 2 boundary missing')
+          Path('/tmp/qibla-section.txt').write_text(section, encoding='utf-8')
+          PY
+
+      - name: Checkout exact production base
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout --detach 2600a2f13fc126acbae48cae28fefca377500da7
+          test "$(git rev-parse HEAD)" = "2600a2f13fc126acbae48cae28fefca377500da7"
+          test "$(git rev-parse origin/main)" = "2600a2f13fc126acbae48cae28fefca377500da7"
+
+      - name: Patch PROJECT_SPEC only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('PROJECT_SPEC.md')
+          text = path.read_text(encoding='utf-8')
+          section = Path('/tmp/qibla-section.txt').read_text(encoding='utf-8')
+          start_marker = '### 5.4 Qibla\n'
+          end_marker = '\n### 5.5 Alarms'
+          start = text.index(start_marker)
+          end = text.index(end_marker, start)
+          updated = text[:start] + section + text[end:]
+          if updated == text:
+              raise SystemExit('No change produced')
+          path.write_text(updated, encoding='utf-8')
+          PY
+          git diff --check
+          test "$(git diff --name-only)" = "PROJECT_SPEC.md"
+          grep -Fq '### 5.4 Qibla — MILESTONE OPEN / STEP 1 SPEC-FIRST CLOSED' PROJECT_SPEC.md
+          grep -Fq 'TYPE_ROTATION_VECTOR' PROJECT_SPEC.md
+          grep -Fq 'TYPE_GAME_ROTATION_VECTOR' PROJECT_SPEC.md
+          grep -Fq '21.42251267' PROJECT_SPEC.md
+          grep -Fq 'STEP 2 — pure bearing engine: NOT STARTED.' PROJECT_SPEC.md
+
+      - name: Commit clean spec branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add PROJECT_SPEC.md
+          git commit -m 'docs(qibla): approve step1 architecture'
+          test "$(git diff-tree --no-commit-id --name-only -r HEAD)" = "PROJECT_SPEC.md"
+          test "$(git rev-parse HEAD^)" = "2600a2f13fc126acbae48cae28fefca377500da7"
+          git push origin HEAD:refs/heads/qibla-step1-spec
