@@ -1,0 +1,190 @@
+name: Location cache fallback S25 validation prerelease temp
+
+on:
+  push:
+    branches:
+      - location-cache-fallback-s25-validation-release-temp
+    paths:
+      - .github/workflows/location-cache-fallback-s25-validation-release-temp.yml
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-24.04
+    env:
+      TARGET_SHA: 685f37336fffc1cbfcd7169b74e2f0866c23498c
+      SPEC_SHA: bf325658c69cb3fc1fbd76ab0b23f01e2a1b3035
+      DECISION_SHA: cde5eb3d60fe482c05dfa74315d99b8e55372a5b
+      PRODUCTION_BASE_SHA: df5bcaa8c394cc332547453f30fbe4fdeaee8900
+      VERIFIED_GATE_RUN: '33625466575'
+      VERIFIED_GATE_JOB: '100232049897'
+      SIGNING_SOURCE_SHA: ce23a7f78695be95c7f8dfd2bcedbe22544da94c
+      RELEASE_TAG: location-cache-fallback-s25-validation-685f3733-20260902
+      APK_NAME: arihna-location-cache-fallback-s25-validation.apk
+      DEBUG_CERT_SHA256: 13:97:00:8C:1F:96:2D:BB:D3:6D:D8:A8:EA:02:16:AF:DD:06:E4:B2:B3:E0:8B:C0:F6:D4:B5:43:44:D7:B0:FA
+      DEBUG_KEYSTORE_SHA256: bc9057f26ad6de7efb70a5df06effb1ed259f1d015c3f062d0f757b3f0983b72
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 685f37336fffc1cbfcd7169b74e2f0866c23498c
+          fetch-depth: 0
+
+      - name: Verify exact candidate, spec ancestry and green gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^1)" = "$SPEC_SHA"
+          test "$(git rev-parse HEAD^2)" = "$DECISION_SHA"
+          test "$(git rev-parse HEAD^3)" = "$PRODUCTION_BASE_SHA"
+          MAIN_SHA="$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq '.commit.sha')"
+          echo "Current main: $MAIN_SHA"
+          test "$MAIN_SHA" = "$PRODUCTION_BASE_SHA"
+          JOB="$(gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$VERIFIED_GATE_JOB" --jq '[(.id|tostring), .run_id, .conclusion] | join(" ")')"
+          echo "Verified gate job: $JOB"
+          test "$JOB" = "$VERIFIED_GATE_JOB $VERIFIED_GATE_RUN success"
+          git fetch origin location-cache-fallback-final-gate-temp
+          GATE_FILE="$(git show FETCH_HEAD:.github/workflows/location-cache-fallback-final-gate-temp.yml)"
+          grep -Fq "ref: $TARGET_SHA" <<< "$GATE_FILE"
+          grep -Fq 'Run complete Android 9 API28 connected regression' <<< "$GATE_FILE"
+          grep -Fq 'Verify API28 reports zero skipped and include Prayer regression' <<< "$GATE_FILE"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Verify candidate policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'Duration.ofSeconds(30)' app/src/main/java/com/archimedeprojects/arihna/core/location/domain/LocationUpdatePolicy.kt
+          grep -q 'Duration.ofMinutes(15)' app/src/main/java/com/archimedeprojects/arihna/core/location/domain/LocationUpdatePolicy.kt
+          grep -q '5_000.0' app/src/main/java/com/archimedeprojects/arihna/core/location/domain/LocationUpdatePolicy.kt
+          grep -q 'FRAMEWORK_FUSED_PROVIDER.takeIf' app/src/main/java/com/archimedeprojects/arihna/core/location/platform/LocationManagerDeviceLocationDataSource.kt
+          grep -q 'DeviceLocationResult.Cached' app/src/main/java/com/archimedeprojects/arihna/core/location/platform/LocationManagerDeviceLocationDataSource.kt
+          grep -q 'val freshness: LocationFreshness?' app/src/main/java/com/archimedeprojects/arihna/core/location/model/SelectedLocation.kt
+          grep -q 'Basato su posizione di' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+          grep -q 'Aggiorna posizione' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+          grep -q 'android.permission.ACCESS_COARSE_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.ACCESS_FINE_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.ACCESS_BACKGROUND_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -R -q 'com.google.android.gms.location' app/src/main gradle
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/archimedeprojects/arihna/core/location/platform/LocationManagerDeviceLocationDataSource.kt').read_text()
+          block = p.split('private fun lastKnownLocationResult(): DeviceLocationResult {', 1)[1].split('private fun hasCoarsePermission()', 1)[0]
+          assert 'DeviceLocationResult.Cached' in block
+          assert 'zoneIdProvider()' not in block
+          assert 'toDeviceFix()' not in block
+          PY
+
+      - name: Restore exact STEP 4 city asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/step4-asset app/src/main/assets/geonames
+          mkdir -p /tmp/step4-asset app/src/main/assets/geonames
+          gh run download 33296099459 \
+            --repo "$GITHUB_REPOSITORY" \
+            --name geonames-step4-runtime-minimal \
+            --dir /tmp/step4-asset
+          DB="$(find /tmp/step4-asset -type f -name cities.db -print -quit)"
+          test -n "$DB"
+          cp "$DB" app/src/main/assets/geonames/cities.db
+          echo '7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb  app/src/main/assets/geonames/cities.db' | sha256sum -c -
+
+      - name: Restore persistent debug signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin location-step5-device-test
+          mkdir -p "$HOME/.android"
+          git show "$SIGNING_SOURCE_SHA:.github/test-signing/arihna-debug.keystore.b64" \
+            | base64 --decode > "$HOME/.android/debug.keystore"
+          test "$(sha256sum "$HOME/.android/debug.keystore" | awk '{print $1}')" = "$DEBUG_KEYSTORE_SHA256"
+          keytool -list -v \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storepass android \
+            -alias androiddebugkey | grep -F "$DEBUG_CERT_SHA256"
+
+      - name: Apply transient persistent debug signing configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('app/build.gradle.kts')
+          text = path.read_text()
+          marker = '    buildFeatures {\n'
+          block = '''    signingConfigs {
+              getByName("debug") {
+                  storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
+                  storePassword = "android"
+                  keyAlias = "androiddebugkey"
+                  keyPassword = "android"
+              }
+          }
+
+          '''
+          if marker not in text:
+              raise SystemExit('buildFeatures marker not found')
+          if 'storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")' in text:
+              raise SystemExit('unexpected persistent signing config already present')
+          path.write_text(text.replace(marker, block + marker, 1))
+          PY
+          git diff --check -- app/build.gradle.kts
+
+      - name: Unit regression before package
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build installable validation APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Verify APK identity and digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee /tmp/apksigner.txt
+          grep -Fi '1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa' /tmp/apksigner.txt
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$AAPT" dump badging "$APK" | grep -F "package: name='com.archimedeprojects.arihna'"
+          cp "$APK" "$APK_NAME"
+          sha256sum "$APK_NAME" | tee /tmp/apk-sha256.txt
+          stat -c '%s' "$APK_NAME" | tee /tmp/apk-size.txt
+
+      - name: Publish S25 cache fallback validation prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release tag already exists: $RELEASE_TAG" >&2
+            exit 1
+          fi
+          APK_SHA="$(awk '{print $1}' /tmp/apk-sha256.txt)"
+          APK_SIZE="$(cat /tmp/apk-size.txt)"
+          gh release create "$RELEASE_TAG" "$APK_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$TARGET_SHA" \
+            --title 'S25 validation — transparent cached location fallback — 685f3733' \
+            --prerelease \
+            --notes "DEVICE VALIDATION BUILD. Built from exact candidate SHA $TARGET_SHA, directly above final spec $SPEC_SHA and Approach B decision $DECISION_SHA; production main remains $PRODUCTION_BASE_SHA at packaging time. Gate run $VERIFIED_GATE_RUN / job $VERIFIED_GATE_JOB is green and includes complete unit regression, assembleDebug, Android 9/API28 connectedDebugAndroidTest, zero skipped verification, and Prayer regression presence. Candidate behavior: framework fused getCurrentLocation with 30-second Arihna budget; on null/timeout, real cached fallback is surfaced as CACHED with explicit age on Home and an on-demand Aggiorna posizione action. Raw framework last-known data is never assigned the current timezone; prayer calculations require provenance-safe zoned Device data. Existing 5 km significant-movement policy and 15-minute foreground update cycle are unchanged. ACCESS_COARSE_LOCATION only; no FINE/background permission and no Google Play Services Location. Persistent debug signing certificate SHA-256: $DEBUG_CERT_SHA256. APK SHA-256: $APK_SHA. APK bytes: $APK_SIZE. This is a prerelease for real-device Galaxy S25 validation and is not a production promotion."
