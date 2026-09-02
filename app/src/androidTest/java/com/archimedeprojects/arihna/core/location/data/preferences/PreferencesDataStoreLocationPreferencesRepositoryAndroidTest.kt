@@ -207,6 +207,7 @@ class PreferencesDataStoreLocationPreferencesRepositoryAndroidTest {
 
     private fun unusedDeviceLocationSource() = object : DeviceLocationDataSource {
         override suspend fun getCurrentLocation(): DeviceLocationResult = error("Device source must not be called")
+        override suspend fun getLastKnownLocation(): DeviceLocationResult = error("Device source must not be called")
         override fun observeSignificantUpdates(): Flow<DeviceLocationFix> = emptyFlow()
     }
 

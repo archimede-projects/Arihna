@@ -51,6 +51,9 @@ class UnsupportedManualCitySelectionTest {
         override suspend fun getCurrentLocation(): DeviceLocationResult =
             DeviceLocationResult.Unavailable(LocationFailure.NO_PROVIDER)
 
+        override suspend fun getLastKnownLocation(): DeviceLocationResult =
+            DeviceLocationResult.Unavailable(LocationFailure.NO_PROVIDER)
+
         override fun observeSignificantUpdates(): Flow<DeviceLocationFix> = emptyFlow()
     }
 

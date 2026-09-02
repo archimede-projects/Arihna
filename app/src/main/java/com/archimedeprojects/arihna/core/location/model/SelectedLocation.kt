@@ -8,6 +8,7 @@ data class SelectedLocation(
     val coordinates: Coordinates,
     val zoneId: ZoneId,
     val displayName: String,
+    val freshness: LocationFreshness? = null,
 ) {
     val isValid: Boolean
         get() = coordinates.isValid && displayName.isNotBlank()

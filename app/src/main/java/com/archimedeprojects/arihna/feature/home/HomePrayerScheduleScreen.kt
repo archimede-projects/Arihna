@@ -20,6 +20,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.archimedeprojects.arihna.core.location.model.LocationFreshness
 import com.archimedeprojects.arihna.core.prayer.model.PrayerCalculationMethod
 import com.archimedeprojects.arihna.feature.prayerschedule.domain.PrayerName
 import com.archimedeprojects.arihna.feature.prayerschedule.presentation.PrayerScheduleLocationSourceUi
@@ -36,12 +37,14 @@ fun HomePrayerScheduleRoute(
     contentPadding: PaddingValues,
     viewModel: PrayerScheduleViewModel,
     onOpenLocationSettings: () -> Unit,
+    onRefreshLocation: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     HomePrayerScheduleScreen(
         contentPadding = contentPadding,
         uiState = uiState,
         onOpenLocationSettings = onOpenLocationSettings,
+        onRefreshLocation = onRefreshLocation,
     )
 }
 
@@ -50,6 +53,7 @@ fun HomePrayerScheduleScreen(
     contentPadding: PaddingValues,
     uiState: PrayerScheduleUiState,
     onOpenLocationSettings: () -> Unit,
+    onRefreshLocation: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -71,7 +75,7 @@ fun HomePrayerScheduleScreen(
                 onOpenLocationSettings = onOpenLocationSettings,
             )
             is PrayerScheduleUiState.CalculationUnavailable -> CalculationUnavailableContent(uiState)
-            is PrayerScheduleUiState.Ready -> ReadyContent(uiState)
+            is PrayerScheduleUiState.Ready -> ReadyContent(uiState, onRefreshLocation)
         }
     }
 }
@@ -122,7 +126,10 @@ private fun CalculationUnavailableContent(state: PrayerScheduleUiState.Calculati
 }
 
 @Composable
-private fun ReadyContent(state: PrayerScheduleUiState.Ready) {
+private fun ReadyContent(
+    state: PrayerScheduleUiState.Ready,
+    onRefreshLocation: () -> Unit,
+) {
     val zoneId = state.today.zoneId
 
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -135,6 +142,17 @@ private fun ReadyContent(state: PrayerScheduleUiState.Ready) {
                 text = state.location.displayName,
                 style = MaterialTheme.typography.bodyMedium,
             )
+            if (state.locationFreshness == LocationFreshness.CACHED) {
+                val age = state.locationAge ?: Duration.ZERO
+                Text(
+                    text = "Basato su posizione di ${formatLocationAge(age)}",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+                Button(onClick = onRefreshLocation) {
+                    Text("Aggiorna posizione")
+                }
+            }
         } else {
             Text(
                 text = state.location.displayName,
@@ -233,6 +251,25 @@ private fun methodLabel(method: PrayerCalculationMethod): String = when (method)
     PrayerCalculationMethod.MOONSIGHTING_COMMITTEE -> "Moonsighting Committee"
     PrayerCalculationMethod.SINGAPORE -> "Singapore"
     PrayerCalculationMethod.TURKEY -> "Turkey"
+}
+
+private fun formatLocationAge(duration: Duration): String {
+    val totalSeconds = duration.seconds.coerceAtLeast(0L)
+    return when {
+        totalSeconds < 60L -> if (totalSeconds == 1L) "1 secondo fa" else "$totalSeconds secondi fa"
+        totalSeconds < 3_600L -> {
+            val minutes = totalSeconds / 60L
+            if (minutes == 1L) "1 minuto fa" else "$minutes minuti fa"
+        }
+        totalSeconds < 86_400L -> {
+            val hours = totalSeconds / 3_600L
+            if (hours == 1L) "1 ora fa" else "$hours ore fa"
+        }
+        else -> {
+            val days = totalSeconds / 86_400L
+            if (days == 1L) "1 giorno fa" else "$days giorni fa"
+        }
+    }
 }
 
 private fun formatTime(time: Instant, zoneId: ZoneId): String =

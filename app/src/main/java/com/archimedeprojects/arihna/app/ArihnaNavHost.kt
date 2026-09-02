@@ -88,6 +88,25 @@ fun ArihnaNavHost(
                             launchSingleTop = true
                         }
                     },
+                    onRefreshLocation = {
+                        val permissionState = locationPermissionStateResolver.resolve(
+                            activity = activity,
+                            hasRequestedBefore = locationSettingsViewModel.hasRequestedPermissionBefore(),
+                        )
+                        if (
+                            permissionState == com.archimedeprojects.arihna.core.location.model.LocationPermissionState.Granted &&
+                            locationEnvironment.isLocationServicesEnabled()
+                        ) {
+                            locationSettingsViewModel.selectDevice(
+                                permissionState = permissionState,
+                                locationServicesEnabled = true,
+                            )
+                        } else {
+                            navController.navigate(Destination.Settings.route) {
+                                launchSingleTop = true
+                            }
+                        }
+                    },
                 )
             }
             composable(Destination.Prayers.route) { PrayerTimesPlaceholderScreen(innerPadding) }
