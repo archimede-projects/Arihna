@@ -1,5 +1,6 @@
 package com.archimedeprojects.arihna.feature.prayerschedule.domain
 
+import com.archimedeprojects.arihna.core.location.model.LocationFreshness
 import com.archimedeprojects.arihna.core.location.model.LocationResolutionState
 import com.archimedeprojects.arihna.core.location.model.SelectedLocation
 import com.archimedeprojects.arihna.core.prayer.model.Coordinates
@@ -37,6 +38,7 @@ data class PrayerSchedule(
     val today: PrayerDay,
     val nextPrayer: NextPrayer?,
     val generatedAt: Instant,
+    val locationFreshness: LocationFreshness? = null,
 )
 
 sealed interface PrayerScheduleState {

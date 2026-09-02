@@ -11,7 +11,7 @@ import kotlin.math.sqrt
 data class LocationUpdatePolicy(
     val significantDistanceMeters: Double = 5_000.0,
     val minimumForegroundUpdateInterval: Duration = Duration.ofMinutes(15),
-    val currentFixTimeout: Duration = Duration.ofSeconds(20),
+    val currentFixTimeout: Duration = Duration.ofSeconds(30),
 ) {
     init {
         require(significantDistanceMeters > 0.0)

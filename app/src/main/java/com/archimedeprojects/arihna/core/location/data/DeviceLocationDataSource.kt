@@ -6,5 +6,6 @@ import kotlinx.coroutines.flow.Flow
 
 interface DeviceLocationDataSource {
     suspend fun getCurrentLocation(): DeviceLocationResult
+    suspend fun getLastKnownLocation(): DeviceLocationResult
     fun observeSignificantUpdates(): Flow<DeviceLocationFix>
 }

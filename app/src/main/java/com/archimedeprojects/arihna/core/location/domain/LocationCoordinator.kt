@@ -101,7 +101,7 @@ class LocationCoordinator(
             return LocationResolutionState.LocationServicesDisabled(cachedLocation)
         }
 
-        val result = try {
+        val currentResult = try {
             withTimeoutOrNull(updatePolicy.currentFixTimeout.toMillis()) {
                 deviceLocationDataSource.getCurrentLocation()
             }
@@ -109,14 +109,31 @@ class LocationCoordinator(
             throw error
         } catch (_: Exception) {
             DeviceLocationResult.Unavailable(LocationFailure.NO_PROVIDER)
-        } ?: DeviceLocationResult.Unavailable(LocationFailure.TIMEOUT)
+        }
+
+        val timeoutOccurred = currentResult == null
+        val result = if (timeoutOccurred) {
+            readLastKnownResult()
+        } else {
+            currentResult
+        }
 
         return when (result) {
-            is DeviceLocationResult.Success -> handleFreshFix(result.fix, cachedFix)
-            is DeviceLocationResult.Unavailable -> LocationResolutionState.Unavailable(
-                reason = result.reason,
-                cachedLocation = cachedLocation,
-            )
+            is DeviceLocationResult.Success -> handleDeviceSuccess(result, cachedFix)
+            is DeviceLocationResult.Unavailable -> {
+                val failure = if (timeoutOccurred) LocationFailure.TIMEOUT else result.reason
+                if ((failure == LocationFailure.TIMEOUT || failure == LocationFailure.NO_PROVIDER) && cachedFix != null) {
+                    LocationResolutionState.Ready(
+                        location = toSelectedDeviceLocation(cachedFix),
+                        freshness = LocationFreshness.CACHED,
+                    )
+                } else {
+                    LocationResolutionState.Unavailable(
+                        reason = failure,
+                        cachedLocation = cachedLocation,
+                    )
+                }
+            }
         }
     }
 
@@ -129,12 +146,25 @@ class LocationCoordinator(
         }
 
         val previous = readCachedDeviceFix()?.takeIf { it.isValid }
-        return handleFreshFix(candidate, previous)
+        return handleDeviceFix(candidate, previous, LocationFreshness.FRESH)
     }
 
-    private suspend fun handleFreshFix(
+    private suspend fun handleDeviceSuccess(
+        result: DeviceLocationResult.Success,
+        previous: DeviceLocationFix?,
+    ): LocationResolutionState {
+        val candidate = if (result.freshness == LocationFreshness.CACHED && previous != null) {
+            if (result.fix.capturedAt.isAfter(previous.capturedAt)) result.fix else previous
+        } else {
+            result.fix
+        }
+        return handleDeviceFix(candidate, previous, result.freshness)
+    }
+
+    private suspend fun handleDeviceFix(
         candidate: DeviceLocationFix,
         previous: DeviceLocationFix?,
+        freshness: LocationFreshness,
     ): LocationResolutionState {
         if (!candidate.isValid) {
             return LocationResolutionState.Unavailable(
@@ -159,8 +189,16 @@ class LocationCoordinator(
 
         return LocationResolutionState.Ready(
             location = toSelectedDeviceLocation(candidate),
-            freshness = LocationFreshness.FRESH,
+            freshness = freshness,
         )
+    }
+
+    private suspend fun readLastKnownResult(): DeviceLocationResult = try {
+        deviceLocationDataSource.getLastKnownLocation()
+    } catch (error: CancellationException) {
+        throw error
+    } catch (_: Exception) {
+        DeviceLocationResult.Unavailable(LocationFailure.NO_PROVIDER)
     }
 
     private suspend fun restoreManual(preference: LocationPreference.Manual): LocationResolutionState {

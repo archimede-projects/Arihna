@@ -16,7 +16,7 @@ class LocationUpdatePolicyTest {
     fun defaultsMatchApprovedLocationPolicy() {
         assertTrue(policy.significantDistanceMeters == 5_000.0)
         assertTrue(policy.minimumForegroundUpdateInterval == Duration.ofMinutes(15))
-        assertTrue(policy.currentFixTimeout == Duration.ofSeconds(20))
+        assertTrue(policy.currentFixTimeout == Duration.ofSeconds(30))
     }
 
     @Test

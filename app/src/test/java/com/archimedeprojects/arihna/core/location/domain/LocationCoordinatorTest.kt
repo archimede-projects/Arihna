@@ -7,6 +7,7 @@ import com.archimedeprojects.arihna.core.location.model.DeviceLocationFix
 import com.archimedeprojects.arihna.core.location.model.DeviceLocationResult
 import com.archimedeprojects.arihna.core.location.model.LocationFailure
 import com.archimedeprojects.arihna.core.location.model.LocationFreshness
+import com.archimedeprojects.arihna.core.location.model.LocationFreshness
 import com.archimedeprojects.arihna.core.location.model.LocationPermissionState
 import com.archimedeprojects.arihna.core.location.model.LocationPreference
 import com.archimedeprojects.arihna.core.location.model.LocationResolutionState
@@ -128,6 +129,28 @@ class LocationCoordinatorTest {
         val unavailable = state as LocationResolutionState.Unavailable
         assertEquals(LocationFailure.TIMEOUT, unavailable.reason)
         assertEquals(romeFix().coordinates, unavailable.cachedLocation?.coordinates)
+    }
+
+    @Test
+    fun timeoutUsesRealLastKnownAsCachedReady() = runBlocking {
+        val lastKnown = romeFix().copy(capturedAt = Instant.parse("2026-08-29T09:30:00Z"))
+        val device = FakeDeviceLocationDataSource().apply {
+            delayMillis = 100
+            currentResult = DeviceLocationResult.Success(romeFix())
+            lastKnownResult = DeviceLocationResult.Success(lastKnown, LocationFreshness.CACHED)
+        }
+        val coordinator = coordinator(
+            device = device,
+            preferences = FakeLocationPreferencesRepository(LocationPreference.Device),
+            policy = LocationUpdatePolicy(currentFixTimeout = Duration.ofMillis(10)),
+        )
+
+        val state = coordinator.resolveDevice(LocationPermissionState.Granted, true)
+
+        val ready = state as LocationResolutionState.Ready
+        assertEquals(LocationFreshness.CACHED, ready.freshness)
+        assertEquals(lastKnown.coordinates, ready.location.coordinates)
+        assertEquals(1, device.lastKnownCalls)
     }
 
     @Test
@@ -343,7 +366,14 @@ class LocationCoordinatorTest {
         var currentResult: DeviceLocationResult = DeviceLocationResult.Unavailable(LocationFailure.NO_PROVIDER)
         var delayMillis: Long = 0
         var currentCalls: Int = 0
+        var lastKnownResult: DeviceLocationResult = DeviceLocationResult.Unavailable(LocationFailure.NO_PROVIDER)
+        var lastKnownCalls: Int = 0
         private val updates = MutableSharedFlow<DeviceLocationFix>()
+
+        override suspend fun getLastKnownLocation(): DeviceLocationResult {
+            lastKnownCalls += 1
+            return lastKnownResult
+        }
 
         override suspend fun getCurrentLocation(): DeviceLocationResult {
             currentCalls += 1

@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.unit.dp
+import com.archimedeprojects.arihna.core.location.model.LocationFreshness
 import com.archimedeprojects.arihna.core.location.model.LocationResolutionState
 import com.archimedeprojects.arihna.core.location.model.LocationSource
 import com.archimedeprojects.arihna.core.location.model.SelectedLocation
@@ -84,6 +85,33 @@ class HomePrayerScheduleScreenAndroidTest {
     }
 
     @Test
+    fun cachedDeviceLocationShowsAgeAndRefreshAction() {
+        var refreshCalls = 0
+        val state = readyState().copy(
+            location = PrayerScheduleLocationUi(
+                displayName = "Pegognaga, Italia",
+                source = PrayerScheduleLocationSourceUi.DEVICE,
+            ),
+            selectedLocation = SelectedLocation(
+                source = LocationSource.Device(
+                    capturedAt = Instant.parse("2026-08-31T09:00:00Z"),
+                    accuracyMeters = 2_000f,
+                ),
+                coordinates = Coordinates(44.99, 10.85),
+                zoneId = ZoneId.of("Europe/Rome"),
+                displayName = "Pegognaga, Italia",
+            ),
+            locationFreshness = LocationFreshness.CACHED,
+            locationAge = Duration.ofHours(2),
+        )
+        setScreen(uiState = state, onRefreshLocation = { refreshCalls += 1 })
+
+        composeRule.onNodeWithText("Basato su posizione di 2 ore fa").assertIsDisplayed()
+        composeRule.onNodeWithText("Aggiorna posizione").assertIsDisplayed().performClick()
+        composeRule.runOnIdle { assertEquals(1, refreshCalls) }
+    }
+
+    @Test
     fun calculationUnavailableShowsControlledErrorWithoutInventedTimes() {
         setScreen(
             uiState = PrayerScheduleUiState.CalculationUnavailable(
@@ -125,6 +153,7 @@ class HomePrayerScheduleScreenAndroidTest {
     private fun setScreen(
         uiState: PrayerScheduleUiState,
         onOpenLocationSettings: () -> Unit = {},
+        onRefreshLocation: () -> Unit = {},
     ) {
         composeRule.setContent {
             ArihnaTheme {
@@ -132,6 +161,7 @@ class HomePrayerScheduleScreenAndroidTest {
                     contentPadding = PaddingValues(0.dp),
                     uiState = uiState,
                     onOpenLocationSettings = onOpenLocationSettings,
+                    onRefreshLocation = onRefreshLocation,
                 )
             }
         }

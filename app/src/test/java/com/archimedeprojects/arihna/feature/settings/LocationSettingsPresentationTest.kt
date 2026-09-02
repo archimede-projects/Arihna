@@ -79,7 +79,7 @@ class LocationSettingsPresentationTest {
             reason = LocationFailure.TIMEOUT,
             cachedLocation = null,
         ).toPresentation()
-        assertTrue(timeout.message.contains("20 secondi"))
+        assertTrue(timeout.message.contains("30 secondi"))
 
         val unsupported = LocationResolutionState.Unavailable(
             reason = LocationFailure.UNSUPPORTED_TIME_ZONE,
