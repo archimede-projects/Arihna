@@ -1,0 +1,30 @@
+name: Finalize location cache-first candidate temp
+
+on:
+  push:
+    branches:
+      - location-cache-first-finalize-temp
+    paths:
+      - .github/workflows/location-cache-first-finalize-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build single technical commit above approved spec
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout --detach 5bd11e12fec03f5dfe77881026272f28dc6475e1
+          git reset --soft dc2262cdca2861a721777511e031ae2f416d4c67
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix(location): make foreground restore cache-first'
+          git push origin HEAD:fix-location-cache-first-reentry-final
