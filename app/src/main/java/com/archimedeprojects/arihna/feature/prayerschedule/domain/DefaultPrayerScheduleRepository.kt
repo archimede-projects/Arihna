@@ -168,6 +168,7 @@ class DefaultPrayerScheduleRepository(
                         today = todayResult.prayerDay,
                         nextPrayer = nextPrayer,
                         generatedAt = now,
+                        locationFreshness = ready.freshness,
                     ),
                 )
             }

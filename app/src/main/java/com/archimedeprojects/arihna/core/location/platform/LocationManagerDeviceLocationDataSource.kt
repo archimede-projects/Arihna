@@ -16,6 +16,7 @@ import com.archimedeprojects.arihna.core.location.domain.LocationUpdatePolicy
 import com.archimedeprojects.arihna.core.location.model.DeviceLocationFix
 import com.archimedeprojects.arihna.core.location.model.DeviceLocationResult
 import com.archimedeprojects.arihna.core.location.model.LocationFailure
+import com.archimedeprojects.arihna.core.location.model.LocationFreshness
 import com.archimedeprojects.arihna.core.prayer.model.Coordinates
 import java.time.Clock
 import java.time.Instant
@@ -31,7 +32,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
  * Android framework implementation of [DeviceLocationDataSource].
  *
  * Timeout and significant-change acceptance intentionally remain in the pure domain layer.
- * This bridge only obtains current fixes and forwards foreground candidates.
+ * This bridge obtains a current fix when possible and exposes real framework cache as CACHED fallback.
  */
 class LocationManagerDeviceLocationDataSource(
     context: Context,
@@ -50,7 +51,7 @@ class LocationManagerDeviceLocationDataSource(
             return DeviceLocationResult.Unavailable(LocationFailure.NO_PROVIDER)
         }
         val provider = currentLocationProviderSelector(locationManager)
-            ?: return DeviceLocationResult.Unavailable(LocationFailure.NO_PROVIDER)
+            ?: return lastKnownLocationResult()
 
         return suspendCancellableCoroutine { continuation ->
             val cancellationSignal = CancellationSignal()
@@ -64,29 +65,27 @@ class LocationManagerDeviceLocationDataSource(
                 ) { location ->
                     if (!continuation.isActive) return@getCurrentLocation
                     if (location == null) {
-                        continuation.resume(DeviceLocationResult.Unavailable(LocationFailure.NO_PROVIDER))
+                        continuation.resume(lastKnownLocationResult())
                         return@getCurrentLocation
                     }
                     val fix = location.toDeviceFix()
                     continuation.resume(
                         if (fix.isValid) {
-                            DeviceLocationResult.Success(fix)
+                            DeviceLocationResult.Success(fix, LocationFreshness.FRESH)
                         } else {
                             DeviceLocationResult.Unavailable(LocationFailure.INVALID_FIX)
                         },
                     )
                 }
             } catch (_: SecurityException) {
-                if (continuation.isActive) {
-                    continuation.resume(DeviceLocationResult.Unavailable(LocationFailure.NO_PROVIDER))
-                }
+                if (continuation.isActive) continuation.resume(lastKnownLocationResult())
             } catch (_: IllegalArgumentException) {
-                if (continuation.isActive) {
-                    continuation.resume(DeviceLocationResult.Unavailable(LocationFailure.NO_PROVIDER))
-                }
+                if (continuation.isActive) continuation.resume(lastKnownLocationResult())
             }
         }
     }
+
+    override suspend fun getLastKnownLocation(): DeviceLocationResult = lastKnownLocationResult()
 
     override fun observeSignificantUpdates(): Flow<DeviceLocationFix> = callbackFlow {
         if (!hasCoarsePermission() || !LocationManagerCompat.isLocationEnabled(locationManager)) {
@@ -135,6 +134,35 @@ class LocationManagerDeviceLocationDataSource(
         }
     }
 
+    private fun lastKnownLocationResult(): DeviceLocationResult {
+        if (!hasCoarsePermission()) {
+            return DeviceLocationResult.Unavailable(LocationFailure.NO_PROVIDER)
+        }
+
+        val availableProviders = runCatching { locationManager.allProviders.toSet() }
+            .getOrDefault(emptySet())
+        val candidates = LAST_KNOWN_PROVIDER_ORDER.mapNotNull { provider ->
+            if (provider !in availableProviders) return@mapNotNull null
+            val location = try {
+                locationManager.getLastKnownLocation(provider)
+            } catch (_: SecurityException) {
+                null
+            } catch (_: IllegalArgumentException) {
+                null
+            } ?: return@mapNotNull null
+
+            // A cache fallback must retain a real capture time; never replace a missing cache timestamp with now.
+            if (location.time <= 0L) return@mapNotNull null
+            val fix = location.toDeviceFix()
+            if (!fix.isValid) return@mapNotNull null
+            LastKnownDeviceCandidate(provider = provider, fix = fix)
+        }
+
+        val selected = selectNewestLastKnownCandidate(candidates)
+            ?: return DeviceLocationResult.Unavailable(LocationFailure.NO_PROVIDER)
+        return DeviceLocationResult.Success(selected.fix, LocationFreshness.CACHED)
+    }
+
     private fun hasCoarsePermission(): Boolean =
         ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_COARSE_LOCATION) ==
             PackageManager.PERMISSION_GRANTED
@@ -156,6 +184,11 @@ internal data class ForegroundLocationRequestSpec(
     val minDistanceMeters: Float,
 )
 
+internal data class LastKnownDeviceCandidate(
+    val provider: String,
+    val fix: DeviceLocationFix,
+)
+
 internal fun foregroundLocationRequestSpec(policy: LocationUpdatePolicy): ForegroundLocationRequestSpec =
     ForegroundLocationRequestSpec(
         intervalMillis = policy.minimumForegroundUpdateInterval.toMillis(),
@@ -163,14 +196,20 @@ internal fun foregroundLocationRequestSpec(policy: LocationUpdatePolicy): Foregr
         minDistanceMeters = 0f,
     )
 
+internal fun selectNewestLastKnownCandidate(
+    candidates: List<LastKnownDeviceCandidate>,
+): LastKnownDeviceCandidate? = candidates.maxWithOrNull(
+    compareBy<LastKnownDeviceCandidate> { it.fix.capturedAt }
+        .thenBy { if (it.provider == FRAMEWORK_FUSED_PROVIDER) 1 else 0 },
+)
+
 internal fun selectCurrentLocationProvider(locationManager: LocationManager): String? {
     val enabled = runCatching { locationManager.getProviders(true).toSet() }.getOrDefault(emptySet())
     return selectCurrentLocationProviderFromEnabledProviders(enabled)
 }
 
 internal fun selectCurrentLocationProviderFromEnabledProviders(enabledProviders: Set<String>): String? =
-    listOf(LocationManager.NETWORK_PROVIDER, FRAMEWORK_FUSED_PROVIDER)
-        .firstOrNull { it in enabledProviders }
+    FRAMEWORK_FUSED_PROVIDER.takeIf { it in enabledProviders }
 
 @Suppress("DEPRECATION")
 internal fun selectCoarseProvider(locationManager: LocationManager): String? {
@@ -186,4 +225,5 @@ internal fun selectCoarseProvider(locationManager: LocationManager): String? {
         .firstOrNull { it in enabled }
 }
 
+private val LAST_KNOWN_PROVIDER_ORDER = listOf(FRAMEWORK_FUSED_PROVIDER, LocationManager.NETWORK_PROVIDER)
 private const val FRAMEWORK_FUSED_PROVIDER = "fused"

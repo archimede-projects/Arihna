@@ -209,6 +209,7 @@ class LocationSettingsViewModelTest {
         val updates = MutableSharedFlow<DeviceLocationFix>(extraBufferCapacity = 4)
 
         override suspend fun getCurrentLocation(): DeviceLocationResult = currentResult
+        override suspend fun getLastKnownLocation(): DeviceLocationResult = DeviceLocationResult.Unavailable(LocationFailure.NO_PROVIDER)
         override fun observeSignificantUpdates(): Flow<DeviceLocationFix> = updates
     }
 

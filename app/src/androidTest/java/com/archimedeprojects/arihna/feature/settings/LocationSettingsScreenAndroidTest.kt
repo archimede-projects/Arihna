@@ -115,7 +115,7 @@ class LocationSettingsScreenAndroidTest {
             ),
             updateState = { state = it },
             "Posizione non ricevuta",
-            "Nessuna posizione è arrivata entro 20 secondi. Puoi riprovare o scegliere una città manuale.",
+            "Nessuna posizione corrente è arrivata entro 30 secondi e non è disponibile alcuna posizione reale salvata. Puoi riprovare o scegliere una città manuale.",
         )
         assertState(
             newState = LocationSettingsUiState(
