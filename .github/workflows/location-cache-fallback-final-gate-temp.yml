@@ -18,14 +18,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: e90a4371913c3556901f9c3d1d5fdd4b49472647
+          ref: 685f37336fffc1cbfcd7169b74e2f0866c23498c
           fetch-depth: 0
 
       - name: Verify exact candidate and spec-first ancestry
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "e90a4371913c3556901f9c3d1d5fdd4b49472647"
+          test "$(git rev-parse HEAD)" = "685f37336fffc1cbfcd7169b74e2f0866c23498c"
           test "$(git rev-parse HEAD^)" = "bf325658c69cb3fc1fbd76ab0b23f01e2a1b3035"
           test "$(git rev-parse HEAD^^)" = "cde5eb3d60fe482c05dfa74315d99b8e55372a5b"
           test "$(git rev-parse HEAD^^^)" = "df5bcaa8c394cc332547453f30fbe4fdeaee8900"
