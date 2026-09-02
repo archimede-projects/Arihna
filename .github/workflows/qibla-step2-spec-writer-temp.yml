@@ -1,0 +1,45 @@
+name: Qibla STEP 2 spec writer temp
+
+on:
+  push:
+    branches:
+      - qibla-step2-spec-writer-temp
+
+permissions:
+  contents: write
+
+jobs:
+  write:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: c6d88421980ffe0e5f34d37e889b3c026fca48c6
+          fetch-depth: 0
+      - name: Verify exact base
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "c6d88421980ffe0e5f34d37e889b3c026fca48c6"
+          test "$(git rev-parse origin/main)" = "c6d88421980ffe0e5f34d37e889b3c026fca48c6"
+      - name: Patch STEP 2 authorization
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL 'https://raw.githubusercontent.com/archimede-projects/Arihna/qibla-step2-spec-writer-temp/tools/qibla_step2_spec_patch.py' -o /tmp/patch.py
+          python3 /tmp/patch.py
+          git diff --check
+          test "$(git diff --name-only)" = "PROJECT_SPEC.md"
+          grep -Fq 'STEP 2 — pure bearing engine: AUTHORIZED / IN PROGRESS.' PROJECT_SPEC.md
+          grep -Fq 'STEP 3 remains **NOT STARTED**' PROJECT_SPEC.md
+      - name: Commit clean spec branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add PROJECT_SPEC.md
+          git commit -m 'docs(qibla): authorize step2 bearing engine'
+          test "$(git diff-tree --no-commit-id --name-only -r HEAD)" = "PROJECT_SPEC.md"
+          test "$(git rev-parse HEAD^)" = "c6d88421980ffe0e5f34d37e889b3c026fca48c6"
+          git push origin HEAD:refs/heads/qibla-step2-spec
