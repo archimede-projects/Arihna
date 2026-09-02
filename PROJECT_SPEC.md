@@ -894,7 +894,7 @@ Physical Galaxy S25 closure must verify the actual live compass:
 #### Seven-step Qibla implementation sequence
 
 1. **STEP 1 — spec-first architecture: CLOSED by this documentation step.** Freeze target, true-north bearing formula, sensor hierarchy, declination policy, Location semantics, lifecycle, UI states and test contract before code.
-2. **STEP 2 — pure bearing engine: NOT STARTED.** Implement Kaaba constant, pure `QiblaBearingCalculator`, angle utilities and JVM golden/error tests only. No Android sensors or Compose.
+2. **STEP 2 — pure bearing engine: AUTHORIZED / IN PROGRESS.** Implement Kaaba constant, pure `QiblaBearingCalculator`, angle utilities and JVM golden/error tests only. No Android sensors or Compose. Authorization was explicitly given on 2026-09-02 after STEP 1 promotion; implementation must remain within this exact scope.
 3. **STEP 3 — Android heading/sensor layer: NOT STARTED.** Implement foreground sensor capability/heading datasource, declination correction, screen-axis remap, accuracy and lifecycle with focused tests. No final UI.
 4. **STEP 4 — Location/Qibla orchestration: NOT STARTED.** Combine closed Location state with pure bearing and heading state under the Manual-vs-Device live-compass contract. No Location provider changes.
 5. **STEP 5 — Qibla Compose UI: NOT STARTED.** Implement the approved large-compass Layout 1 states and calibration/degraded UI without reopening underlying algorithms.
@@ -903,7 +903,7 @@ Physical Galaxy S25 closure must verify the actual live compass:
 
 Evidence basis reviewed for STEP 1 on 2026-09-02: Android Developers documentation for `Sensor`, `SensorEvent`, `SensorManager`, sensor coordinate/display remapping, `TYPE_HEADING`, rotation-vector/position sensors and `GeomagneticField`; GeoNames Kaaba shrine record for the frozen target coordinates. Android documents `TYPE_HEADING` (API 33+) as direct true-north heading with degree accuracy, rotation-vector orientation as magnetic-north referenced, `TYPE_GAME_ROTATION_VECTOR` as omitting geomagnetic north and potentially drifting, and `GeomagneticField.getDeclination()` as the magnetic-to-true-north declination estimate.
 
-STEP 2 is **NOT STARTED** and requires separate authorization after this spec-only commit is reviewed/promoted. No Qibla production code, sensor registration, UI, dependency or permission change is authorized by STEP 1.
+STEP 2 is **AUTHORIZED / IN PROGRESS** after explicit user authorization on 2026-09-02. Only the pure bearing engine, angle utilities and JVM tests are authorized. No Android sensor registration, Compose Qibla UI, Location-provider change, dependency addition or permission change is authorized in STEP 2. STEP 3 remains **NOT STARTED** and requires separate authorization after STEP 2 closure.
 
 ### 5.5 Alarms
 
