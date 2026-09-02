@@ -44,7 +44,7 @@ fun LocationResolutionState.toPresentation(): LocationStatusPresentation = when 
             },
             locationName = location.displayName,
             zoneId = location.zoneId.id,
-            freshness = when (freshness) {
+            freshness = when (location.freshness) {
                 LocationFreshness.FRESH -> "FRESH"
                 LocationFreshness.CACHED -> "CACHED"
                 null -> null
@@ -101,7 +101,7 @@ private fun failureTitle(reason: LocationFailure): String = when (reason) {
 
 private fun failureMessage(reason: LocationFailure): String = when (reason) {
     LocationFailure.TIMEOUT ->
-        "Nessuna posizione è arrivata entro 20 secondi. Puoi riprovare o scegliere una città manuale."
+        "Nessuna posizione corrente è arrivata entro 30 secondi e non è disponibile alcuna posizione reale salvata. Puoi riprovare o scegliere una città manuale."
     LocationFailure.NO_PROVIDER ->
         "Android non ha reso disponibile un provider di posizione utilizzabile. Puoi riprovare o scegliere una città manuale."
     LocationFailure.INVALID_FIX ->

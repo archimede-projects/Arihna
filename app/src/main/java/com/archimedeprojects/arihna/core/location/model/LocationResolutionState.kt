@@ -6,8 +6,14 @@ sealed interface LocationResolutionState {
 
     data class Ready(
         val location: SelectedLocation,
-        val freshness: LocationFreshness?,
-    ) : LocationResolutionState
+    ) : LocationResolutionState {
+        constructor(location: SelectedLocation, freshness: LocationFreshness?) : this(
+            location = location.copy(freshness = freshness),
+        )
+
+        val freshness: LocationFreshness?
+            get() = location.freshness
+    }
 
     data class PermissionDenied(
         val canRequestAgain: Boolean,

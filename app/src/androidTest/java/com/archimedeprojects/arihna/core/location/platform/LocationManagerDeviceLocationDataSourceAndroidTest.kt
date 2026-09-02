@@ -130,9 +130,9 @@ class LocationManagerDeviceLocationDataSourceAndroidTest {
     }
 
     @Test
-    fun oneShotProviderSelectionIsNetworkFirstWithFrameworkFusedFallback() {
+    fun oneShotProviderSelectionUsesFrameworkFusedOnly() {
         assertEquals(
-            LocationManager.NETWORK_PROVIDER,
+            "fused",
             selectCurrentLocationProviderFromEnabledProviders(
                 setOf("fused", LocationManager.NETWORK_PROVIDER),
             ),
@@ -143,7 +143,7 @@ class LocationManagerDeviceLocationDataSourceAndroidTest {
         )
         assertNull(
             selectCurrentLocationProviderFromEnabledProviders(
-                setOf(LocationManager.GPS_PROVIDER, LocationManager.PASSIVE_PROVIDER),
+                setOf(LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER, LocationManager.PASSIVE_PROVIDER),
             ),
         )
     }

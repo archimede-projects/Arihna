@@ -111,7 +111,7 @@ class LocationCoordinatorTest {
     }
 
     @Test
-    fun timeoutWithCacheReturnsControlledUnavailableWithCachedLocation() = runBlocking {
+    fun timeoutWithPersistedCacheReturnsCachedReady() = runBlocking {
         val device = FakeDeviceLocationDataSource().apply {
             delayMillis = 100
             currentResult = DeviceLocationResult.Success(romeFix())
@@ -125,9 +125,31 @@ class LocationCoordinatorTest {
 
         val state = coordinator.resolveDevice(LocationPermissionState.Granted, true)
 
-        val unavailable = state as LocationResolutionState.Unavailable
-        assertEquals(LocationFailure.TIMEOUT, unavailable.reason)
-        assertEquals(romeFix().coordinates, unavailable.cachedLocation?.coordinates)
+        val ready = state as LocationResolutionState.Ready
+        assertEquals(LocationFreshness.CACHED, ready.freshness)
+        assertEquals(romeFix().coordinates, ready.location.coordinates)
+    }
+
+    @Test
+    fun timeoutUsesRealLastKnownAsCachedReady() = runBlocking {
+        val lastKnown = romeFix().copy(capturedAt = Instant.parse("2026-08-29T09:30:00Z"))
+        val device = FakeDeviceLocationDataSource().apply {
+            delayMillis = 100
+            currentResult = DeviceLocationResult.Success(romeFix())
+            lastKnownResult = DeviceLocationResult.Success(lastKnown, LocationFreshness.CACHED)
+        }
+        val coordinator = coordinator(
+            device = device,
+            preferences = FakeLocationPreferencesRepository(LocationPreference.Device),
+            policy = LocationUpdatePolicy(currentFixTimeout = Duration.ofMillis(10)),
+        )
+
+        val state = coordinator.resolveDevice(LocationPermissionState.Granted, true)
+
+        val ready = state as LocationResolutionState.Ready
+        assertEquals(LocationFreshness.CACHED, ready.freshness)
+        assertEquals(lastKnown.coordinates, ready.location.coordinates)
+        assertEquals(1, device.lastKnownCalls)
     }
 
     @Test
@@ -150,21 +172,21 @@ class LocationCoordinatorTest {
     }
 
     @Test
-    fun providerUnavailableFallsBackOnlyToRealCache() = runBlocking {
+    fun providerUnavailableUsesPersistedRealCacheButNeverInventsOne() = runBlocking {
         val device = FakeDeviceLocationDataSource().apply {
             currentResult = DeviceLocationResult.Unavailable(LocationFailure.NO_PROVIDER)
         }
         val withCache = coordinator(
             device = device,
             preferences = FakeLocationPreferencesRepository(LocationPreference.Device, romeFix()),
-        ).resolveDevice(LocationPermissionState.Granted, true) as LocationResolutionState.Unavailable
+        ).resolveDevice(LocationPermissionState.Granted, true) as LocationResolutionState.Ready
         val withoutCache = coordinator(
             device = device,
             preferences = FakeLocationPreferencesRepository(LocationPreference.Device),
         ).resolveDevice(LocationPermissionState.Granted, true) as LocationResolutionState.Unavailable
 
-        assertEquals(LocationFailure.NO_PROVIDER, withCache.reason)
-        assertEquals(romeFix().coordinates, withCache.cachedLocation?.coordinates)
+        assertEquals(LocationFreshness.CACHED, withCache.freshness)
+        assertEquals(romeFix().coordinates, withCache.location.coordinates)
         assertEquals(LocationFailure.NO_PROVIDER, withoutCache.reason)
         assertNull(withoutCache.cachedLocation)
     }
@@ -343,7 +365,14 @@ class LocationCoordinatorTest {
         var currentResult: DeviceLocationResult = DeviceLocationResult.Unavailable(LocationFailure.NO_PROVIDER)
         var delayMillis: Long = 0
         var currentCalls: Int = 0
+        var lastKnownResult: DeviceLocationResult = DeviceLocationResult.Unavailable(LocationFailure.NO_PROVIDER)
+        var lastKnownCalls: Int = 0
         private val updates = MutableSharedFlow<DeviceLocationFix>()
+
+        override suspend fun getLastKnownLocation(): DeviceLocationResult {
+            lastKnownCalls += 1
+            return lastKnownResult
+        }
 
         override suspend fun getCurrentLocation(): DeviceLocationResult {
             currentCalls += 1

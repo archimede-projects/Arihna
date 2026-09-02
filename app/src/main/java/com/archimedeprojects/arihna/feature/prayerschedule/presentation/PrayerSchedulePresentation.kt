@@ -1,5 +1,6 @@
 package com.archimedeprojects.arihna.feature.prayerschedule.presentation
 
+import com.archimedeprojects.arihna.core.location.model.LocationFreshness
 import com.archimedeprojects.arihna.core.location.model.LocationResolutionState
 import com.archimedeprojects.arihna.core.location.model.LocationSource
 import com.archimedeprojects.arihna.core.location.model.SelectedLocation
@@ -43,6 +44,8 @@ sealed interface PrayerScheduleUiState {
         val settings: PrayerCalculationSettings,
         val today: PrayerDay,
         val nextPrayer: NextPrayerUiState?,
+        val locationFreshness: LocationFreshness? = null,
+        val locationAge: Duration? = null,
     ) : PrayerScheduleUiState
 
     data class CalculationUnavailable(
@@ -76,6 +79,11 @@ internal fun PrayerScheduleState.toUiState(now: Instant): PrayerScheduleUiState 
                 remaining = remainingUntil(nextPrayer.time, now),
             )
         },
+        locationFreshness = schedule.selectedLocation.freshness,
+        locationAge = cachedDeviceLocationAge(
+            selectedLocation = schedule.selectedLocation,
+            now = now,
+        ),
     )
 
     is PrayerScheduleState.CalculationUnavailable -> PrayerScheduleUiState.CalculationUnavailable(
@@ -88,6 +96,16 @@ internal fun PrayerScheduleState.toUiState(now: Instant): PrayerScheduleUiState 
 internal fun remainingUntil(target: Instant, now: Instant): Duration {
     val remaining = Duration.between(now, target)
     return if (remaining.isNegative) Duration.ZERO else remaining
+}
+
+private fun cachedDeviceLocationAge(
+    selectedLocation: SelectedLocation,
+    now: Instant,
+): Duration? {
+    if (selectedLocation.freshness != LocationFreshness.CACHED) return null
+    val source = selectedLocation.source as? LocationSource.Device ?: return null
+    val age = Duration.between(source.capturedAt, now)
+    return if (age.isNegative) Duration.ZERO else age
 }
 
 private fun LocationSource.toUiSource(): PrayerScheduleLocationSourceUi = when (this) {
