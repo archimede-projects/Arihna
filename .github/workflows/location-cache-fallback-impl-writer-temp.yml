@@ -22,8 +22,10 @@ jobs:
         run: |
           set -euo pipefail
           cp .github/scripts/location-cache-fallback-impl-patch.py /tmp/location-cache-fallback-impl-patch.py
+          cp .github/scripts/location-cache-fallback-impl-postfix.py /tmp/location-cache-fallback-impl-postfix.py
           git checkout --detach cde5eb3d60fe482c05dfa74315d99b8e55372a5b
           python3 /tmp/location-cache-fallback-impl-patch.py
+          python3 /tmp/location-cache-fallback-impl-postfix.py
           git diff --check
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
