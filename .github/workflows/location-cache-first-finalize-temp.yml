@@ -27,4 +27,4 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -m 'fix(location): make foreground restore cache-first'
-          git push origin HEAD:fix-location-cache-first-reentry-final
+          git push origin HEAD:refs/heads/fix-location-cache-first-reentry-final
