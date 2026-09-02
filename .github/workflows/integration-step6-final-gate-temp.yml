@@ -1,0 +1,179 @@
+name: Prayer Location Integration STEP 6 exact-SHA gate
+
+on:
+  push:
+    branches:
+      - integration-step6-final-gate-temp
+    paths:
+      - .github/workflows/integration-step6-final-gate-temp.yml
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      TARGET_SHA: edc97468d209d2a19452ec6d374e76537b32566d
+      CITY_DB_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
+      MAX_GEONAMES_INCREMENT: '20971520'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: edc97468d209d2a19452ec6d374e76537b32566d
+          fetch-depth: 0
+
+      - name: Verify exact promoted main and integration scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          MAIN_SHA="$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq '.commit.sha')"
+          echo "main=$MAIN_SHA target=$TARGET_SHA"
+          test "$MAIN_SHA" = "$TARGET_SHA"
+          grep -Fq '### 5.3 Prayer Engine + Location integration — MILESTONE OPEN / STEP 5 CLOSED' PROJECT_SPEC.md
+          grep -Fq '**STEP 6 — full regression gate: NOT STARTED.**' PROJECT_SPEC.md
+          grep -Fq 'STEP 6 full Prayer + Location + Integration regression remains **NOT STARTED / NEXT**' PROJECT_SPEC.md
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Verify production policy and integration boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'sourceCompatibility = JavaVersion.VERSION_17' app/build.gradle.kts
+          grep -q 'targetCompatibility = JavaVersion.VERSION_17' app/build.gradle.kts
+          grep -q 'jvmTarget.set(JvmTarget.JVM_17)' app/build.gradle.kts
+          grep -q 'android.permission.ACCESS_COARSE_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.ACCESS_FINE_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.ACCESS_BACKGROUND_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -R -q 'com.google.android.gms.location' app/src/main gradle
+          ! grep -R -q '@Ignore' app/src/test app/src/androidTest
+          grep -q 'Duration.ofSeconds(30)' app/src/main/java/com/archimedeprojects/arihna/core/location/domain/LocationUpdatePolicy.kt
+          grep -q 'Duration.ofMinutes(15)' app/src/main/java/com/archimedeprojects/arihna/core/location/domain/LocationUpdatePolicy.kt
+          grep -q '5_000.0' app/src/main/java/com/archimedeprojects/arihna/core/location/domain/LocationUpdatePolicy.kt
+          grep -q 'Basato su posizione di' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+          grep -q 'Aggiorna posizione' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+          grep -q 'restorePersistedState' app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsViewModel.kt
+          grep -q 'PrayerScheduleRepository' app/src/main/java/com/archimedeprojects/arihna/core/prayer/data/PrayerScheduleRepository.kt
+
+      - name: Restore exact STEP 4 city asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/step4-asset app/src/main/assets/geonames
+          mkdir -p /tmp/step4-asset app/src/main/assets/geonames
+          gh run download 33296099459 \
+            --repo "$GITHUB_REPOSITORY" \
+            --name geonames-step4-runtime-minimal \
+            --dir /tmp/step4-asset
+          DB="$(find /tmp/step4-asset -type f -name cities.db -print -quit)"
+          test -n "$DB"
+          cp "$DB" app/src/main/assets/geonames/cities.db
+          test "$(sha256sum app/src/main/assets/geonames/cities.db | awk '{print $1}')" = "$CITY_DB_SHA256"
+          stat -c 'CITY_DB_BYTES=%s' app/src/main/assets/geonames/cities.db
+
+      - name: Run complete unit regression
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Verify unit reports have zero failures and zero skipped
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          files = list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*.xml'))
+          assert files, 'unit XML reports missing'
+          tests = failures = errors = skipped = 0
+          for f in files:
+              root = ET.parse(f).getroot()
+              tests += int(root.attrib.get('tests', 0))
+              failures += int(root.attrib.get('failures', 0))
+              errors += int(root.attrib.get('errors', 0))
+              skipped += int(root.attrib.get('skipped', 0))
+          print(f'UNIT_SUMMARY tests={tests} failures={failures} errors={errors} skipped={skipped}')
+          assert tests > 0 and failures == 0 and errors == 0 and skipped == 0
+          PY
+
+      - name: Measure final GeoNames APK increment
+        shell: bash
+        run: |
+          set -euo pipefail
+          DB=app/src/main/assets/geonames/cities.db
+          mkdir -p /tmp/apk-measure
+          mv "$DB" /tmp/apk-measure/cities.db
+          ./gradlew clean assembleDebug --stacktrace
+          cp app/build/outputs/apk/debug/app-debug.apk /tmp/apk-measure/baseline.apk
+          mkdir -p "$(dirname "$DB")"
+          mv /tmp/apk-measure/cities.db "$DB"
+          ./gradlew assembleDebug --stacktrace
+          cp app/build/outputs/apk/debug/app-debug.apk /tmp/apk-measure/with-geonames.apk
+          BASE="$(stat -c '%s' /tmp/apk-measure/baseline.apk)"
+          FULL="$(stat -c '%s' /tmp/apk-measure/with-geonames.apk)"
+          INC="$((FULL-BASE))"
+          echo "APK_SIZE_SUMMARY baseline=$BASE full=$FULL increment=$INC threshold=$MAX_GEONAMES_INCREMENT"
+          test "$INC" -ge 0
+          test "$INC" -le "$MAX_GEONAMES_INCREMENT"
+          test "$(sha256sum "$DB" | awk '{print $1}')" = "$CITY_DB_SHA256"
+
+      - name: Run complete Android 9 API28 connected regression
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 28
+          arch: x86_64
+          target: default
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
+
+      - name: Verify API28 zero skipped and Prayer Location Integration coverage
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          roots = [Path('app/build/outputs/androidTest-results/connected'), Path('app/build/outputs/androidTest-results/connected/debug')]
+          files=[]
+          for r in roots:
+              if r.exists(): files.extend(r.rglob('*.xml'))
+          files=sorted(set(files))
+          assert files, 'connected AndroidTest XML reports missing'
+          tests=failures=errors=skipped=0
+          prayer=location=home=0
+          seen=set()
+          for f in files:
+              try: root=ET.parse(f).getroot()
+              except ET.ParseError: continue
+              suites=[root] if root.tag=='testsuite' else root.findall('.//testsuite')
+              for suite in suites:
+                  key=(str(f), suite.attrib.get('name'))
+                  if key in seen: continue
+                  seen.add(key)
+                  tests += int(suite.attrib.get('tests',0)); failures += int(suite.attrib.get('failures',0)); errors += int(suite.attrib.get('errors',0)); skipped += int(suite.attrib.get('skipped',0))
+              for case in root.findall('.//testcase'):
+                  hay=(case.attrib.get('classname','')+' '+case.attrib.get('name','')).lower()
+                  prayer += int('prayer' in hay)
+                  location += int('location' in hay)
+                  home += int('home' in hay)
+          print(f'API28_SUMMARY tests={tests} failures={failures} errors={errors} skipped={skipped} prayerCases={prayer} locationCases={location} homeCases={home}')
+          assert tests > 0 and failures == 0 and errors == 0 and skipped == 0
+          assert prayer > 0, 'Prayer regression missing'
+          assert location > 0, 'Location regression missing'
+          assert home > 0, 'Home/integration regression missing'
+          PY
