@@ -40,13 +40,17 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$TARGET_SHA"
-          test "$(git rev-parse HEAD^1)" = "$SPEC_SHA"
-          test "$(git rev-parse HEAD^2)" = "$DECISION_SHA"
-          test "$(git rev-parse HEAD^3)" = "$PRODUCTION_BASE_SHA"
+          TARGET_PARENT="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_SHA" --jq '.parents[0].sha')"
+          SPEC_PARENT="$(gh api "repos/$GITHUB_REPOSITORY/commits/$SPEC_SHA" --jq '.parents[0].sha')"
+          DECISION_PARENT="$(gh api "repos/$GITHUB_REPOSITORY/commits/$DECISION_SHA" --jq '.parents[0].sha')"
+          echo "Ancestry: $TARGET_SHA -> $TARGET_PARENT -> $SPEC_PARENT -> $DECISION_PARENT"
+          test "$TARGET_PARENT" = "$SPEC_SHA"
+          test "$SPEC_PARENT" = "$DECISION_SHA"
+          test "$DECISION_PARENT" = "$PRODUCTION_BASE_SHA"
           MAIN_SHA="$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq '.commit.sha')"
           echo "Current main: $MAIN_SHA"
           test "$MAIN_SHA" = "$PRODUCTION_BASE_SHA"
-          JOB="$(gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$VERIFIED_GATE_JOB" --jq '[(.id|tostring), .run_id, .conclusion] | join(" ")')"
+          JOB="$(gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$VERIFIED_GATE_JOB" --jq '[(.id|tostring), (.run_id|tostring), .conclusion] | join(" ")')"
           echo "Verified gate job: $JOB"
           test "$JOB" = "$VERIFIED_GATE_JOB $VERIFIED_GATE_RUN success"
           git fetch origin location-cache-fallback-final-gate-temp
