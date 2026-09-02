@@ -694,11 +694,216 @@ STEP 2 Prayer settings persistence, STEP 3 schedule orchestration, STEP 4 presen
 - Location technology at closure remains Android framework `LocationManager`, COARSE-only, no background permission and no Google Play Services Location. A possible future migration to Google Play Services `FusedLocationProviderClient` is explicitly **DEFERRED / PENDING** and is not decided by this closure.
 - STEP 7 is documentation-only. No new product milestone is authorized or started; development stops here under the one-objective rule until the next objective is explicitly selected.
 
-### 5.4 Qibla
+### 5.4 Qibla — MILESTONE OPEN / STEP 1 SPEC-FIRST CLOSED
 
-- Determine Qibla bearing from current coordinates to the Kaaba.
-- Use Android sensors for live compass direction and surface calibration/accuracy gracefully.
-- Remain calculable offline once coordinates are available.
+The Qibla milestone consumes the already-closed Location contract and must not reopen location acquisition, prayer calculation, persistence, or provider policy. Its purpose is to calculate the great-circle initial bearing from the active `SelectedLocation` to the Kaaba and, when suitable Android orientation sensors exist, present the live device direction relative to that true-north Qibla bearing. Once a valid `SelectedLocation` exists, Qibla calculation and compass operation require no network service.
+
+#### Authoritative target and bearing mathematics
+
+- Arihna uses a fixed Kaaba target, not the centroid of Makkah or an online geocoder result.
+- Approved target coordinates: **latitude `21.42251267`, longitude `39.82619741`**, the GeoNames Kaaba shrine record reviewed on 2026-09-02. These coordinates are frozen as an Arihna constant for this milestone; changing them later requires a separate spec decision and regression update.
+- `QiblaBearingCalculator` is a pure Arihna-owned boundary taking origin coordinates and returning the initial great-circle bearing from **true north**, normalized to `[0°, 360°)`.
+- Required formula, with all angular inputs converted to radians: `atan2(sin(Δλ) * cos(φ2), cos(φ1) * sin(φ2) - sin(φ1) * cos(φ2) * cos(Δλ))`, followed by degree conversion and normalization. `φ1/λ1` are the selected origin and `φ2/λ2` are the fixed Kaaba coordinates.
+- Reject non-finite/out-of-range coordinates through a controlled result. If origin and target are numerically coincident, bearing is undefined and must not be fabricated as `0°`; return a controlled `AT_KAABA_OR_COINCIDENT` result.
+- No Adhan/prayer library, Android Location API, network lookup, timezone, clock, magnetic model, or sensor may enter the pure bearing calculator.
+
+Reference golden bearings for the frozen target, used as test fixtures with an appropriate floating-point tolerance rather than string equality:
+
+- Rome `41.9028, 12.4964` → about **123.276°**.
+- New York `40.7128, -74.0060` → about **58.482°**.
+- Sydney `-33.8688, 151.2093` → about **277.500°**.
+- London `51.5074, -0.1278` → about **118.987°**.
+- Jakarta `-6.2088, 106.8456` → about **295.152°**.
+
+#### North reference and magnetic declination
+
+- Qibla bearing is always defined against **true/geographic north**.
+- Android orientation sources may be **direct true-north** or **magnetic-north** sources. Arihna must keep the reference explicit and must never apply magnetic declination twice.
+- On API 33+ (`Build.VERSION_CODES.TIRAMISU` and newer), prefer `Sensor.TYPE_HEADING` when the runtime actually exposes it. Android defines this sensor as the direction the device is pointing relative to **true north**; `values[0]` is heading in degrees and `values[1]` is heading accuracy in degrees. This path uses the reported true heading directly and does **not** apply `GeomagneticField` correction.
+- For fallback sensor paths whose heading is magnetic, calculate declination with Android `android.hardware.GeomagneticField` using the exact active `SelectedLocation.coordinates`, the injected/testable current time, and altitude `0 m` because altitude is not part of Arihna's closed Location contract. The `0 m` value is an explicit geomagnetic-model approximation only; it is not a fabricated user location and must not propagate into Location or Prayer state.
+- Android defines positive declination as magnetic north rotated east of true north. Arihna therefore derives `trueHeading = normalize(magneticHeading + declination)`.
+- The platform geomagnetic model may vary by Android/tzdata generation and is suitable here for consumer compass guidance, not surveying/navigation claims. Do not bundle a second magnetic-field model in STEP 1-5 unless same-device evidence shows the platform model is inadequate.
+- Recompute declination when the effective `SelectedLocation` changes and when a Qibla session starts with a materially different clock date/time; ordinary high-frequency sensor events must not reconstruct `GeomagneticField` on every callback.
+
+#### Android orientation sensor policy
+
+Preferred foreground sensor hierarchy:
+
+1. **API 33+ `Sensor.TYPE_HEADING`**, when actually available — preferred because Android reports heading directly relative to true north and includes a degree accuracy estimate. Runtime capability detection remains mandatory; API level alone does not guarantee that the physical sensor exists.
+2. `Sensor.TYPE_ROTATION_VECTOR` — preferred magnetic-reference fallback. Android documents its earth reference as approximately east / magnetic north / sky and exposes estimated heading accuracy in `SensorEvent.values[4]` when available; convert to true north with the approved declination path.
+3. `Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR` — controlled fallback when the normal rotation vector is unavailable. It is lower-power/lower-accuracy and does not use the gyroscope, but retains a geomagnetic north reference; convert to true north with declination.
+4. Calibrated `TYPE_ACCELEROMETER + TYPE_MAGNETIC_FIELD` with `SensorManager.getRotationMatrix()`, `remapCoordinateSystem()` and `getOrientation()` — final compatibility fallback when no heading/rotation-vector path exists.
+
+Explicit exclusions:
+
+- Do not use deprecated `Sensor.TYPE_ORIENTATION`.
+- `TYPE_HEADING` was added in API 33; the implementation must be SDK-guarded and capability-checked so API28 remains fully supported through the documented fallback hierarchy.
+- Do not use `TYPE_GAME_ROTATION_VECTOR` for Qibla heading because Android documents that it deliberately does not use the geomagnetic field and its north reference may drift.
+- Do not require a gyroscope, magnetometer, accelerometer, or rotation-vector feature in the manifest in a way that prevents installation on otherwise supported devices. Runtime capability detection is authoritative.
+- No sensor runtime permission, `BODY_SENSORS`, new Location permission, `ACCESS_FINE_LOCATION`, background Location, foreground service, or Google Play Services Location dependency is authorized by Qibla.
+
+#### Screen orientation and heading derivation
+
+- For `TYPE_HEADING`, consume the direct true-north heading/accuracy values without converting them through a magnetic rotation matrix. For rotation-vector and accelerometer+magnetometer fallbacks, derive azimuth through the appropriate rotation matrix and `SensorManager.getOrientation()`.
+- Android sensor coordinates are based on the device's natural orientation. Any sensor value mapped to an on-screen compass must account for the current display rotation; use `getRotation()` / `remapCoordinateSystem()` where applicable so portrait/landscape changes do not silently rotate the compass reference.
+- Normalize magnetic and true headings to `[0°, 360°)`.
+- The live relative Qibla direction shown by the compass is `normalize(qiblaBearingTrue - deviceHeadingTrue)`. A relative direction near `0°` means the top of the displayed device/compass is pointing toward Qibla.
+- Keep three concepts distinct in domain/presentation models: `qiblaBearingTrue`, `deviceHeadingTrue`, and `relativeQiblaDirection`. Do not overwrite one with another or infer the Qibla bearing from sensor state.
+- Sensor smoothing is presentation-only. It must use circular/shortest-angle interpolation across the `0°/360°` boundary, never a naive arithmetic average that can jump through `180°`. The exact smoothing coefficient remains a real-device tuning value for Galaxy S25 validation; it is not frozen in STEP 1 because no same-device motion evidence exists yet. Raw calculated bearing remains unchanged and testable.
+
+#### Accuracy, calibration and degraded capability
+
+Arihna-owned heading quality is derived transparently from Android sensor information rather than invented precision:
+
+```text
+HeadingQuality
+- HIGH
+- MEDIUM
+- LOW
+- UNRELIABLE
+- UNKNOWN
+```
+
+- Mirror Android `SENSOR_STATUS_ACCURACY_HIGH/MEDIUM/LOW/UNRELIABLE` where that status is provided.
+- For `TYPE_HEADING`, retain Android's direct `values[1]` accuracy in degrees. For `TYPE_ROTATION_VECTOR`, retain `values[4]` estimated heading accuracy in radians/degrees when available (`-1` means unavailable). Numeric accuracy may be displayed as secondary guidance but must not be converted into a fabricated platform accuracy category.
+- LOW or UNRELIABLE quality must surface a calm calibration/interference message. Arihna must not claim that the device is precisely aligned with Qibla while the platform reports unreliable orientation.
+- HIGH/MEDIUM may show normal live compass guidance. UNKNOWN remains usable with an honest lack-of-accuracy indicator rather than being silently labeled good.
+- Strong magnetic fields, metal cases, speakers, vehicles and other interference may make orientation inaccurate; the UI should advise moving away from interference and recalibrating/moving the phone when Android reports poor accuracy.
+- No fixed user-facing degree threshold for "aligned" is approved in STEP 1. If a future haptic/success alignment cue is desired, its tolerance must be separately specified and validated on hardware rather than guessed now.
+
+#### Location integration contract
+
+- Qibla consumes only the already-authoritative `LocationResolutionState` / `SelectedLocation`. It never calls `LocationManager`, `CityRepository`, DataStore, provider callbacks, or a new geocoder directly.
+- `LocationResolutionState.Ready` with either Device or Manual source is sufficient to calculate the Qibla bearing from the exact `SelectedLocation.coordinates`.
+- A valid `Ready(CACHED)` Device location remains valid for Qibla and must be labeled consistently with existing Location freshness semantics; Qibla must not block on or trigger a fresh location request merely to calculate direction.
+- Manual city works identically for mathematical bearing. Sensor heading still describes the physical phone's orientation at the user's actual device position; therefore when the active location source is Manual and represents a remote city, Arihna may show the **numeric/static bearing for that selected city**, but must not present the live physical compass arrow as if the phone were physically located in the remote city. Live sensor-to-Qibla alignment requires a Device-selected location representing the device position.
+- Non-Ready Location states produce a controlled `NoLocation` Qibla state and no bearing. Reuse existing navigation/CTA toward Location settings; never substitute Rome, Makkah, device timezone coordinates, last UI city, or any default.
+- Switching Device↔Manual or changing accepted `SelectedLocation` immediately invalidates/recalculates the bearing and relevant declination through latest-state semantics; stale sensor/location combinations must not overwrite the newer state.
+
+#### Lifecycle and power
+
+- Bearing calculation itself is pure and may remain available whenever a valid selected location exists.
+- Register orientation sensors only while the Qibla screen is visibly active in foreground (`STARTED`/equivalent) and unregister promptly when it leaves the foreground or screen.
+- Use a UI-suitable sensor sampling rate (`SENSOR_DELAY_UI` or an explicitly measured equivalent); do not request fastest/raw sampling without evidence.
+- No background compass monitoring, background service, wake lock, persistent notification, WorkManager loop, or sensor batching milestone is authorized.
+
+#### Domain / presentation boundaries
+
+Approved conceptual boundaries:
+
+```text
+interface QiblaBearingCalculator {
+    fun calculate(origin: Coordinates): QiblaBearingResult
+}
+
+QiblaBearingResult
+- Success(bearingTrueDegrees)
+- InvalidCoordinates
+- AtKaabaOrCoincident
+
+interface DeviceHeadingDataSource {
+    fun observeHeading(): Flow<DeviceHeadingState>
+}
+
+DeviceHeadingState
+- Unavailable(reason)
+- Reading(
+    trueHeadingDegrees,
+    quality,
+    estimatedAccuracyDegrees?,
+    source,
+    magneticHeadingDegrees?,
+    declinationDegrees?
+  )
+
+HeadingSource
+- TRUE_HEADING_SENSOR
+- ROTATION_VECTOR
+- GEOMAGNETIC_ROTATION_VECTOR
+- ACCELEROMETER_MAGNETIC_FIELD
+
+QiblaUiState
+- NoLocation(...)
+- StaticBearing(...)
+- LiveCompass(...)
+- SensorUnavailable(...)
+```
+
+- Exact naming may change during implementation if semantics remain identical; do not merge bearing math, Android sensors, Location acquisition and Compose rendering into one class.
+- Inject testable time where `GeomagneticField` construction depends on time.
+- Sensor datasource is Android/platform code. Bearing calculator and relative-angle math remain pure JVM-testable code.
+
+#### Qibla UI contract
+
+Qibla uses the previously approved **Layout 1** visual direction. The dominant element is the large compass, not raw coordinates or sensor diagnostics.
+
+When live compass is valid:
+
+- large compass/dial with clear Qibla/Kaaba marker;
+- selected readable location as secondary context;
+- numeric true-north bearing such as `Qibla 123°`;
+- live directional rotation toward Qibla;
+- secondary accuracy/calibration state.
+
+When only static bearing is appropriate (for example Manual remote city or no usable orientation sensor):
+
+- still show the selected location and numeric true-north Qibla bearing;
+- explicitly state that live compass guidance is unavailable/not applicable;
+- never animate a sensor arrow in a way that implies physical alignment for a remote Manual location.
+
+The definitive visual styling remains the approved calm/spacious Arihna Green `#0F5132`, Gold `#D4AF37`, Off-white `#FAFAF6` direction. STEP 1 authorizes no Compose implementation yet.
+
+#### STEP 1 test contract
+
+Pure/JVM tests to be implemented before later closure must cover at least:
+
+- frozen Kaaba constant;
+- golden bearings for Rome, New York, Sydney, London and Jakarta;
+- normalization around `0°/360°`;
+- invalid latitude/longitude/non-finite input;
+- coincident Kaaba input → controlled undefined result;
+- relative direction math including wrap-around, e.g. `bearing=5°, heading=355° → 10°`;
+- direct `TYPE_HEADING` true-north input is not declination-corrected a second time;
+- magnetic-to-true fallback correction with positive and negative declination;
+- sensor-source fallback selection is deterministic and API33 `TYPE_HEADING` absence falls through safely;
+- Device Ready and CACHED Ready use exact accepted coordinates without a fresh-location request;
+- Manual location produces static bearing and does not claim live physical alignment;
+- all non-Ready Location states → no bearing / zero sensor-location fabrication;
+- latest Device↔Manual/location change cannot expose stale combined state;
+- circular smoothing crosses north by the shortest path once smoothing is implemented.
+
+Android instrumentation / API28 coverage must verify where feasible:
+
+- sensor capability discovery does not crash when preferred sensors are absent;
+- sensor registration/unregistration follows foreground screen lifecycle with zero ignored/skipped Qibla tests at final gate;
+- fallback selection order is deterministic, with API28 exercising the no-`TYPE_HEADING` compatibility path;
+- no deprecated orientation sensor path;
+- existing manifest remains COARSE-only with no FINE/BACKGROUND/BODY_SENSORS additions;
+- existing Prayer + Location + Home regressions remain green.
+
+Physical Galaxy S25 closure must verify the actual live compass:
+
+- device-source Qibla screen opens without requesting new permissions;
+- validation records which heading source the S25 actually exposes/selects, preferring `TYPE_HEADING` when available;
+- compass responds smoothly to real rotation and crosses north without a 360° jump;
+- displayed bearing remains stable while the phone rotates;
+- poor sensor accuracy/calibration state is surfaced honestly when reproducible;
+- leaving/re-entering Qibla does not leave duplicate sensor subscriptions;
+- comparison against a trusted independent compass/Qibla reference is directionally consistent within ordinary consumer-sensor limitations. Do not freeze a numerical acceptance tolerance until the first diagnostic S25 readings establish realistic sensor variance.
+
+#### Seven-step Qibla implementation sequence
+
+1. **STEP 1 — spec-first architecture: CLOSED by this documentation step.** Freeze target, true-north bearing formula, sensor hierarchy, declination policy, Location semantics, lifecycle, UI states and test contract before code.
+2. **STEP 2 — pure bearing engine: NOT STARTED.** Implement Kaaba constant, pure `QiblaBearingCalculator`, angle utilities and JVM golden/error tests only. No Android sensors or Compose.
+3. **STEP 3 — Android heading/sensor layer: NOT STARTED.** Implement foreground sensor capability/heading datasource, declination correction, screen-axis remap, accuracy and lifecycle with focused tests. No final UI.
+4. **STEP 4 — Location/Qibla orchestration: NOT STARTED.** Combine closed Location state with pure bearing and heading state under the Manual-vs-Device live-compass contract. No Location provider changes.
+5. **STEP 5 — Qibla Compose UI: NOT STARTED.** Implement the approved large-compass Layout 1 states and calibration/degraded UI without reopening underlying algorithms.
+6. **STEP 6 — full regression + API28 + Galaxy S25 validation: NOT STARTED.** Run unfiltered unit/build/API28 Prayer+Location+Integration+Qibla gates and real-device compass validation.
+7. **STEP 7 — documentation-only milestone closure: NOT STARTED.** Record exact technical SHA/run/device evidence after promotion and stop.
+
+Evidence basis reviewed for STEP 1 on 2026-09-02: Android Developers documentation for `Sensor`, `SensorEvent`, `SensorManager`, sensor coordinate/display remapping, `TYPE_HEADING`, rotation-vector/position sensors and `GeomagneticField`; GeoNames Kaaba shrine record for the frozen target coordinates. Android documents `TYPE_HEADING` (API 33+) as direct true-north heading with degree accuracy, rotation-vector orientation as magnetic-north referenced, `TYPE_GAME_ROTATION_VECTOR` as omitting geomagnetic north and potentially drifting, and `GeomagneticField.getDeclination()` as the magnetic-to-true-north declination estimate.
+
+STEP 2 is **NOT STARTED** and requires separate authorization after this spec-only commit is reviewed/promoted. No Qibla production code, sensor registration, UI, dependency or permission change is authorized by STEP 1.
 
 ### 5.5 Alarms
 
