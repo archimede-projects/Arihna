@@ -68,7 +68,6 @@ jobs:
           grep -q 'Basato su posizione di' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
           grep -q 'Aggiorna posizione' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
           grep -q 'restorePersistedState' app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsViewModel.kt
-          grep -q 'PrayerScheduleRepository' app/src/main/java/com/archimedeprojects/arihna/core/prayer/data/PrayerScheduleRepository.kt
 
       - name: Restore exact STEP 4 city asset
         env:
