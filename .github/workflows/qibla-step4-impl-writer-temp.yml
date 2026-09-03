@@ -18,12 +18,12 @@ jobs:
           cp .github/scripts/qibla_step4_implement.py /tmp/qibla_step4_implement.py
           git checkout -B qibla-step4-orchestration e10b39c613a25c42cc28dfcb1ee855d60998132d
           python3 /tmp/qibla_step4_implement.py
-          git diff --check
-          test "$(git diff --name-only | wc -l)" -eq 4
-          git diff --name-only | grep -Ev '^app/src/(main|test)/java/com/archimedeprojects/arihna/feature/qibla/domain/' && exit 1 || true
-          ! git diff --name-only | grep -qE 'AndroidManifest|build.gradle|AppContainer|ArihnaApp|ArihnaNavHost|core/location|core/prayer'
+          git add app/src/main/java/com/archimedeprojects/arihna/feature/qibla/domain app/src/test/java/com/archimedeprojects/arihna/feature/qibla/domain
+          git diff --cached --check
+          test "$(git diff --cached --name-only | wc -l)" -eq 4
+          ! git diff --cached --name-only | grep -Ev '^app/src/(main|test)/java/com/archimedeprojects/arihna/feature/qibla/domain/'
+          ! git diff --cached --name-only | grep -qE 'AndroidManifest|build.gradle|AppContainer|ArihnaApp|ArihnaNavHost|core/location|core/prayer'
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add app/src/main/java/com/archimedeprojects/arihna/feature/qibla/domain app/src/test/java/com/archimedeprojects/arihna/feature/qibla/domain
           git commit -m 'feat(qibla): orchestrate location and heading state'
           git push --force-with-lease origin HEAD:qibla-step4-orchestration
