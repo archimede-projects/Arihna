@@ -1,0 +1,29 @@
+name: Qibla STEP 4 spec writer
+on:
+  push:
+    branches: [qibla-step4-spec-writer-temp]
+permissions:
+  contents: write
+jobs:
+  write:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build clean spec commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .github/scripts/qibla_step4_authorize.py /tmp/qibla_step4_authorize.py
+          git checkout -B qibla-step4-spec 8ce97f19d2944ec2705f9f830a58ed3170a35fd0
+          python3 /tmp/qibla_step4_authorize.py
+          git diff --check
+          test "$(git diff --name-only)" = "PROJECT_SPEC.md"
+          grep -Fq 'STEP 4 — Location/Qibla orchestration: AUTHORIZED / IN PROGRESS.' PROJECT_SPEC.md
+          grep -Fq 'STEP 5 — Qibla Compose UI: NOT STARTED.' PROJECT_SPEC.md
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add PROJECT_SPEC.md
+          git commit -m 'docs(qibla): authorize step4 orchestration'
+          git push --force-with-lease origin HEAD:qibla-step4-spec
