@@ -107,7 +107,7 @@ jobs:
           arch: x86_64
           target: default
           profile: pixel_2
-          disable-animations: true
+          disable-animations: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
       - name: Verify API28 reports and Qibla UI coverage
