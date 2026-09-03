@@ -1,0 +1,49 @@
+name: Qibla STEP 5 spec writer
+on:
+  push:
+    branches: [qibla-step5-spec-writer-temp]
+    paths: [.github/workflows/qibla-step5-spec-writer-temp.yml]
+permissions:
+  contents: write
+jobs:
+  write:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 947d7b41d0d8f32403133653d08852e56ec6cf6e
+          fetch-depth: 0
+      - name: Close STEP 4 and authorize STEP 5
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('PROJECT_SPEC.md')
+          s=p.read_text()
+          old4='4. **STEP 4 — Location/Qibla orchestration: AUTHORIZED / IN PROGRESS.** Introduce an Arihna-owned `QiblaRepository`/equivalent orchestration boundary that consumes only `Flow<LocationResolutionState>`, the closed `QiblaBearingCalculator`, and the closed `DeviceHeadingDataSource`. Use cancellation-aware latest-location semantics (`flatMapLatest`/equivalent) so Device↔Manual and accepted location changes cancel obsolete heading collection and stale sensor/location combinations cannot overwrite the current state. For every valid `LocationResolutionState.Ready`, calculate the bearing from the exact `SelectedLocation.coordinates`; a valid Device `CACHED` location is immediately usable and STEP 4 must not call `LocationCoordinator`, `LocationManager`, request a fresh fix, inspect provider callbacks, DataStore or `CityRepository`. Manual source always yields a static numeric bearing and must make zero heading-datasource subscriptions. Device source may start heading observation with the same accepted coordinates and expose an explicit starting/live/sensor-unavailable state while preserving the calculated static bearing. A heading reading produces `relativeQiblaDirection = normalize(qiblaBearingTrue - deviceHeadingTrue)` and carries through `HeadingQuality`, optional numeric accuracy and `HeadingSource` without fabricating precision. Heading `Unavailable` produces a controlled sensor-unavailable state while keeping the valid numeric bearing. Invalid/coincident bearing results remain controlled and never become `0°`. Non-Ready or invalid Location states produce `NoLocation` and make zero bearing-to-live assumptions. STEP 4 is domain/orchestration only: no Compose, navigation, AppContainer wiring, new permission, dependency, Location behavior, Prayer behavior or sensor algorithm change is authorized. Pure/JVM contract tests must cover every non-Ready state, exact Device/Device-CACHED/Manual coordinate forwarding, Manual zero sensor subscription, Device starting/live/unavailable transitions, relative-angle wrap-around, invalid/coincident bearing handling, Device↔Manual and location replacement cancellation with stale-heading suppression, and proof that no Qibla operation triggers Location refresh/acquisition. Full unfiltered unit regression, `assembleDebug`, Android 9/API28 connected regression and existing policy gates are required before closure. STEP 5 remains **NOT STARTED**.'
+          new4='4. **STEP 4 — Location/Qibla orchestration: CLOSED.** Clean technical commit `947d7b41d0d8f32403133653d08852e56ec6cf6e`, built directly above STEP 4 authorization commit `e10b39c613a25c42cc28dfcb1ee855d60998132d`, adds only the Arihna-owned Qibla orchestration boundary/models and focused JVM tests. Definitive exact-SHA workflow run `33703960509` / job `100488988440` passed **126/126 unit tests** (0 failures/errors/skipped; 28 Qibla cases including 9 orchestration cases), `assembleDebug`, and Android 9/API28 connected regression with **42/42 tests**, 0 failures/errors/skipped. The gate restored the frozen GeoNames asset and preserved COARSE-only/no-FINE/no-BACKGROUND/no-BODY_SENSORS/no-Play-Services/no-ignored-test policy. Manual source makes zero heading subscriptions; Device including valid CACHED uses exact accepted coordinates, preserves static bearing on sensor failure, and cancellation-aware latest-location semantics suppress stale heading/location combinations. No Compose/navigation/AppContainer wiring, Location acquisition behavior, Prayer behavior, permissions, dependencies or sensor algorithms changed.'
+          old5='5. **STEP 5 — Qibla Compose UI: NOT STARTED.** Implement the approved large-compass Layout 1 states and calibration/degraded UI without reopening underlying algorithms.'
+          new5='''5. **STEP 5 — Qibla Compose UI: AUTHORIZED / IN PROGRESS.** Replace only the existing Qibla placeholder with the approved functional Layout 1 screen and composition-root wiring to the already-closed `QiblaRepository`; do not reopen bearing math, heading algorithms, Location acquisition, Prayer behavior, persistence, permissions or dependencies. The composition root may construct `DefaultQiblaRepository` from the existing authoritative Location presentation flow (`LocationResolutionState`), `QiblaBearingCalculator`, and `AndroidDeviceHeadingDataSource`. Qibla collection must be lifecycle-bound to the Qibla destination using `STARTED`/equivalent semantics so leaving the screen cancels upstream heading collection and the already-closed Android datasource unregisters promptly; no app-wide/background compass subscription is permitted.
+
+STEP 5 UI states are fixed as follows: `NoLocation` shows a clear location-required message and CTA to the existing Location settings path with no bearing; `BearingUnavailable` shows a controlled explanatory state; `StaticBearing` (including Manual source) shows selected readable location, numeric true-north bearing and an explicit statement that live physical compass guidance is not applicable, with no animated live arrow; `LiveCompassStarting` shows the valid static bearing plus a calm sensor-starting state; `LiveCompass` renders the dominant large compass/dial and Qibla/Kaaba direction from the repository-provided relative direction, selected location, numeric bearing, quality/calibration guidance, optional numeric accuracy and heading source as secondary diagnostic context; `SensorUnavailable` preserves location + numeric bearing and clearly states that live guidance is unavailable. Device CACHED freshness remains visible/consistent rather than being silently presented as fresh. Do not expose raw coordinates as primary UI and do not create an alignment-success tolerance, haptic cue or fabricated precision.
+
+Compass motion smoothing, if applied, is presentation-only and must cross `0°/360°` by the shortest circular path. A small pure helper may unwrap consecutive relative angles for Compose animation; it must not alter the repository bearing/heading values. No fixed alignment threshold is introduced. Styling uses the existing Arihna theme with Green `#0F5132`, Gold `#D4AF37`, Off-white `#FAFAF6`, a large central dial, clear north/cardinal reference and Qibla marker.
+
+STEP 5 verification must add focused Compose/API28 coverage for at least NoLocation + settings CTA, Manual/static bearing with no live claim, LiveCompass rendering, degraded/unavailable sensor state, and absence of fabricated values. Pure/JVM coverage must verify shortest-path north-wrap helper if introduced. The exact technical candidate must pass unfiltered `testDebugUnitTest`, `assembleDebug`, Android 9/API28 `connectedDebugAndroidTest`, frozen GeoNames integrity and existing permission/dependency/no-ignored-test gates before promotion. After a green STEP 5 candidate is promoted, STEP 6 may package that exact runtime code as a prerelease APK for physical Galaxy S25 compass validation; STEP 6 is not closed until the user performs that hardware test.'''
+          assert old4 in s
+          assert old5 in s
+          s=s.replace(old4,new4,1).replace(old5,new5,1)
+          p.write_text(s)
+          PY
+          test "$(git diff --name-only | wc -l)" -eq 1
+          test "$(git diff --name-only)" = PROJECT_SPEC.md
+          grep -Fq 'STEP 4 — Location/Qibla orchestration: CLOSED.' PROJECT_SPEC.md
+          grep -Fq 'STEP 5 — Qibla Compose UI: AUTHORIZED / IN PROGRESS.' PROJECT_SPEC.md
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c qibla-step5-spec
+          git add PROJECT_SPEC.md
+          git commit -m 'docs(qibla): close step4 and authorize step5'
+          test "$(git diff-tree --no-commit-id --name-only -r HEAD)" = PROJECT_SPEC.md
+          git push origin HEAD:refs/heads/qibla-step5-spec
