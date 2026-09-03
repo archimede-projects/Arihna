@@ -1,41 +1,38 @@
-name: Qibla STEP 6 spec writer
+name: qibla-step6-spec-writer
 on:
   push:
-    branches: [qibla-step6-spec-writer-temp]
-    paths: [.github/workflows/qibla-step6-spec-writer-temp.yml]
+    branches:
+      - qibla-step6-spec-writer-temp
 permissions:
   contents: write
 jobs:
-  write-spec:
+  writer:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Write clean STEP 5 closure and STEP 6 authorization
+      - name: update-spec
         shell: bash
         run: |
           set -euo pipefail
-          RUNTIME_SHA=73ec85f3c40b5dced87eef2e16dc41eaca80173d
-          TARGET_BRANCH=qibla-step6-s25-validation-spec
-          git fetch origin "$TARGET_BRANCH"
-          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
-          test "$(git rev-parse HEAD)" = "$RUNTIME_SHA"
-          python3 - <<'PY'
+          git fetch origin qibla-step6-s25-validation-spec
+          git checkout -B qibla-step6-s25-validation-spec origin/qibla-step6-s25-validation-spec
+          test "$(git rev-parse HEAD)" = "73ec85f3c40b5dced87eef2e16dc41eaca80173d"
+          python3 <<'PY'
           from pathlib import Path
-          p = Path('PROJECT_SPEC.md')
+          p = Path("PROJECT_SPEC.md")
           s = p.read_text()
-          old5 = '5. **STEP 5 — Qibla Compose UI: AUTHORIZED / IN PROGRESS.**'
-          new5 = '5. **STEP 5 — Qibla Compose UI: CLOSED.**'
+          old5 = "5. **STEP 5 — Qibla Compose UI: AUTHORIZED / IN PROGRESS.**"
           assert s.count(old5) == 1
-          s = s.replace(old5, new5, 1)
-          old6 = '6. **STEP 6 — full regression + API28 + Galaxy S25 validation: NOT STARTED.** Run unfiltered unit/build/API28 Prayer+Location+Integration+Qibla gates and real-device compass validation.'
-          new6 = '6. **STEP 6 — full regression + API28 + Galaxy S25 validation: AUTHORIZED / IN PROGRESS.** The automated full-regression portion is satisfied by the definitive exact-SHA STEP 5 gate on runtime `73ec85f3c40b5dced87eef2e16dc41eaca80173d`: unfiltered unit/build/API28 Prayer+Location+Integration+Qibla gates are green. STEP 6 may now package **that exact runtime SHA only** as a prerelease APK using Arihna\'s persistent debug signing identity and perform the required real Galaxy S25 compass validation. No runtime, Prayer, Location, sensor-algorithm, permission, dependency or persistence change is authorized in STEP 6; only packaging/verification metadata and the physical-device test are in scope. STEP 6 remains open until the user completes the hardware test.'
+          s = s.replace(old5, "5. **STEP 5 — Qibla Compose UI: CLOSED.**", 1)
+          old6 = "6. **STEP 6 — full regression + API28 + Galaxy S25 validation: NOT STARTED.** Run unfiltered unit/build/API28 Prayer+Location+Integration+Qibla gates and real-device compass validation."
+          new6 = "6. **STEP 6 — full regression + API28 + Galaxy S25 validation: AUTHORIZED / IN PROGRESS.** The automated full-regression portion is satisfied by the definitive exact-SHA STEP 5 gate on runtime `73ec85f3c40b5dced87eef2e16dc41eaca80173d`: unfiltered unit/build/API28 Prayer+Location+Integration+Qibla gates are green. STEP 6 may package **that exact runtime SHA only** as a prerelease APK using Arihna's persistent debug signing identity and perform the required real Galaxy S25 compass validation. No runtime, Prayer, Location, sensor-algorithm, permission, dependency or persistence change is authorized in STEP 6; only packaging/verification metadata and the physical-device test are in scope. STEP 6 remains open until the user completes the hardware test."
           assert s.count(old6) == 1
           s = s.replace(old6, new6, 1)
-          anchor = '7. **STEP 7 — documentation-only milestone closure: NOT STARTED.** Record exact technical SHA/run/device evidence after promotion and stop.\n\n'
+          anchor = "7. **STEP 7 — documentation-only milestone closure: NOT STARTED.** Record exact technical SHA/run/device evidence after promotion and stop.\n\n"
           assert s.count(anchor) == 1
-          evidence = '''#### STEP 5 closure / STEP 6 authorization evidence — 2026-09-03
+          evidence = """#### STEP 5 closure / STEP 6 authorization evidence — 2026-09-03
 
 - Definitive STEP 5 technical runtime: `73ec85f3c40b5dced87eef2e16dc41eaca80173d` (`feat(qibla): implement lifecycle-bound compass ui`), with direct parent STEP 5 authorization commit `bf5d9c6472837f84752c3dafbac2fbfc64f01d2b`.
 - Definitive exact-SHA gate: workflow run `33717262812`, attempt **2**, job `100533758926`, conclusion **success**. The workflow checked out exactly the technical runtime while `main` was still at the authorization spec SHA, then the runtime was promoted to `main` by non-forced fast-forward.
@@ -47,15 +44,13 @@ jobs:
 - An earlier API28 attempt was non-definitive because the emulator/test process was unstable. The independent rerun above completed all **47/47** tests and is the closure evidence.
 - STEP 6 is packaging plus physical Galaxy S25 validation of the exact runtime `73ec85f3c40b5dced87eef2e16dc41eaca80173d`; no new product code is authorized before that hardware result.
 
-'''
+"""
           s = s.replace(anchor, anchor + evidence, 1)
           p.write_text(s)
           PY
-          git diff -- PROJECT_SPEC.md
-          test "$(git diff --name-only | wc -l)" -eq 1
           test "$(git diff --name-only)" = "PROJECT_SPEC.md"
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add PROJECT_SPEC.md
-          git commit -m 'docs(qibla): close step5 and authorize s25 validation'
-          git push origin HEAD:"$TARGET_BRANCH"
+          git commit -m "docs(qibla): close step5 and authorize s25 validation"
+          git push origin HEAD:qibla-step6-s25-validation-spec
