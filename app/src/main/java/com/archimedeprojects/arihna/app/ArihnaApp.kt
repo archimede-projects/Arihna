@@ -15,6 +15,8 @@ import com.archimedeprojects.arihna.core.ui.theme.ArihnaTheme
 import com.archimedeprojects.arihna.feature.prayerschedule.domain.DefaultPrayerScheduleRepository
 import com.archimedeprojects.arihna.feature.prayerschedule.presentation.OneSecondPrayerScheduleTicker
 import com.archimedeprojects.arihna.feature.prayerschedule.presentation.PrayerScheduleViewModel
+import com.archimedeprojects.arihna.feature.qibla.domain.DefaultQiblaRepository
+import com.archimedeprojects.arihna.feature.qibla.domain.QiblaRepository
 import com.archimedeprojects.arihna.feature.settings.LocationSettingsViewModel
 import java.time.Clock
 import kotlinx.coroutines.flow.map
@@ -63,6 +65,14 @@ fun ArihnaApp(
         factory = prayerScheduleViewModelFactory,
     )
 
+    val qiblaRepository: QiblaRepository = remember(appContainer, locationViewModel) {
+        DefaultQiblaRepository(
+            locationStates = locationViewModel.uiState.map { it.resolutionState },
+            bearingCalculator = appContainer.qiblaBearingCalculator,
+            headingDataSource = appContainer.qiblaHeadingDataSource,
+        )
+    }
+
     DisposableEffect(activity, locationViewModel) {
         fun refreshForegroundLocation() {
             val permissionState = appContainer.locationPermissionStateResolver.resolve(
@@ -98,6 +108,7 @@ fun ArihnaApp(
             activity = activity,
             locationSettingsViewModel = locationViewModel,
             prayerScheduleViewModel = prayerScheduleViewModel,
+            qiblaRepository = qiblaRepository,
             locationEnvironment = appContainer.locationEnvironment,
             locationPermissionStateResolver = appContainer.locationPermissionStateResolver,
         )
