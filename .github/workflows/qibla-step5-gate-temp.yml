@@ -1,0 +1,137 @@
+name: Qibla STEP 5 exact-SHA gate
+on:
+  push:
+    branches: [qibla-step5-gate-temp]
+    paths: [.github/workflows/qibla-step5-gate-temp.yml]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      TARGET_SHA: 73ec85f3c40b5dced87eef2e16dc41eaca80173d
+      SPEC_SHA: bf5d9c6472837f84752c3dafbac2fbfc64f01d2b
+      CITY_DB_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 73ec85f3c40b5dced87eef2e16dc41eaca80173d
+          fetch-depth: 0
+      - name: Verify exact candidate ancestry and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          test "$(git rev-parse origin/main)" = "$SPEC_SHA"
+          mapfile -t files < <(git diff --name-only "$SPEC_SHA" "$TARGET_SHA")
+          printf '%s\n' "${files[@]}"
+          test "${#files[@]}" -eq 7
+          printf '%s\n' "${files[@]}" | grep -Fxq 'app/src/main/java/com/archimedeprojects/arihna/app/AppContainer.kt'
+          printf '%s\n' "${files[@]}" | grep -Fxq 'app/src/main/java/com/archimedeprojects/arihna/app/ArihnaApp.kt'
+          printf '%s\n' "${files[@]}" | grep -Fxq 'app/src/main/java/com/archimedeprojects/arihna/app/ArihnaNavHost.kt'
+          printf '%s\n' "${files[@]}" | grep -Fxq 'app/src/main/java/com/archimedeprojects/arihna/feature/qibla/QiblaPlaceholderScreen.kt'
+          printf '%s\n' "${files[@]}" | grep -Fxq 'app/src/main/java/com/archimedeprojects/arihna/feature/qibla/QiblaCompassMotion.kt'
+          printf '%s\n' "${files[@]}" | grep -Fxq 'app/src/test/java/com/archimedeprojects/arihna/feature/qibla/QiblaCompassMotionTest.kt'
+          printf '%s\n' "${files[@]}" | grep -Fxq 'app/src/androidTest/java/com/archimedeprojects/arihna/feature/qibla/QiblaScreenAndroidTest.kt'
+          ! printf '%s\n' "${files[@]}" | grep -qE 'AndroidManifest|build.gradle|PROJECT_SPEC.md|core/location|core/prayer|core/qibla'
+          grep -Fq 'STEP 5 — Qibla Compose UI: AUTHORIZED / IN PROGRESS.' PROJECT_SPEC.md
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+      - name: Verify lifecycle UI and policy contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          NAV=app/src/main/java/com/archimedeprojects/arihna/app/ArihnaNavHost.kt
+          UI=app/src/main/java/com/archimedeprojects/arihna/feature/qibla/QiblaPlaceholderScreen.kt
+          grep -Fq 'flowWithLifecycle' "$NAV"
+          grep -Fq 'Lifecycle.State.STARTED' "$NAV"
+          grep -Fq 'QiblaRoute' "$NAV"
+          grep -Fq 'Posizione memorizzata (CACHED)' "$UI"
+          grep -Fq 'Bussola live non è applicabile con una posizione manuale' "$UI"
+          grep -Fq 'shortestUnwrappedCompassTarget' "$UI"
+          grep -Fq 'qibla-live-direction' "$UI"
+          grep -q 'android.permission.ACCESS_COARSE_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.ACCESS_FINE_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.ACCESS_BACKGROUND_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.BODY_SENSORS' app/src/main/AndroidManifest.xml
+          ! grep -R -q 'com.google.android.gms.location' app/src/main gradle
+          ! grep -R -q '@Ignore' app/src/test app/src/androidTest
+      - name: Restore exact city asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/step5-asset app/src/main/assets/geonames
+          mkdir -p /tmp/step5-asset app/src/main/assets/geonames
+          gh run download 33296099459 --repo "$GITHUB_REPOSITORY" --name geonames-step4-runtime-minimal --dir /tmp/step5-asset
+          DB="$(find /tmp/step5-asset -type f -name cities.db -print -quit)"
+          test -n "$DB"
+          cp "$DB" app/src/main/assets/geonames/cities.db
+          test "$(sha256sum app/src/main/assets/geonames/cities.db | awk '{print $1}')" = "$CITY_DB_SHA256"
+      - name: Run complete unit regression
+        run: ./gradlew testDebugUnitTest --stacktrace
+      - name: Verify unit reports and STEP 5 coverage
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          files=list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*.xml')); assert files
+          tests=failures=errors=skipped=qibla=motion=0
+          for f in files:
+              root=ET.parse(f).getroot(); tests+=int(root.attrib.get('tests',0)); failures+=int(root.attrib.get('failures',0)); errors+=int(root.attrib.get('errors',0)); skipped+=int(root.attrib.get('skipped',0))
+              for case in root.findall('.//testcase'):
+                  s=(case.attrib.get('classname','')+' '+case.attrib.get('name','')).lower()
+                  qibla += int('qibla' in s)
+                  motion += int('qiblacompassmotiontest' in s)
+          print(f'UNIT_SUMMARY tests={tests} failures={failures} errors={errors} skipped={skipped} qiblaCases={qibla} motionCases={motion}')
+          assert tests >= 130 and failures == errors == skipped == 0
+          assert qibla >= 32 and motion >= 4
+          PY
+      - name: Assemble debug
+        run: ./gradlew assembleDebug --stacktrace
+      - name: Run complete Android 9 API28 connected regression
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 28
+          arch: x86_64
+          target: default
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
+      - name: Verify API28 reports and Qibla UI coverage
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          files=[]
+          for root in [Path('app/build/outputs/androidTest-results/connected'),Path('app/build/outputs/androidTest-results/connected/debug')]:
+              if root.exists(): files.extend(root.rglob('*.xml'))
+          files=sorted(set(files)); assert files
+          tests=failures=errors=skipped=qibla_ui=0; seen=set()
+          for f in files:
+              try: root=ET.parse(f).getroot()
+              except ET.ParseError: continue
+              suites=[root] if root.tag=='testsuite' else root.findall('.//testsuite')
+              for suite in suites:
+                  key=(str(f),suite.attrib.get('name'))
+                  if key in seen: continue
+                  seen.add(key); tests+=int(suite.attrib.get('tests',0)); failures+=int(suite.attrib.get('failures',0)); errors+=int(suite.attrib.get('errors',0)); skipped+=int(suite.attrib.get('skipped',0))
+                  if 'QiblaScreenAndroidTest' in suite.attrib.get('name',''):
+                      qibla_ui += int(suite.attrib.get('tests',0))
+          print(f'API28_SUMMARY tests={tests} failures={failures} errors={errors} skipped={skipped} qiblaUiCases={qibla_ui}')
+          assert tests >= 47 and failures == errors == skipped == 0
+          assert qibla_ui >= 5
+          PY
