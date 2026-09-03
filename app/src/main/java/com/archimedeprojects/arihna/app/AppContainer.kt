@@ -11,6 +11,10 @@ import com.archimedeprojects.arihna.core.location.domain.LocationCoordinator
 import com.archimedeprojects.arihna.core.location.platform.AndroidLocationEnvironment
 import com.archimedeprojects.arihna.core.location.platform.AndroidLocationPermissionStateResolver
 import com.archimedeprojects.arihna.core.location.platform.LocationManagerDeviceLocationDataSource
+import com.archimedeprojects.arihna.core.qibla.calculation.GreatCircleQiblaBearingCalculator
+import com.archimedeprojects.arihna.core.qibla.calculation.QiblaBearingCalculator
+import com.archimedeprojects.arihna.core.qibla.heading.DeviceHeadingDataSource
+import com.archimedeprojects.arihna.core.qibla.platform.AndroidDeviceHeadingDataSource
 import com.archimedeprojects.arihna.feature.prayerschedule.data.PrayerSettingsRepository
 import com.archimedeprojects.arihna.feature.prayerschedule.data.preferences.PreferencesDataStorePrayerSettingsRepository
 
@@ -49,5 +53,11 @@ class AppContainer(context: Context) {
 
     val locationPermissionStateResolver: AndroidLocationPermissionStateResolver by lazy {
         AndroidLocationPermissionStateResolver(appContext)
+    }
+
+    val qiblaBearingCalculator: QiblaBearingCalculator = GreatCircleQiblaBearingCalculator
+
+    val qiblaHeadingDataSource: DeviceHeadingDataSource by lazy {
+        AndroidDeviceHeadingDataSource(appContext)
     }
 }
