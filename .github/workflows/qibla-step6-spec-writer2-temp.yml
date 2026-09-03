@@ -1,0 +1,29 @@
+name: Qibla STEP 6 spec writer 2
+on:
+  push:
+    branches: [qibla-step6-spec-writer2-temp]
+    paths: [.github/workflows/qibla-step6-spec-writer2-temp.yml]
+permissions:
+  contents: write
+jobs:
+  writer:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch clean spec branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin qibla-step6-s25-validation-spec
+          git checkout -B qibla-step6-s25-validation-spec origin/qibla-step6-s25-validation-spec
+          test "$(git rev-parse HEAD)" = "73ec85f3c40b5dced87eef2e16dc41eaca80173d"
+          git show 5646f2df123b95f456ec2f7eede4659e6364e9c7:.github/scripts/qibla-step6-spec-writer.py > /tmp/patch.py
+          python3 /tmp/patch.py
+          test "$(git diff --name-only)" = "PROJECT_SPEC.md"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add PROJECT_SPEC.md
+          git commit -m "docs(qibla): close step5 and authorize s25 validation"
+          git push origin HEAD:qibla-step6-s25-validation-spec
