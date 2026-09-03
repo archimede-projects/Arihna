@@ -11,13 +11,13 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
-      TARGET_SHA: e75d51c96adf4a5bfeba28a192d40d303bdb7b51
+      TARGET_SHA: 947d7b41d0d8f32403133653d08852e56ec6cf6e
       SPEC_SHA: e10b39c613a25c42cc28dfcb1ee855d60998132d
       CITY_DB_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: e75d51c96adf4a5bfeba28a192d40d303bdb7b51
+          ref: 947d7b41d0d8f32403133653d08852e56ec6cf6e
           fetch-depth: 0
       - name: Verify exact candidate and scope
         shell: bash
@@ -119,7 +119,7 @@ jobs:
               except ET.ParseError: continue
               suites=[root] if root.tag=='testsuite' else root.findall('.//testsuite')
               for suite in suites:
-                  key=(str(f),suite.attrib.get('name')); 
+                  key=(str(f),suite.attrib.get('name'))
                   if key in seen: continue
                   seen.add(key); tests+=int(suite.attrib.get('tests',0)); failures+=int(suite.attrib.get('failures',0)); errors+=int(suite.attrib.get('errors',0)); skipped+=int(suite.attrib.get('skipped',0))
           print(f'API28_SUMMARY tests={tests} failures={failures} errors={errors} skipped={skipped}')
