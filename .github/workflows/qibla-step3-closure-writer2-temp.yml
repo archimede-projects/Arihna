@@ -1,0 +1,30 @@
+name: Qibla STEP 3 closure writer
+on:
+  push:
+    branches: [qibla-step3-closure-writer2-temp]
+permissions:
+  contents: write
+jobs:
+  write:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build clean docs commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .github/scripts/qibla_step3_close.py /tmp/qibla_step3_close.py
+          git checkout -B qibla-step3-closure f5528b235d07d8504676a2b641f6fa2a381f486a
+          python3 /tmp/qibla_step3_close.py
+          git diff --check
+          test "$(git diff --name-only | wc -l)" -eq 1
+          test "$(git diff --name-only)" = "PROJECT_SPEC.md"
+          grep -Fq 'STEP 3 — Android heading/sensor layer: CLOSED.' PROJECT_SPEC.md
+          grep -Fq 'STEP 4 — Location/Qibla orchestration: NOT STARTED.' PROJECT_SPEC.md
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add PROJECT_SPEC.md
+          git commit -m 'docs(qibla): close step3 heading layer'
+          git push --force-with-lease origin HEAD:qibla-step3-closure
