@@ -52,13 +52,13 @@ jobs:
           set -euo pipefail
           NAV=app/src/main/java/com/archimedeprojects/arihna/app/ArihnaNavHost.kt
           UI=app/src/main/java/com/archimedeprojects/arihna/feature/qibla/QiblaPlaceholderScreen.kt
-          grep -Fq 'flowWithLifecycle' "$NAV"
-          grep -Fq 'Lifecycle.State.STARTED' "$NAV"
-          grep -Fq 'QiblaRoute' "$NAV"
-          grep -Fq 'Posizione memorizzata (CACHED)' "$UI"
-          grep -Fq 'Bussola live non è applicabile con una posizione manuale' "$UI"
-          grep -Fq 'shortestUnwrappedCompassTarget' "$UI"
-          grep -Fq 'qibla-live-direction' "$UI"
+          grep -Fn 'flowWithLifecycle' "$NAV"
+          grep -Fn 'Lifecycle.State.STARTED' "$NAV"
+          grep -Fn 'QiblaRoute' "$NAV"
+          grep -Fn 'Posizione memorizzata (CACHED)' "$UI"
+          grep -Fn 'bussola live non è applicabile con una posizione manuale' "$UI"
+          grep -Fn 'shortestUnwrappedCompassTarget' "$UI"
+          grep -Fn 'qibla-live-direction' "$UI"
           grep -q 'android.permission.ACCESS_COARSE_LOCATION' app/src/main/AndroidManifest.xml
           ! grep -q 'android.permission.ACCESS_FINE_LOCATION' app/src/main/AndroidManifest.xml
           ! grep -q 'android.permission.ACCESS_BACKGROUND_LOCATION' app/src/main/AndroidManifest.xml
