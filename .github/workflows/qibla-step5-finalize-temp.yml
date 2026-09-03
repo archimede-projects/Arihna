@@ -1,0 +1,43 @@
+name: Qibla STEP 5 finalizer
+on:
+  push:
+    branches: [qibla-step5-finalize-temp]
+    paths: [.github/workflows/qibla-step5-finalize-temp.yml]
+permissions:
+  contents: write
+jobs:
+  finalize:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qibla-step5-dev
+          fetch-depth: 0
+      - name: Build clean STEP 5 commit
+        shell: bash
+        env:
+          SPEC_SHA: bf5d9c6472837f84752c3dafbac2fbfc64f01d2b
+        run: |
+          set -euo pipefail
+          test "$(git merge-base "$SPEC_SHA" HEAD)" = "$SPEC_SHA"
+          git reset --soft "$SPEC_SHA"
+          mapfile -t files < <(git diff --cached --name-only)
+          printf '%s\n' "${files[@]}"
+          test "${#files[@]}" -eq 7
+          printf '%s\n' "${files[@]}" | grep -Fxq 'app/src/main/java/com/archimedeprojects/arihna/app/AppContainer.kt'
+          printf '%s\n' "${files[@]}" | grep -Fxq 'app/src/main/java/com/archimedeprojects/arihna/app/ArihnaApp.kt'
+          printf '%s\n' "${files[@]}" | grep -Fxq 'app/src/main/java/com/archimedeprojects/arihna/app/ArihnaNavHost.kt'
+          printf '%s\n' "${files[@]}" | grep -Fxq 'app/src/main/java/com/archimedeprojects/arihna/feature/qibla/QiblaPlaceholderScreen.kt'
+          printf '%s\n' "${files[@]}" | grep -Fxq 'app/src/main/java/com/archimedeprojects/arihna/feature/qibla/QiblaCompassMotion.kt'
+          printf '%s\n' "${files[@]}" | grep -Fxq 'app/src/test/java/com/archimedeprojects/arihna/feature/qibla/QiblaCompassMotionTest.kt'
+          printf '%s\n' "${files[@]}" | grep -Fxq 'app/src/androidTest/java/com/archimedeprojects/arihna/feature/qibla/QiblaScreenAndroidTest.kt'
+          ! printf '%s\n' "${files[@]}" | grep -qE 'AndroidManifest|build.gradle|PROJECT_SPEC.md|core/location|core/prayer|core/qibla'
+          grep -Fq 'flowWithLifecycle' app/src/main/java/com/archimedeprojects/arihna/app/ArihnaNavHost.kt
+          grep -Fq 'Lifecycle.State.STARTED' app/src/main/java/com/archimedeprojects/arihna/app/ArihnaNavHost.kt
+          grep -Fq 'QiblaScreen' app/src/main/java/com/archimedeprojects/arihna/feature/qibla/QiblaPlaceholderScreen.kt
+          grep -Fq 'shortestUnwrappedCompassTarget' app/src/main/java/com/archimedeprojects/arihna/feature/qibla/QiblaCompassMotion.kt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'feat(qibla): implement lifecycle-bound compass ui'
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          git push origin HEAD:refs/heads/qibla-step5-ui
