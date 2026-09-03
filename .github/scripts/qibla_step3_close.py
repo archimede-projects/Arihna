@@ -1,0 +1,9 @@
+from pathlib import Path
+
+path = Path('PROJECT_SPEC.md')
+text = path.read_text()
+start = text.index('3. **STEP 3 — Android heading/sensor layer:')
+end = text.index('\n4. **STEP 4 — Location/Qibla orchestration:', start)
+replacement = '''3. **STEP 3 — Android heading/sensor layer: CLOSED.** Clean technical commit `f5528b235d07d8504676a2b641f6fa2a381f486a`, built directly above STEP 3 authorization commit `27245561525e2a403a3642d19de8d723f0a4e455`, implements the foreground Android heading datasource and platform adapters only. Definitive exact-SHA workflow run `33668783356` / job `100376952037` checked out that exact technical SHA, passed the complete unit regression with **117/117 tests, 0 failures, 0 errors, 0 skipped** including **19 Qibla cases / 12 heading cases**, passed `assembleDebug`, and completed Android 9/API28 `connectedDebugAndroidTest` with **42/42 tests, 0 failures, 0 errors, 0 skipped**, including the dedicated API28 heading compatibility case. The gate restored the frozen GeoNames asset and preserved the manifest/dependency policy: COARSE only, no FINE, no background Location, no `BODY_SENSORS`, no Google Play Services Location and no ignored tests. The implementation preserves the approved runtime hierarchy (`TYPE_HEADING` when API33+ and exposed, then rotation vector, geomagnetic rotation vector, then accelerometer + magnetic-field pair), applies `GeomagneticField` declination only to magnetic-reference fallbacks, handles display rotation, uses `SENSOR_DELAY_UI`, and unregisters the Android listener when flow collection is cancelled. No Compose UI, Location orchestration/provider change, Prayer change, manifest permission or dependency was introduced. STEP 4 remains **NOT STARTED** until separately authorized.'''
+text = text[:start] + replacement + text[end:]
+path.write_text(text)
