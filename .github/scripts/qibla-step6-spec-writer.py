@@ -1,0 +1,28 @@
+from pathlib import Path
+
+p = Path("PROJECT_SPEC.md")
+s = p.read_text()
+old5 = "5. **STEP 5 — Qibla Compose UI: AUTHORIZED / IN PROGRESS.**"
+assert s.count(old5) == 1
+s = s.replace(old5, "5. **STEP 5 — Qibla Compose UI: CLOSED.**", 1)
+old6 = "6. **STEP 6 — full regression + API28 + Galaxy S25 validation: NOT STARTED.** Run unfiltered unit/build/API28 Prayer+Location+Integration+Qibla gates and real-device compass validation."
+new6 = "6. **STEP 6 — full regression + API28 + Galaxy S25 validation: AUTHORIZED / IN PROGRESS.** The automated full-regression portion is satisfied by the definitive exact-SHA STEP 5 gate on runtime `73ec85f3c40b5dced87eef2e16dc41eaca80173d`: unfiltered unit/build/API28 Prayer+Location+Integration+Qibla gates are green. STEP 6 may package **that exact runtime SHA only** as a prerelease APK using Arihna's persistent debug signing identity and perform the required real Galaxy S25 compass validation. No runtime, Prayer, Location, sensor-algorithm, permission, dependency or persistence change is authorized in STEP 6; only packaging/verification metadata and the physical-device test are in scope. STEP 6 remains open until the user completes the hardware test."
+assert s.count(old6) == 1
+s = s.replace(old6, new6, 1)
+anchor = "7. **STEP 7 — documentation-only milestone closure: NOT STARTED.** Record exact technical SHA/run/device evidence after promotion and stop.\n\n"
+assert s.count(anchor) == 1
+evidence = """#### STEP 5 closure / STEP 6 authorization evidence — 2026-09-03
+
+- Definitive STEP 5 technical runtime: `73ec85f3c40b5dced87eef2e16dc41eaca80173d` (`feat(qibla): implement lifecycle-bound compass ui`), with direct parent STEP 5 authorization commit `bf5d9c6472837f84752c3dafbac2fbfc64f01d2b`.
+- Definitive exact-SHA gate: workflow run `33717262812`, attempt **2**, job `100533758926`, conclusion **success**. The workflow checked out exactly the technical runtime while `main` was still at the authorization spec SHA, then the runtime was promoted to `main` by non-forced fast-forward.
+- Host unit regression: **130/130**, 0 failures, 0 errors, 0 skipped; **32 Qibla cases**, including **4 compass-motion wrap cases**.
+- `assembleDebug`: **PASS**.
+- Android 9/API28 connected regression: **47/47**, 0 failures, 0 errors, 0 skipped; **5/5 dedicated Qibla Compose UI cases**.
+- The gate restored and verified frozen GeoNames SHA-256 `7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb` and reverified COARSE-only policy, absence of FINE/BACKGROUND/BODY_SENSORS, absence of Google Play Services Location, absence of ignored tests, and lifecycle-bound Qibla collection at `Lifecycle.State.STARTED`.
+- STEP 5 UI/wiring changes are limited to the approved composition-root/navigation/Qibla presentation scope plus focused tests. Manual location remains static-bearing only; Device locations may use live compass; CACHED provenance is visible; no fabricated alignment tolerance is introduced.
+- An earlier API28 attempt was non-definitive because the emulator/test process was unstable. The independent rerun above completed all **47/47** tests and is the closure evidence.
+- STEP 6 is packaging plus physical Galaxy S25 validation of the exact runtime `73ec85f3c40b5dced87eef2e16dc41eaca80173d`; no new product code is authorized before that hardware result.
+
+"""
+s = s.replace(anchor, anchor + evidence, 1)
+p.write_text(s)
