@@ -16,6 +16,7 @@ jobs:
         run: |
           set -euo pipefail
           cp .github/scripts/qibla_step4_implement.py /tmp/qibla_step4_implement.py
+          sed -i 's/LocationFailure.NO_LOCATION_FIX/LocationFailure.TIMEOUT/g' /tmp/qibla_step4_implement.py
           git checkout -B qibla-step4-orchestration e10b39c613a25c42cc28dfcb1ee855d60998132d
           python3 /tmp/qibla_step4_implement.py
           git add app/src/main/java/com/archimedeprojects/arihna/feature/qibla/domain app/src/test/java/com/archimedeprojects/arihna/feature/qibla/domain
