@@ -8,7 +8,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.flowWithLifecycle
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -20,7 +23,8 @@ import com.archimedeprojects.arihna.feature.alarms.AlarmsPlaceholderScreen
 import com.archimedeprojects.arihna.feature.home.HomePrayerScheduleRoute
 import com.archimedeprojects.arihna.feature.prayers.PrayerTimesPlaceholderScreen
 import com.archimedeprojects.arihna.feature.prayerschedule.presentation.PrayerScheduleViewModel
-import com.archimedeprojects.arihna.feature.qibla.QiblaPlaceholderScreen
+import com.archimedeprojects.arihna.feature.qibla.QiblaRoute
+import com.archimedeprojects.arihna.feature.qibla.domain.QiblaRepository
 import com.archimedeprojects.arihna.feature.quran.QuranPlaceholderScreen
 import com.archimedeprojects.arihna.feature.settings.LocationSettingsRoute
 import com.archimedeprojects.arihna.feature.settings.LocationSettingsViewModel
@@ -43,6 +47,7 @@ fun ArihnaNavHost(
     activity: Activity,
     locationSettingsViewModel: LocationSettingsViewModel,
     prayerScheduleViewModel: PrayerScheduleViewModel,
+    qiblaRepository: QiblaRepository,
     locationEnvironment: AndroidLocationEnvironment,
     locationPermissionStateResolver: AndroidLocationPermissionStateResolver,
 ) {
@@ -110,7 +115,23 @@ fun ArihnaNavHost(
                 )
             }
             composable(Destination.Prayers.route) { PrayerTimesPlaceholderScreen(innerPadding) }
-            composable(Destination.Qibla.route) { QiblaPlaceholderScreen(innerPadding) }
+            composable(Destination.Qibla.route) { qiblaBackStackEntry ->
+                val lifecycleBoundQiblaStates = remember(qiblaRepository, qiblaBackStackEntry) {
+                    qiblaRepository.observeQibla().flowWithLifecycle(
+                        lifecycle = qiblaBackStackEntry.lifecycle,
+                        minActiveState = Lifecycle.State.STARTED,
+                    )
+                }
+                QiblaRoute(
+                    contentPadding = innerPadding,
+                    states = lifecycleBoundQiblaStates,
+                    onOpenLocationSettings = {
+                        navController.navigate(Destination.Settings.route) {
+                            launchSingleTop = true
+                        }
+                    },
+                )
+            }
             composable(Destination.Quran.route) { QuranPlaceholderScreen(innerPadding) }
             composable(Destination.Alarms.route) { AlarmsPlaceholderScreen(innerPadding) }
             composable(Destination.Settings.route) {
