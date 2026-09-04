@@ -1,0 +1,174 @@
+name: Qibla compact layout impl helper
+
+on:
+  push:
+    branches:
+      - qibla-compact-layout-impl-helper
+    paths:
+      - .github/workflows/qibla-compact-layout-impl-helper.yml
+
+permissions:
+  contents: write
+
+jobs:
+  compact-layout:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qibla-compact-layout-impl-helper
+          fetch-depth: 0
+      - name: Apply compact Qibla presentation
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('app/src/main/java/com/archimedeprojects/arihna/feature/qibla/QiblaPlaceholderScreen.kt')
+          text = path.read_text()
+          text = text.replace('import androidx.compose.foundation.rememberScrollState\n', '')
+          text = text.replace('import androidx.compose.foundation.verticalScroll\n', '')
+          text = text.replace(
+              'modifier = Modifier.fillMaxSize().padding(contentPadding).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 16.dp),',
+              'modifier = Modifier.fillMaxSize().padding(contentPadding).padding(horizontal = 16.dp, vertical = 8.dp).testTag("qibla-single-viewport"),'
+          )
+          text = text.replace(
+              'Text("Qibla", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)\n        Text("Direzione verso la Kaaba · riferimento nord vero", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)\n        Spacer(Modifier.height(18.dp))',
+              'Text("Qibla", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)\n        Text("Direzione verso la Kaaba · nord vero", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)\n        Spacer(Modifier.height(8.dp))'
+          )
+
+          def replace_between(source, start_marker, end_marker, replacement):
+              start = source.index(start_marker)
+              end = source.index(end_marker, start)
+              return source[:start] + replacement + source[end:]
+
+          live = '''@Composable
+          private fun LiveCompassContent(state: QiblaState.LiveCompass) {
+              BearingHeader(state.location, state.bearingTrueDegrees)
+              Spacer(Modifier.height(2.dp))
+              Text(
+                  text = "${displayDegrees(state.deviceHeadingTrueDegrees)}° ${headingCardinalLabel(state.deviceHeadingTrueDegrees)}",
+                  style = MaterialTheme.typography.titleLarge,
+                  fontWeight = FontWeight.SemiBold,
+                  modifier = Modifier.testTag("qibla-live-heading"),
+              )
+              Spacer(Modifier.height(4.dp))
+              CompassDial(
+                  directionDegrees = state.relativeQiblaDirectionDegrees,
+                  deviceHeadingTrueDegrees = state.deviceHeadingTrueDegrees,
+                  live = true,
+                  animationKey = state.location,
+              )
+              Spacer(Modifier.height(6.dp))
+              InstrumentationGrid(state)
+              Spacer(Modifier.height(6.dp))
+              val fieldStatus = classifyMagneticField(state.magneticFieldMicroTesla)
+              if (fieldStatus == MagneticFieldStatus.INTERFERENCE) {
+                  CompactMessageCard(
+                      "Possibile interferenza magnetica",
+                      "Allontana caricatore, metallo e magneti, poi ricontrolla la direzione.",
+                      Modifier.testTag("qibla-interference-banner"),
+                  )
+                  Spacer(Modifier.height(4.dp))
+              }
+              Text(
+                  "Tieni il telefono circa orizzontale e lontano da fonti magnetiche.",
+                  style = MaterialTheme.typography.bodySmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                  modifier = Modifier.testTag("qibla-precision-guidance"),
+              )
+          }
+
+          '''.replace('          ', '')
+          text = replace_between(text, '@Composable\nprivate fun LiveCompassContent', '@Composable\nprivate fun InstrumentationGrid', live)
+
+          instrumentation = '''@Composable
+          private fun InstrumentationGrid(state: QiblaState.LiveCompass) {
+              Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                  InstrumentCard(
+                      title = "Campo",
+                      value = state.magneticFieldMicroTesla?.takeIf { it.isFinite() }?.let { "${it.roundToInt()} µT" } ?: "N/D",
+                      detail = magneticFieldStatusLabel(classifyMagneticField(state.magneticFieldMicroTesla)),
+                      modifier = Modifier.weight(1f).testTag("qibla-magnetic-field"),
+                  )
+                  InstrumentCard(
+                      title = "Accuratezza",
+                      value = qualityShortLabel(state.quality),
+                      detail = state.estimatedAccuracyDegrees?.takeIf { it.isFinite() && it >= 0.0 }?.let { "±${it.roundToInt()}°" } ?: "Stima N/D",
+                      modifier = Modifier.weight(1f).testTag("qibla-heading-quality"),
+                  )
+              }
+              Spacer(Modifier.height(6.dp))
+              Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                  InstrumentCard("Sensore", headingSourceLabel(state.headingSource), "Nord vero", Modifier.weight(1f).testTag("qibla-heading-source"))
+                  InstrumentCard(
+                      "Declinazione",
+                      state.declinationDegrees?.takeIf { it.isFinite() }?.let(::formatDeclination) ?: "N/A",
+                      if (state.declinationDegrees == null) "Nord vero diretto" else "Correzione geomagnetica",
+                      Modifier.weight(1f).testTag("qibla-declination"),
+                  )
+              }
+          }
+
+          @Composable
+          private fun InstrumentCard(title: String, value: String, detail: String, modifier: Modifier = Modifier) {
+              ElevatedCard(modifier = modifier) {
+                  Column(Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
+                      Text(title, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                      Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+                      Text(detail, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                  }
+              }
+          }
+
+          '''.replace('          ', '')
+          text = replace_between(text, '@Composable\nprivate fun InstrumentationGrid', '@Composable\nprivate fun SensorUnavailableContent', instrumentation)
+
+          text = text.replace('Spacer(Modifier.height(8.dp))\n    Text("Qibla ${displayDegrees(bearingTrueDegrees)}°", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = ArihnaGreen)',
+                              'Spacer(Modifier.height(3.dp))\n    Text("Qibla ${displayDegrees(bearingTrueDegrees)}°", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = ArihnaGreen)')
+          text = text.replace('Text(location.displayName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)',
+                              'Text(location.displayName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium, maxLines = 1)')
+          text = text.replace('val radiusPx = with(LocalDensity.current) { 123.dp.toPx() }', 'val radiusPx = with(LocalDensity.current) { 99.dp.toPx() }')
+          text = text.replace('Box(Modifier.size(310.dp).testTag(if (live) "qibla-full-compass" else "qibla-static-compass")',
+                              'Box(Modifier.size(252.dp).testTag(if (live) "qibla-full-compass" else "qibla-static-compass")')
+          text = text.replace('Box(Modifier.size(214.dp).graphicsLayer { rotationZ = displayedDirection }',
+                              'Box(Modifier.size(174.dp).graphicsLayer { rotationZ = displayedDirection }')
+          text = text.replace('Column(Modifier.padding(16.dp)) {', 'Column(Modifier.padding(12.dp)) {')
+
+          marker = '@Composable\nprivate fun MessageCard(title: String, body: String) {'
+          compact = '''@Composable
+          private fun CompactMessageCard(title: String, body: String, modifier: Modifier = Modifier) {
+              ElevatedCard(modifier.fillMaxWidth()) {
+                  Row(
+                      Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                      horizontalArrangement = Arrangement.spacedBy(8.dp),
+                      verticalAlignment = Alignment.CenterVertically,
+                  ) {
+                      Text(title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                      Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                  }
+              }
+          }
+
+          '''.replace('          ', '')
+          text = text.replace(marker, compact + marker)
+          path.write_text(text)
+
+          test_path = Path('app/src/androidTest/java/com/archimedeprojects/arihna/feature/qibla/QiblaScreenAndroidTest.kt')
+          tests = test_path.read_text().replace('import androidx.compose.ui.test.performScrollTo\n', '').replace('.performScrollTo()', '')
+          tests = tests.replace(
+              'composeRule.onNodeWithText("Per una maggiore precisione").assertIsDisplayed()',
+              'composeRule.onNodeWithTag("qibla-precision-guidance").assertIsDisplayed()\n        composeRule.onNodeWithTag("qibla-single-viewport").assertIsDisplayed()'
+          )
+          tests = tests.replace(
+              'composeRule.onNodeWithText("Possibile interferenza magnetica").assertIsDisplayed()',
+              'composeRule.onNodeWithText("Possibile interferenza magnetica").assertIsDisplayed()\n        composeRule.onNodeWithTag("qibla-interference-banner").assertIsDisplayed()'
+          )
+          test_path.write_text(tests)
+          PY
+          git diff --check
+          git config user.name 'IbnKhaldoun-svg'
+          git config user.email 'essalih.idriss.w@gmail.com'
+          git add app/src/main/java/com/archimedeprojects/arihna/feature/qibla/QiblaPlaceholderScreen.kt app/src/androidTest/java/com/archimedeprojects/arihna/feature/qibla/QiblaScreenAndroidTest.kt
+          git commit -m 'feat(qibla): compact live compass into one viewport'
+          git push origin HEAD:qibla-compact-layout-impl-helper
