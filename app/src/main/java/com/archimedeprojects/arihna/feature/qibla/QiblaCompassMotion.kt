@@ -13,6 +13,11 @@ internal fun shortestUnwrappedCompassTarget(
     return previousUnwrappedDegrees + delta
 }
 
+internal fun cardinalRoseWrappedTarget(deviceHeadingTrueDegrees: Float): Float {
+    require(deviceHeadingTrueDegrees.isFinite())
+    return normalizeCompassDegrees(-deviceHeadingTrueDegrees)
+}
+
 private fun normalizeCompassDegrees(value: Float): Float {
     val normalized = value % 360f
     return if (normalized < 0f) normalized + 360f else normalized
