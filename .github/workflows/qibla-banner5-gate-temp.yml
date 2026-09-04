@@ -65,18 +65,7 @@ jobs:
           profile: pixel_2
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: |
-            set -e
-            ok=0
-            for attempt in 1 2 3; do
-              echo "API28 attempt $attempt"
-              if ./gradlew connectedDebugAndroidTest --stacktrace; then ok=1; break; fi
-              adb kill-server || true
-              sleep 3
-              adb start-server || true
-              adb wait-for-device || true
-            done
-            test "$ok" -eq 1
+          script: ./gradlew connectedDebugAndroidTest --stacktrace
       - name: Verify connected report
         shell: bash
         run: |
