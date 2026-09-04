@@ -41,7 +41,7 @@ jobs:
           MAIN_SHA="$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq '.commit.sha')"
           test "$MAIN_SHA" = "$TARGET_SHA"
           gh api "repos/$GITHUB_REPOSITORY/contents/PROJECT_SPEC.md?ref=$TARGET_PARENT_SPEC_SHA" --jq '.content' | tr -d '\n' | base64 --decode > /tmp/spec.md
-          grep -Fq 'full compass instrumentation' /tmp/spec.md
+          grep -Fq 'Full Qibla compass instrumentation — APPROVED 2026-09-04' /tmp/spec.md
           grep -Fq 'STEP 6 — full regression + API28 + Galaxy S25 validation: AUTHORIZED / IN PROGRESS.' /tmp/spec.md
           JOB="$(gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$VERIFIED_GATE_JOB" --jq '[(.id|tostring), (.run_id|tostring), .conclusion] | join(" ")')"
           test "$JOB" = "$VERIFIED_GATE_JOB $VERIFIED_GATE_RUN success"
