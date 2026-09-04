@@ -1,0 +1,53 @@
+name: Alarms step1 spec writer
+
+on:
+  push:
+    branches:
+      - alarms-step1-writer-20260904
+    paths:
+      - .github/workflows/alarms-step1-spec-writer.yml
+
+permissions:
+  contents: write
+
+jobs:
+  write-spec:
+    runs-on: ubuntu-24.04
+    env:
+      BASE_SHA: ece91e47e94395c9555c8a721caa1e5451cd6c45
+    steps:
+      - name: Checkout writer branch
+        uses: actions/checkout@v4
+
+      - name: Preserve patch script
+        run: cp .github/scripts/alarms_step1_spec.py /tmp/alarms_step1_spec.py
+
+      - name: Verify exact main base
+        run: |
+          git fetch origin main alarms-step1-spec
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+          test "$(git rev-parse origin/alarms-step1-spec)" = "$BASE_SHA"
+          git checkout --detach "$BASE_SHA"
+
+      - name: Apply STEP 1 spec only
+        run: python3 /tmp/alarms_step1_spec.py
+
+      - name: Verify documentation-only scope
+        run: |
+          git diff --check
+          test "$(git diff --name-only)" = "PROJECT_SPEC.md"
+          grep -q '### 5.5 Alarms — MILESTONE OPEN / STEP 1 SPEC-FIRST CLOSED' PROJECT_SPEC.md
+          grep -q 'STEP 2 — domain + persistence: NOT STARTED' PROJECT_SPEC.md
+          grep -q 'SCHEDULE_EXACT_ALARM' PROJECT_SPEC.md
+          grep -q 'POST_NOTIFICATIONS' PROJECT_SPEC.md
+          grep -q 'qibla milestone is CLOSED' PROJECT_SPEC.md || true
+
+      - name: Commit exact spec candidate
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add PROJECT_SPEC.md
+          git commit -m 'docs(alarms): define step 1 architecture'
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          test "$(git diff --name-only HEAD^ HEAD)" = "PROJECT_SPEC.md"
+          git push origin HEAD:refs/heads/alarms-step1-spec
