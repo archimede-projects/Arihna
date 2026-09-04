@@ -1,0 +1,93 @@
+name: Qibla banner 5 exact-SHA gate
+on:
+  push:
+    branches: [qibla-banner5-gate-temp]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      TARGET_SHA: 1fb1f4c0b245f37fe8666bc2bea5007e0e34bf5e
+      SPEC_SHA: 5b4f2239bc796f07cba6d4d959fdad2bf0008415
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 1fb1f4c0b245f37fe8666bc2bea5007e0e34bf5e
+          fetch-depth: 0
+      - name: Verify exact candidate and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          mapfile -t files < <(git diff --name-only "$SPEC_SHA".."$TARGET_SHA")
+          test "${#files[@]}" -eq 2
+          printf '%s\n' "${files[@]}" | grep -Fx 'app/src/main/java/com/archimedeprojects/arihna/feature/qibla/QiblaPlaceholderScreen.kt'
+          printf '%s\n' "${files[@]}" | grep -Fx 'app/src/androidTest/java/com/archimedeprojects/arihna/feature/qibla/QiblaScreenAndroidTest.kt'
+          grep -Fq 'Qibla sacred gold banner — APPROVED 2026-09-04' PROJECT_SPEC.md
+          grep -Fq 'docs/qibla/reference/qibla-banner-variant-5-approved.jpg' PROJECT_SPEC.md
+          grep -Fq 'qibla-sacred-banner' app/src/main/java/com/archimedeprojects/arihna/feature/qibla/QiblaPlaceholderScreen.kt
+          grep -Fq 'qibla-kaaba-mark' app/src/main/java/com/archimedeprojects/arihna/feature/qibla/QiblaPlaceholderScreen.kt
+          ! grep -Rq 'verticalScroll' app/src/main/java/com/archimedeprojects/arihna/feature/qibla
+          ! grep -Rq 'ACCESS_FINE_LOCATION\|ACCESS_BACKGROUND_LOCATION\|BODY_SENSORS' app/src/main/AndroidManifest.xml
+          ! grep -Rqi 'play-services-location' app/build.gradle.kts gradle/libs.versions.toml
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+      - name: Restore frozen GeoNames asset
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/qibla-asset app/src/main/assets/geonames
+          mkdir -p /tmp/qibla-asset app/src/main/assets/geonames
+          gh run download 33296099459 --repo "$GITHUB_REPOSITORY" --name geonames-step4-runtime-minimal --dir /tmp/qibla-asset
+          DB="$(find /tmp/qibla-asset -type f -name cities.db -print -quit)"
+          test -n "$DB"
+          cp "$DB" app/src/main/assets/geonames/cities.db
+          echo '7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb  app/src/main/assets/geonames/cities.db' | sha256sum -c -
+      - name: Unit regression and assemble
+        run: ./gradlew testDebugUnitTest assembleDebug --stacktrace
+      - name: Android 9 API28 regression
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 28
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            set -e
+            ok=0
+            for attempt in 1 2 3; do
+              echo "API28 attempt $attempt"
+              if ./gradlew connectedDebugAndroidTest --stacktrace; then ok=1; break; fi
+              adb kill-server || true
+              sleep 3
+              adb start-server || true
+              adb wait-for-device || true
+            done
+            test "$ok" -eq 1
+      - name: Verify connected report
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          files=list(Path('app/build/outputs/androidTest-results/connected').rglob('TEST-*.xml'))
+          if not files: raise SystemExit('no connected test XML')
+          tests=failures=errors=skipped=0
+          for f in files:
+              r=ET.parse(f).getroot(); tests+=int(r.attrib.get('tests',0)); failures+=int(r.attrib.get('failures',0)); errors+=int(r.attrib.get('errors',0)); skipped+=int(r.attrib.get('skipped',0))
+          print({'tests':tests,'failures':failures,'errors':errors,'skipped':skipped})
+          assert tests >= 47 and failures == 0 and errors == 0 and skipped == 0
+          PY
