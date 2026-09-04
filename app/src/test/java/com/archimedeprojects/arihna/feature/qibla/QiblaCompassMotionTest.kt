@@ -23,4 +23,21 @@ class QiblaCompassMotionTest {
     fun accumulatedTurnsPreserveContinuity() {
         assertEquals(362f, shortestUnwrappedCompassTarget(361f, 2f), 0.0001f)
     }
+
+    @Test
+    fun cardinalRoseKeepsTrueNorthOppositeDeviceHeading() {
+        assertEquals(0f, cardinalRoseWrappedTarget(0f), 0.0001f)
+        assertEquals(270f, cardinalRoseWrappedTarget(90f), 0.0001f)
+        assertEquals(180f, cardinalRoseWrappedTarget(180f), 0.0001f)
+        assertEquals(90f, cardinalRoseWrappedTarget(270f), 0.0001f)
+    }
+
+    @Test
+    fun cardinalRoseCrossesNorthByShortestPath() {
+        val before = cardinalRoseWrappedTarget(359f)
+        val after = cardinalRoseWrappedTarget(1f)
+        assertEquals(1f, before, 0.0001f)
+        assertEquals(359f, after, 0.0001f)
+        assertEquals(-1f, shortestUnwrappedCompassTarget(before, after), 0.0001f)
+    }
 }
