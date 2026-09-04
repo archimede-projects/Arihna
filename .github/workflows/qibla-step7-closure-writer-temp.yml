@@ -1,0 +1,80 @@
+name: Qibla STEP 7 closure writer temp
+on:
+  push:
+    branches: [qibla-step7-closure-writer-temp]
+    paths: [.github/workflows/qibla-step7-closure-writer-temp.yml]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  write:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 1b40c9f2e98014ce3b36f5b8629d8a8ac1931e37
+          fetch-depth: 0
+      - name: Verify exact runtime, gate and prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          BASE=1b40c9f2e98014ce3b36f5b8629d8a8ac1931e37
+          SPEC=f0e5262a524a901d673dc6b51991177d0a79baa4
+          test "$(git rev-parse HEAD)" = "$BASE"
+          test "$(git rev-parse HEAD^)" = "$SPEC"
+          test "$(gh api repos/$GITHUB_REPOSITORY/branches/main --jq .commit.sha)" = "$BASE"
+          JOB="$(gh api repos/$GITHUB_REPOSITORY/actions/jobs/101048037602 --jq '[(.id|tostring),(.run_id|tostring),.conclusion,.head_sha] | join(" ")')"
+          test "$JOB" = '101048037602 33880602477 success 1b40c9f2e98014ce3b36f5b8629d8a8ac1931e37'
+          RELEASE="$(gh api repos/$GITHUB_REPOSITORY/releases/tags/qibla-wow-1b40c9f2-20260904 --jq '[.target_commitish,(.prerelease|tostring),.assets[0].name,.assets[0].state,.assets[0].digest] | join(" ")')"
+          test "$RELEASE" = '1b40c9f2e98014ce3b36f5b8629d8a8ac1931e37 true arihna-qibla-wow.apk uploaded sha256:a76be3d084ecb413aba5309a882a1c874a2618c88e0108789db5b99a47c6960f'
+      - name: Patch PROJECT_SPEC only
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('PROJECT_SPEC.md')
+          t = p.read_text()
+
+          replacements = {
+              '### 5.4 Qibla — MILESTONE OPEN / STEP 1 SPEC-FIRST CLOSED':
+                  '### 5.4 Qibla — MILESTONE CLOSED',
+              "6. **STEP 6 — full regression + API28 + Galaxy S25 validation: AUTHORIZED / IN PROGRESS.** The automated full-regression portion is satisfied by the definitive exact-SHA STEP 5 gate on runtime `73ec85f3c40b5dced87eef2e16dc41eaca80173d`: unfiltered unit/build/API28 Prayer+Location+Integration+Qibla gates are green. STEP 6 may package **that exact runtime SHA only** as a prerelease APK using Arihna's persistent debug signing identity and perform the required real Galaxy S25 compass validation. No runtime, Prayer, Location, sensor-algorithm, permission, dependency or persistence change is authorized in STEP 6; only packaging/verification metadata and the physical-device test are in scope. STEP 6 remains open until the user completes the hardware test.":
+                  '6. **STEP 6 — full regression + API28 + Galaxy S25 validation: CLOSED.** Final approved WOW runtime `1b40c9f2e98014ce3b36f5b8629d8a8ac1931e37`, directly above spec-first commit `f0e5262a524a901d673dc6b51991177d0a79baa4`, passed the definitive full exact-runtime gate `33880602477` / job `101048037602`: unit regression PASS, `assembleDebug` PASS, Android 9/API28 **47/47**, 0 failed and 0 skipped, frozen GeoNames integrity and permission/dependency policy checks PASS. The persistent-debug-signed prerelease `qibla-wow-1b40c9f2-20260904` was verified for exact target SHA, applicationId, signing identity and APK SHA-256, then physically validated PASS on the primary Galaxy S25.',
+              '7. **STEP 7 — documentation-only milestone closure: NOT STARTED.** Record exact technical SHA/run/device evidence after promotion and stop.':
+                  '7. **STEP 7 — documentation-only milestone closure: CLOSED by this documentation step.** This commit records the already-green exact runtime, prerelease identity and final Galaxy S25 PASS only. No application code, Qibla behavior, sensor logic, Location/cache behavior, lifecycle, permission, dependency, persistence or manifest policy changes are made.'
+          }
+          for old, new in replacements.items():
+              assert t.count(old) == 1, old
+              t = t.replace(old, new, 1)
+
+          marker = '\n### 5.5 Alarms'
+          assert t.count(marker) == 1
+          evidence = '''
+
+#### STEP 6/7 definitive closure evidence — 2026-09-04
+
+- **Definitive Qibla runtime:** `1b40c9f2e98014ce3b36f5b8629d8a8ac1931e37` (`feat(qibla): add final wow compass polish`), direct parent spec `f0e5262a524a901d673dc6b51991177d0a79baa4` (`docs(qibla): approve final wow compass polish`). The technical commit changes only the approved Qibla Compose screen and its Android instrumentation test; the final WOW change is presentation-only.
+- **Definitive full exact-runtime gate:** run `33880602477`, job `101048037602`, `success`, with workflow `head_sha` exactly `1b40c9f2e98014ce3b36f5b8629d8a8ac1931e37`. `testDebugUnitTest` completed successfully, `assembleDebug` completed successfully, and Android 9/API28 `connectedDebugAndroidTest` completed **47/47 tests, 0 failed, 0 skipped**. The run also restored and verified frozen GeoNames SHA-256 `7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb` and rechecked the established permission/dependency policy.
+- **Galaxy S25 validation prerelease:** tag `qibla-wow-1b40c9f2-20260904`, asset `arihna-qibla-wow.apk`, release target exactly `1b40c9f2e98014ce3b36f5b8629d8a8ac1931e37`, prerelease asset state `uploaded`, size `49,609,751` bytes, SHA-256 `a76be3d084ecb413aba5309a882a1c874a2618c88e0108789db5b99a47c6960f`.
+- **APK identity/signing continuity:** package/applicationId `com.archimedeprojects.arihna`; one V2 signer `CN=Android Debug, O=Arihna, C=IT`; certificate SHA-256 `13:97:00:8C:1F:96:2D:BB:D3:6D:D8:A8:EA:02:16:AF:DD:06:E4:B2:B3:E0:8B:C0:F6:D4:B5:43:44:D7:B0:FA`; persistent keystore SHA-256 `bc9057f26ad6de7efb70a5df06effb1ed259f1d015c3f062d0f757b3f0983b72`.
+- **Physical Galaxy S25 PASS:** the final WOW APK was installed and validated on the primary device. The final screen shows the approved compact sacred-gold banner with tone-on-tone Islamic skyline and the geographic `N` in Arihna Gold while `E/S/O` remain neutral. The user confirmed final PASS after the previously validated dynamic behavior: smooth full 360° rotation, correct `359°→0°` wrap, coherent true heading, Qibla marker preserving the correct direction, normal lifecycle behavior and compact single-viewport presentation without scroll.
+- **Closure invariant:** the validated Qibla mathematics, true-north/declination handling, heading-source hierarchy and smoothing, sensor algorithms, Location/cache semantics, Prayer behavior, lifecycle ownership, permissions, dependencies, persistence and manifest policy are unchanged by STEP 7. STEP 7 is documentation-only.
+- **Milestone result:** Qibla STEP 1–7 are CLOSED and the Qibla milestone is CLOSED. No subsequent product milestone is authorized or started by this closure; development stops under the one-objective rule until the next objective is explicitly selected.
+'''
+          t = t.replace(marker, evidence + marker, 1)
+
+          p.write_text(t)
+          PY
+          git diff --check -- PROJECT_SPEC.md
+          test "$(git status --porcelain)" = ' M PROJECT_SPEC.md'
+      - name: Commit docs-only Qibla closure
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add PROJECT_SPEC.md
+          git commit -m 'docs(qibla): close milestone after S25 pass'
+          test "$(git rev-parse HEAD^)" = 1b40c9f2e98014ce3b36f5b8629d8a8ac1931e37
+          test "$(git diff-tree --no-commit-id --name-only -r HEAD)" = PROJECT_SPEC.md
+          git push origin HEAD:refs/heads/qibla-step7-closure
