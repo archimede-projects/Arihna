@@ -42,8 +42,12 @@ jobs:
           8. Preserve the existing source hierarchy, true-north correction, Qibla bearing math, Location/cache behavior, Prayer behavior, persistence, permissions, dependencies, manifest policy, and lifecycle ownership. No FINE/BACKGROUND/BODY_SENSORS permission and no Google Play Services Location dependency may be introduced.
           9. Add focused host tests for heading/cardinal presentation and diagnostic classification; update Compose/API28 tests for full dial, instrumentation cards, declination availability semantics, interference guidance, and Manual non-live behavior. Existing regressions remain mandatory with zero skipped tests.
           10. The exact technical candidate must pass unfiltered `testDebugUnitTest`, `assembleDebug`, Android 9/API28 `connectedDebugAndroidTest`, GeoNames integrity, and existing permission/dependency policy gates before any promotion to `main`. After promotion, produce a new persistent-debug-signed Galaxy S25 prerelease APK and physically revalidate the full compass with the charger disconnected and with normal ambient magnetic conditions. STEP 6 is not CLOSED until that physical validation passes.
-          
           EOF
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('PROJECT_SPEC.md')
+          p.write_text(p.read_text().rstrip() + '\n')
+          PY
           git config user.name "IbnKhaldoun-svg"
           git config user.email "essalih.idriss.w@gmail.com"
           git add PROJECT_SPEC.md
