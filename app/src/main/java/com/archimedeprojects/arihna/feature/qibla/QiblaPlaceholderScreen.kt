@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
@@ -30,6 +31,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
@@ -119,14 +123,9 @@ private fun LiveStartingContent(state: QiblaState.LiveCompassStarting) {
 
 @Composable
 private fun LiveCompassContent(state: QiblaState.LiveCompass) {
-    BearingHeader(state.location, state.bearingTrueDegrees)
-    Spacer(Modifier.height(2.dp))
-    Text(
-        text = "${displayDegrees(state.deviceHeadingTrueDegrees)}° ${headingCardinalLabel(state.deviceHeadingTrueDegrees)}",
-        style = MaterialTheme.typography.titleLarge,
-        fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.testTag("qibla-live-heading"),
-    )
+    LocationSummary(state.location)
+    Spacer(Modifier.height(4.dp))
+    QiblaSacredBanner(state.bearingTrueDegrees, state.deviceHeadingTrueDegrees)
     Spacer(Modifier.height(4.dp))
     CompassDial(
         directionDegrees = state.relativeQiblaDirectionDegrees,
@@ -152,6 +151,41 @@ private fun LiveCompassContent(state: QiblaState.LiveCompass) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.testTag("qibla-precision-guidance"),
     )
+}
+
+@Composable
+private fun QiblaSacredBanner(bearingTrueDegrees: Double, deviceHeadingTrueDegrees: Double) {
+    val shape = RoundedCornerShape(18.dp)
+    val brush = Brush.horizontalGradient(listOf(ArihnaGold.copy(alpha = 0.96f), Color(0xFFF2D98A), Color(0xFFE6C45A)))
+    Box(Modifier.fillMaxWidth().height(66.dp).background(brush, shape).testTag("qibla-sacred-banner")) {
+        Canvas(Modifier.fillMaxSize()) {
+            val c = ArihnaGreen.copy(alpha = 0.13f)
+            drawRect(c, Offset(size.width * 0.78f, size.height * 0.34f), androidx.compose.ui.geometry.Size(size.width * 0.018f, size.height * 0.48f))
+            drawRect(c, Offset(size.width * 0.92f, size.height * 0.26f), androidx.compose.ui.geometry.Size(size.width * 0.014f, size.height * 0.56f))
+            drawCircle(c, size.height * 0.19f, Offset(size.width * 0.84f, size.height * 0.64f))
+            drawCircle(c, size.height * 0.13f, Offset(size.width * 0.70f, size.height * 0.70f))
+        }
+        Row(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+            KaabaBannerMark()
+            Spacer(Modifier.width(11.dp))
+            Column(verticalArrangement = Arrangement.Center) {
+                Text("Qibla ${displayDegrees(bearingTrueDegrees)}°", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = ArihnaGreen, modifier = Modifier.testTag("qibla-bearing-banner"))
+                Text("${displayDegrees(deviceHeadingTrueDegrees)}° ${headingCardinalLabel(deviceHeadingTrueDegrees)}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = ArihnaGreen.copy(alpha = 0.88f), modifier = Modifier.testTag("qibla-live-heading"))
+            }
+        }
+    }
+}
+
+@Composable
+private fun KaabaBannerMark() {
+    Canvas(Modifier.size(42.dp).testTag("qibla-kaaba-mark")) {
+        val l=size.width*0.12f; val t=size.height*0.20f; val r=size.width*0.88f; val b=size.height*0.84f
+        drawRect(Color(0xFF151515), Offset(l,t), androidx.compose.ui.geometry.Size(r-l,b-t))
+        drawRect(ArihnaGold, Offset(l,size.height*0.36f), androidx.compose.ui.geometry.Size(r-l,size.height*0.10f))
+        val roof=Path().apply { moveTo(l,t); lineTo(size.width*0.50f,size.height*0.08f); lineTo(r,t); close() }
+        drawPath(roof, Color(0xFF202020))
+        drawRect(ArihnaGold, Offset(size.width*0.67f,size.height*0.52f), androidx.compose.ui.geometry.Size(size.width*0.10f,size.height*0.22f))
+    }
 }
 
 @Composable
