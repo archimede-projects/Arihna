@@ -32,25 +32,15 @@ class DefaultQiblaRepository(
         val ready = locationState as? LocationResolutionState.Ready
             ?: return flowOf(QiblaState.NoLocation(locationState))
         val location = ready.location
-        if (!location.isValid) {
-            return flowOf(QiblaState.NoLocation(locationState))
-        }
+        if (!location.isValid) return flowOf(QiblaState.NoLocation(locationState))
 
         return when (val bearing = bearingCalculator.calculate(location.coordinates)) {
             QiblaBearingResult.InvalidCoordinates -> flowOf(
-                QiblaState.BearingUnavailable(
-                    location = location,
-                    reason = QiblaBearingUnavailableReason.INVALID_COORDINATES,
-                ),
+                QiblaState.BearingUnavailable(location, QiblaBearingUnavailableReason.INVALID_COORDINATES),
             )
-
             QiblaBearingResult.AtKaabaOrCoincident -> flowOf(
-                QiblaState.BearingUnavailable(
-                    location = location,
-                    reason = QiblaBearingUnavailableReason.AT_KAABA_OR_COINCIDENT,
-                ),
+                QiblaState.BearingUnavailable(location, QiblaBearingUnavailableReason.AT_KAABA_OR_COINCIDENT),
             )
-
             is QiblaBearingResult.Success -> stateForBearing(location, bearing.bearingTrueDegrees)
         }
     }
@@ -59,15 +49,8 @@ class DefaultQiblaRepository(
         location: SelectedLocation,
         bearingTrueDegrees: Double,
     ): Flow<QiblaState> = when (location.source) {
-        is LocationSource.Manual -> flowOf(
-            QiblaState.StaticBearing(
-                location = location,
-                bearingTrueDegrees = bearingTrueDegrees,
-            ),
-        )
-
-        is LocationSource.Device -> headingDataSource
-            .observeHeading(location.coordinates)
+        is LocationSource.Manual -> flowOf(QiblaState.StaticBearing(location, bearingTrueDegrees))
+        is LocationSource.Device -> headingDataSource.observeHeading(location.coordinates)
             .map { headingState ->
                 when (headingState) {
                     is DeviceHeadingState.Unavailable -> QiblaState.SensorUnavailable(
@@ -75,7 +58,6 @@ class DefaultQiblaRepository(
                         bearingTrueDegrees = bearingTrueDegrees,
                         reason = headingState.reason,
                     )
-
                     is DeviceHeadingState.Reading -> QiblaState.LiveCompass(
                         location = location,
                         bearingTrueDegrees = bearingTrueDegrees,
@@ -87,16 +69,11 @@ class DefaultQiblaRepository(
                         quality = headingState.quality,
                         estimatedAccuracyDegrees = headingState.estimatedAccuracyDegrees,
                         headingSource = headingState.source,
+                        declinationDegrees = headingState.declinationDegrees,
+                        magneticFieldMicroTesla = headingState.magneticFieldMicroTesla,
                     )
                 }
             }
-            .onStart {
-                emit(
-                    QiblaState.LiveCompassStarting(
-                        location = location,
-                        bearingTrueDegrees = bearingTrueDegrees,
-                    ),
-                )
-            }
+            .onStart { emit(QiblaState.LiveCompassStarting(location, bearingTrueDegrees)) }
     }
 }

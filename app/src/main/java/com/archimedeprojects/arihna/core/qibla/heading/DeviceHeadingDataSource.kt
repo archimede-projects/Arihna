@@ -43,9 +43,9 @@ class DefaultDeviceHeadingDataSource(
 
         backend.observe(source).collect { event ->
             when (event) {
-                HeadingSensorEvent.RegistrationFailed -> {
-                    emit(DeviceHeadingState.Unavailable(HeadingUnavailableReason.REGISTRATION_FAILED))
-                }
+                HeadingSensorEvent.RegistrationFailed -> emit(
+                    DeviceHeadingState.Unavailable(HeadingUnavailableReason.REGISTRATION_FAILED),
+                )
 
                 is HeadingSensorEvent.Reading -> {
                     val rawHeading = event.headingDegrees
@@ -54,6 +54,8 @@ class DefaultDeviceHeadingDataSource(
                         return@collect
                     }
                     val estimatedAccuracy = event.estimatedAccuracyDegrees
+                        ?.takeIf { it.isFinite() && it >= 0.0 }
+                    val magneticField = event.magneticFieldMicroTesla
                         ?.takeIf { it.isFinite() && it >= 0.0 }
 
                     if (source == HeadingSource.TRUE_HEADING_SENSOR) {
@@ -65,6 +67,7 @@ class DefaultDeviceHeadingDataSource(
                                 source = source,
                                 magneticHeadingDegrees = null,
                                 declinationDegrees = null,
+                                magneticFieldMicroTesla = magneticField,
                             ),
                         )
                     } else {
@@ -80,6 +83,7 @@ class DefaultDeviceHeadingDataSource(
                                 source = source,
                                 magneticHeadingDegrees = magneticHeading,
                                 declinationDegrees = declinationDegrees,
+                                magneticFieldMicroTesla = magneticField,
                             ),
                         )
                     }

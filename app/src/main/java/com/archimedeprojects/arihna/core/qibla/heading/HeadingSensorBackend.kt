@@ -12,6 +12,7 @@ sealed interface HeadingSensorEvent {
         val headingDegrees: Double,
         val quality: HeadingQuality,
         val estimatedAccuracyDegrees: Double?,
+        val magneticFieldMicroTesla: Double? = null,
     ) : HeadingSensorEvent
 
     data object RegistrationFailed : HeadingSensorEvent
