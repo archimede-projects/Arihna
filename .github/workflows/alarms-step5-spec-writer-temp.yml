@@ -1,0 +1,36 @@
+name: Alarms step5 spec writer
+
+on:
+  push:
+    branches:
+      - alarms-step5-writer-temp
+    paths:
+      - .github/workflows/alarms-step5-spec-writer-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  write-spec:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create clean STEP 5 authorization commit
+        env:
+          RUNTIME_SHA: 82ca7754494bb537b9b69695193c92b4f4f1fe48
+        run: |
+          cp .github/alarms-step5-spec.py /tmp/alarms-step5-spec.py
+          git checkout --detach "$RUNTIME_SHA"
+          test "$(git rev-parse HEAD)" = "$RUNTIME_SHA"
+          python3 /tmp/alarms-step5-spec.py
+          git diff --check
+          test "$(git diff --name-only)" = "PROJECT_SPEC.md"
+          git config user.name "IbnKhaldoun-svg"
+          git config user.email "essalih.idriss.w@gmail.com"
+          git add PROJECT_SPEC.md
+          git commit -m "docs(alarms): authorize step 5 functional ui"
+          test "$(git rev-parse HEAD^)" = "$RUNTIME_SHA"
+          test "$(git diff-tree --no-commit-id --name-only -r HEAD)" = "PROJECT_SPEC.md"
+          git push origin HEAD:refs/heads/alarms-step5-spec
