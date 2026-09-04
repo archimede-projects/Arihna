@@ -39,6 +39,8 @@ sealed interface QiblaState {
         val quality: HeadingQuality,
         val estimatedAccuracyDegrees: Double?,
         val headingSource: HeadingSource,
+        val declinationDegrees: Double? = null,
+        val magneticFieldMicroTesla: Double? = null,
     ) : QiblaState
 
     data class SensorUnavailable(
