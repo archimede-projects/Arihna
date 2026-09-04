@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
 import com.archimedeprojects.arihna.core.location.model.LocationFreshness
 import com.archimedeprojects.arihna.core.location.model.LocationResolutionState
@@ -40,63 +41,85 @@ class QiblaScreenAndroidTest {
     @Test fun manualLocationRemainsStaticAndHasNoLiveInstrumentation() {
         setScreen(QiblaState.StaticBearing(manualLocation(), 123.276))
         composeRule.onNodeWithText("Qibla 123°").assertIsDisplayed()
-        composeRule.onNodeWithText("Bussola statica").assertIsDisplayed()
+        composeRule.onNodeWithText("Bussola statica").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("qibla-static-compass").assertIsDisplayed()
         assertTextAbsent("Bussola live")
         assertTextAbsent("Intensità campo magnetico")
     }
 
     @Test fun liveCompassShowsFullDialHeadingAndInstrumentation() {
-        setScreen(QiblaState.LiveCompass(
-  location = deviceLocation(), bearingTrueDegrees = 123.276,
-  deviceHeadingTrueDegrees = 349.0, relativeQiblaDirectionDegrees = 134.276,
-  quality = HeadingQuality.HIGH, estimatedAccuracyDegrees = 4.2,
-  headingSource = HeadingSource.ROTATION_VECTOR,
-  declinationDegrees = 0.8, magneticFieldMicroTesla = 47.0,
-        ))
+        setScreen(
+            QiblaState.LiveCompass(
+                location = deviceLocation(),
+                bearingTrueDegrees = 123.276,
+                deviceHeadingTrueDegrees = 349.0,
+                relativeQiblaDirectionDegrees = 134.276,
+                quality = HeadingQuality.HIGH,
+                estimatedAccuracyDegrees = 4.2,
+                headingSource = HeadingSource.ROTATION_VECTOR,
+                declinationDegrees = 0.8,
+                magneticFieldMicroTesla = 47.0,
+            ),
+        )
         composeRule.onNodeWithText("Posizione memorizzata (CACHED)").assertIsDisplayed()
         composeRule.onNodeWithText("Qibla 123°").assertIsDisplayed()
         composeRule.onNodeWithText("349° N").assertIsDisplayed()
         composeRule.onNodeWithTag("qibla-full-compass").assertIsDisplayed()
         composeRule.onNodeWithTag("qibla-live-cardinal-rose").assertIsDisplayed()
         composeRule.onNodeWithTag("qibla-live-direction").assertIsDisplayed()
-        composeRule.onNodeWithText("47 µT").assertIsDisplayed()
-        composeRule.onNodeWithText("Normale").assertIsDisplayed()
-        composeRule.onNodeWithText("Alta").assertIsDisplayed()
-        composeRule.onNodeWithText("Rotation Vector").assertIsDisplayed()
-        composeRule.onNodeWithText("0.8° E").assertIsDisplayed()
-        composeRule.onNodeWithText("Per una maggiore precisione").assertIsDisplayed()
+        composeRule.onNodeWithText("47 µT").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Normale").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Alta").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Rotation Vector").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("0.8° E").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Per una maggiore precisione").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun highMagneticFieldShowsInterferenceAdvisory() {
-        setScreen(QiblaState.LiveCompass(
-  location = deviceLocation(), bearingTrueDegrees = 123.276,
-  deviceHeadingTrueDegrees = 90.0, relativeQiblaDirectionDegrees = 33.276,
-  quality = HeadingQuality.LOW, estimatedAccuracyDegrees = null,
-  headingSource = HeadingSource.ACCELEROMETER_MAGNETIC_FIELD,
-  declinationDegrees = 0.8, magneticFieldMicroTesla = 120.0,
-        ))
-        composeRule.onNodeWithText("Possibile interferenza magnetica").assertIsDisplayed()
-        composeRule.onNodeWithText("Bassa").assertIsDisplayed()
+        setScreen(
+            QiblaState.LiveCompass(
+                location = deviceLocation(),
+                bearingTrueDegrees = 123.276,
+                deviceHeadingTrueDegrees = 90.0,
+                relativeQiblaDirectionDegrees = 33.276,
+                quality = HeadingQuality.LOW,
+                estimatedAccuracyDegrees = null,
+                headingSource = HeadingSource.ACCELEROMETER_MAGNETIC_FIELD,
+                declinationDegrees = 0.8,
+                magneticFieldMicroTesla = 120.0,
+            ),
+        )
+        composeRule.onNodeWithText("Bassa").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Possibile interferenza magnetica").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun sensorUnavailableKeepsNumericBearingWithoutLiveMarker() {
         setScreen(QiblaState.SensorUnavailable(deviceLocation(), 123.276, HeadingUnavailableReason.NO_SUPPORTED_SENSOR))
         composeRule.onNodeWithText("Qibla 123°").assertIsDisplayed()
-        composeRule.onNodeWithText("Bussola live non disponibile").assertIsDisplayed()
+        composeRule.onNodeWithText("Bussola live non disponibile").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("qibla-static-direction").assertIsDisplayed()
     }
 
     private fun setScreen(state: QiblaState, onOpenLocationSettings: () -> Unit = {}) {
         composeRule.setContent { ArihnaTheme { QiblaScreen(PaddingValues(0.dp), state, onOpenLocationSettings) } }
     }
+
     private fun assertTextAbsent(text: String) {
         assertTrue(composeRule.onAllNodesWithText(text).fetchSemanticsNodes().isEmpty())
     }
-    private fun manualLocation() = SelectedLocation(LocationSource.Manual(1L), Coordinates(41.9028, 12.4964), ZoneId.of("Europe/Rome"), "Roma, Italia")
+
+    private fun manualLocation() = SelectedLocation(
+        LocationSource.Manual(1L),
+        Coordinates(41.9028, 12.4964),
+        ZoneId.of("Europe/Rome"),
+        "Roma, Italia",
+    )
+
     private fun deviceLocation() = SelectedLocation(
         source = LocationSource.Device(Instant.parse("2026-09-03T04:00:00Z"), 2_000f),
-        coordinates = Coordinates(44.99, 10.85), zoneId = ZoneId.of("Europe/Rome"),
-        displayName = "Pegognaga, Italia", freshness = LocationFreshness.CACHED,
+        coordinates = Coordinates(44.99, 10.85),
+        zoneId = ZoneId.of("Europe/Rome"),
+        displayName = "Pegognaga, Italia",
+        freshness = LocationFreshness.CACHED,
     )
 }
