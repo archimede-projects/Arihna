@@ -1165,13 +1165,33 @@ Required STEP 4 tests: pure/JVM coverage for Prayer-name→PrayerTimes mapping, 
 
 STEP 5 is not started by this authorization.
 
+#### STEP 4 closure / STEP 5 authorization — APPROVED 2026-09-04
+
+Alarms STEP 4 Prayer-linked reconciliation is **CLOSED** on exact technical commit `82ca7754494bb537b9b69695193c92b4f4f1fe48`, built directly above STEP 4 authorization commit `91598b513c51f86010159380be6d4700be3f5784`. Definitive exact-SHA gate run `33894459758` / job `101093710372` checked out that exact runtime, restored and verified frozen GeoNames, passed unfiltered `testDebugUnitTest`, passed `assembleDebug`, and completed Android 9/API28 `connectedDebugAndroidTest` with **57/57 tests, 0 failures, 0 errors, 0 skipped**. The implementation adds only Alarm reconciliation/orchestration plus focused tests and composition-root wiring; Prayer calculation, Location acquisition/cache semantics, Qibla, permissions and dependencies outside the previously-approved Alarm scope remain unchanged.
+
+STEP 5 functional Alarm UI + notification delivery is now authorized with this exact scope:
+
+- Add `POST_NOTIFICATIONS` to the manifest for API33+ delivery. Arihna must never request it automatically at startup: the runtime permission prompt is launched only after an explicit user action inside the Alarm screen, with a concise rationale. API32 and below remain notification-ready without a runtime permission.
+- Exact-alarm special access remains a separate capability. The existing `ACTION_REQUEST_SCHEDULE_EXACT_ALARM` intent may be launched only from an explicit Alarm-screen action. Rules may remain persisted/enabled when either capability is missing, but they must not remain platform-scheduled and the UI must state that user action is required. No inexact fallback is permitted.
+- Introduce one Arihna-owned notification-delivery boundary. A validated occurrence may post a normal notification only when the envelope still matches the current enabled rule revision/token and notification permission is available. Stale, malformed, deleted or disabled occurrences produce no user-visible delivery. No full-screen intent, lock-screen takeover, foreground service, wake lock or battery-optimization exemption.
+- Freeze two sound profiles already present in the domain: `SYSTEM_DEFAULT` uses the platform alarm/default sound on an Arihna Alarm notification channel; `SILENT` uses a separate silent Arihna Alarm channel. No bundled Adhan audio, media playback service, custom-file picker or audio catalogue belongs to STEP 5.
+- After a validated delivery, a one-shot custom rule (`weekdays` empty) is atomically disabled through the already-closed repository revision check; recurring custom and Prayer-linked rules remain enabled. Reconciliation then computes/schedules the next occurrence. If notification delivery is blocked, do not mark a one-shot as delivered.
+- Replace the Alarm placeholder with a compact functional Compose screen. It must show exact-alarm and notification capability status, explicit actions to grant missing access, all five Prayer alarms with enable/disable controls and persisted sound profile, and a minimal Custom alarm creator with label + local `HH:mm`; a custom alarm with no selected weekdays is a one-shot, while optional weekday selection may be exposed without changing the closed domain model. Existing rules must support enable/disable, sound-profile change and delete.
+- All rule mutations must persist first and then run the STEP 4 reconciler. The screen must not request Location, run Prayer formulas, poll in background, subscribe to Qibla sensors or fabricate delivery/scheduling success.
+- Keep the existing app shell and bottom navigation. UI styling stays within the existing Arihna Green/Gold/Off-white theme and should fit the primary Galaxy S25 compactly without requiring unnecessary scrolling for the capability header and Prayer controls.
+- Preserve `applicationId = com.archimedeprojects.arihna`, COARSE-only Location policy, existing `SCHEDULE_EXACT_ALARM` + `RECEIVE_BOOT_COMPLETED`, frozen GeoNames, Prayer/Qibla behavior, current dependencies and DataStore namespace. No new dependency is authorized.
+
+Required STEP 5 tests: JVM coverage for notification-permission gating, no scheduling when delivery capability is missing, valid-vs-stale occurrence handling, one-shot disable only after successful validated delivery, recurring reschedule, and rule-mutation→reconcile behavior; Compose/API28 coverage for capability status, five Prayer controls, custom creation/list state and absence of fabricated permission success; API28 instrumentation for notification-channel creation/delivery compatibility. The technical candidate must pass the full exact-SHA gate with zero ignored/skipped tests before non-forced promotion.
+
+STEP 6 is not started by this authorization.
+
 #### Alarms milestone sequence
 
 1. **STEP 1 — spec-first architecture/policy: CLOSED.** No runtime change.
 2. **STEP 2 — domain + persistence: CLOSED.** Exact runtime `7579490c58e354a5423e76d4d8ad4e1f7749dfac`; gate `33888892314` / `101075412204`, API28 53/53, 0 failed, 0 skipped.
 3. **STEP 3 — Android scheduler + capability layer: CLOSED.** Exact runtime `a87835850bd7f7659909504f76ac1012723f028e`; definitive gate rerun `33892642365` / `101087773292`; exact scheduling/capability/receiver layer only, with no user-visible delivery.
-4. **STEP 4 — Prayer-linked reconciliation: AUTHORIZED / IN PROGRESS.** Connect persisted Prayer/custom rules to the closed Prayer schedule + exact scheduler boundaries without changing Prayer, Location or notification behavior.
-5. **STEP 5 — functional alarm UI + notification/sound profiles: NOT STARTED.** Minimal usable Prayer/custom alarm controls, rationale/capability UI and approved channel-backed sound profiles.
+4. **STEP 4 — Prayer-linked reconciliation: CLOSED.** Exact runtime `82ca7754494bb537b9b69695193c92b4f4f1fe48`; gate `33894459758` / `101093710372`; API28 57/57, 0 failed, 0 skipped.
+5. **STEP 5 — functional alarm UI + notification/sound profiles: AUTHORIZED / IN PROGRESS.** Minimal usable Prayer/custom controls, explicit capability actions and validated channel-backed notification delivery only.
 6. **STEP 6 — definitive regression/package gate: NOT STARTED.** Full exact-SHA regression including API28, focused modern-API exact-alarm coverage, identity/signing checks and persistent-debug Galaxy S25 prerelease.
 7. **STEP 7 — Galaxy S25 reliability validation + documentation-only closure: NOT STARTED.** Hardware validation first; closure commit after explicit physical PASS, with no runtime change.
 
