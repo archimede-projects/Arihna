@@ -1,0 +1,94 @@
+name: Qibla final wow exact-SHA gate
+
+on:
+  push:
+    branches: [qibla-wow-gate-temp]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      TARGET_SHA: 1b40c9f2e98014ce3b36f5b8629d8a8ac1931e37
+      SPEC_SHA: f0e5262a524a901d673dc6b51991177d0a79baa4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 1b40c9f2e98014ce3b36f5b8629d8a8ac1931e37
+          fetch-depth: 0
+
+      - name: Verify exact candidate, spec-first parent and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          mapfile -t files < <(git diff --name-only "$SPEC_SHA".."$TARGET_SHA")
+          test "${#files[@]}" -eq 2
+          printf '%s\n' "${files[@]}" | grep -Fx 'app/src/main/java/com/archimedeprojects/arihna/feature/qibla/QiblaPlaceholderScreen.kt'
+          printf '%s\n' "${files[@]}" | grep -Fx 'app/src/androidTest/java/com/archimedeprojects/arihna/feature/qibla/QiblaScreenAndroidTest.kt'
+          grep -Fq 'Galaxy S25 final Qibla WOW polish — APPROVED 2026-09-04' PROJECT_SPEC.md
+          grep -Fq 'qibla-islamic-skyline' app/src/main/java/com/archimedeprojects/arihna/feature/qibla/QiblaPlaceholderScreen.kt
+          grep -Fq 'qibla-north-cardinal-gold' app/src/main/java/com/archimedeprojects/arihna/feature/qibla/QiblaPlaceholderScreen.kt
+          grep -Fq 'color = if (gold) ArihnaGold' app/src/main/java/com/archimedeprojects/arihna/feature/qibla/QiblaPlaceholderScreen.kt
+          ! grep -Rq 'verticalScroll' app/src/main/java/com/archimedeprojects/arihna/feature/qibla
+          ! grep -Rq 'ACCESS_FINE_LOCATION\|ACCESS_BACKGROUND_LOCATION\|BODY_SENSORS' app/src/main/AndroidManifest.xml
+          ! grep -Rqi 'play-services-location' app/build.gradle.kts gradle/libs.versions.toml
+          ! grep -Rqi '@Ignore\|@Disabled' app/src/test app/src/androidTest
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Restore frozen GeoNames asset
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/qibla-asset app/src/main/assets/geonames
+          mkdir -p /tmp/qibla-asset app/src/main/assets/geonames
+          gh run download 33296099459 --repo "$GITHUB_REPOSITORY" --name geonames-step4-runtime-minimal --dir /tmp/qibla-asset
+          DB="$(find /tmp/qibla-asset -type f -name cities.db -print -quit)"
+          test -n "$DB"
+          cp "$DB" app/src/main/assets/geonames/cities.db
+          echo '7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb  app/src/main/assets/geonames/cities.db' | sha256sum -c -
+
+      - name: Unit regression and assemble
+        run: ./gradlew testDebugUnitTest assembleDebug --stacktrace
+
+      - name: Android 9 API28 regression
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 28
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: ./gradlew connectedDebugAndroidTest --stacktrace
+
+      - name: Verify connected report
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          files=list(Path('app/build/outputs/androidTest-results/connected').rglob('TEST-*.xml'))
+          if not files: raise SystemExit('no connected test XML')
+          tests=failures=errors=skipped=0
+          for f in files:
+              r=ET.parse(f).getroot(); tests+=int(r.attrib.get('tests',0)); failures+=int(r.attrib.get('failures',0)); errors+=int(r.attrib.get('errors',0)); skipped+=int(r.attrib.get('skipped',0))
+          print({'tests':tests,'failures':failures,'errors':errors,'skipped':skipped})
+          assert tests >= 47 and failures == 0 and errors == 0 and skipped == 0
+          PY
