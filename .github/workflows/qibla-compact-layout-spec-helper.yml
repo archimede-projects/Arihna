@@ -22,22 +22,22 @@ jobs:
         shell: bash
         run: |
           cat >> PROJECT_SPEC.md <<'EOF'
-
-#### Galaxy S25 compact single-viewport Qibla layout — APPROVED 2026-09-04
-
-Physical Galaxy S25 validation of the full-compass prerelease on runtime `b0017a6e5964ebdee9b6e6545a3356d7dce83f0a` is positive for the compass concept and instrumentation, but the user rejects the resulting vertically scrollable Qibla page. STEP 6 therefore remains AUTHORIZED / IN PROGRESS for a presentation-only compact-layout correction before closure.
-
-Approved correction:
-
-1. On the primary Galaxy S25 portrait viewport, normal `LiveCompass` content must fit as a compact single-screen instrument without requiring vertical scrolling. The compass remains the dominant element and the visual hierarchy should match the previously approved/generated compact Samsung-inspired Arihna concept as closely as possible using the available specification rather than inventing a new visual direction.
-2. Preserve the full 360-degree dial, degree graduations, major 30-degree labels, N/E/S/O, fixed screen-top heading index, yellow Qibla marker, current true heading/cardinal sector, selected location, true-north Qibla bearing, Device freshness, heading quality/accuracy, source, magnetic declination and magnetic-field intensity.
-3. Compress secondary telemetry instead of deleting it: use compact rows/chips/two-column instrumentation or equivalent dense Arihna treatment, reduced redundant explanatory copy and tighter spacing. Avoid a vertical stack of large diagnostic cards in the normal healthy state.
-4. Interference/calibration guidance remains honest and visible when actionable, but should use a compact high-priority banner/row rather than forcing a long page. Routine precision guidance may be condensed to a short line/icon treatment. Magnetic intensity remains diagnostic only.
-5. Manual mode remains clearly static with the prominent `Bussola statica` meaning preserved; it must not expose live heading/telemetry or imply physical alignment. Other controlled Qibla states remain usable without fabricated values.
-6. This correction is presentation-only. Do not change Qibla bearing/relative-direction mathematics, heading source hierarchy, declination, sensor fusion, magnetic diagnostic thresholds, Location/cache behavior, Prayer behavior, persistence, permissions, dependencies, manifest policy or lifecycle ownership.
-7. Focused Compose/API28 tests must verify the compact live hierarchy and retained instrumentation without relying on scrolling to reach normal live telemetry, plus Manual non-live behavior and interference visibility. Existing host/unit, `assembleDebug`, Android 9/API28 connected, GeoNames, permission/dependency and no-skipped-test gates remain mandatory.
-8. The exact clean technical candidate must pass the full gate before non-forced promotion to `main`, followed by a new persistent-debug-signed Galaxy S25 prerelease. STEP 6 closes only after physical confirmation that the compact screen is satisfactory and the already-validated compass behavior remains correct.
-EOF
+          
+          #### Galaxy S25 compact single-viewport Qibla layout — APPROVED 2026-09-04
+          
+          Physical Galaxy S25 validation of the full-compass prerelease on runtime `b0017a6e5964ebdee9b6e6545a3356d7dce83f0a` is positive for the compass concept and instrumentation, but the user rejects the resulting vertically scrollable Qibla page. STEP 6 therefore remains AUTHORIZED / IN PROGRESS for a presentation-only compact-layout correction before closure.
+          
+          Approved correction:
+          
+          1. On the primary Galaxy S25 portrait viewport, normal `LiveCompass` content must fit as a compact single-screen instrument without requiring vertical scrolling. The compass remains the dominant element and the visual hierarchy should match the previously approved/generated compact Samsung-inspired Arihna concept as closely as possible using the available specification rather than inventing a new visual direction.
+          2. Preserve the full 360-degree dial, degree graduations, major 30-degree labels, N/E/S/O, fixed screen-top heading index, yellow Qibla marker, current true heading/cardinal sector, selected location, true-north Qibla bearing, Device freshness, heading quality/accuracy, source, magnetic declination and magnetic-field intensity.
+          3. Compress secondary telemetry instead of deleting it: use compact rows/chips/two-column instrumentation or equivalent dense Arihna treatment, reduced redundant explanatory copy and tighter spacing. Avoid a vertical stack of large diagnostic cards in the normal healthy state.
+          4. Interference/calibration guidance remains honest and visible when actionable, but should use a compact high-priority banner/row rather than forcing a long page. Routine precision guidance may be condensed to a short line/icon treatment. Magnetic intensity remains diagnostic only.
+          5. Manual mode remains clearly static with the prominent `Bussola statica` meaning preserved; it must not expose live heading/telemetry or imply physical alignment. Other controlled Qibla states remain usable without fabricated values.
+          6. This correction is presentation-only. Do not change Qibla bearing/relative-direction mathematics, heading source hierarchy, declination, sensor fusion, magnetic diagnostic thresholds, Location/cache behavior, Prayer behavior, persistence, permissions, dependencies, manifest policy or lifecycle ownership.
+          7. Focused Compose/API28 tests must verify the compact live hierarchy and retained instrumentation without relying on scrolling to reach normal live telemetry, plus Manual non-live behavior and interference visibility. Existing host/unit, `assembleDebug`, Android 9/API28 connected, GeoNames, permission/dependency and no-skipped-test gates remain mandatory.
+          8. The exact clean technical candidate must pass the full gate before non-forced promotion to `main`, followed by a new persistent-debug-signed Galaxy S25 prerelease. STEP 6 closes only after physical confirmation that the compact screen is satisfactory and the already-validated compass behavior remains correct.
+          EOF
           git diff --check
           git config user.name 'IbnKhaldoun-svg'
           git config user.email 'essalih.idriss.w@gmail.com'
