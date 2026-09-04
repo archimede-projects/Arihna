@@ -1,0 +1,65 @@
+name: Qibla banner 5 helper
+on:
+  push:
+    branches: [qibla-banner5-auto-temp]
+permissions:
+  contents: write
+jobs:
+  stage:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create spec commit and implementation commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git checkout -B qibla-banner5-spec f9bb05c77d2709945f1bdd26ddc3898b28dd5607
+          cat >> PROJECT_SPEC.md <<'EOF'
+
+#### Qibla sacred gold banner — APPROVED 2026-09-04
+
+Galaxy S25 review of compact runtime `7d88b83b423de353a399c07ab80ccaf247b4b45d` confirmed the single-viewport layout but exposed insufficient contrast for the primary Qibla value. The user explicitly approved generated concept **variant 5 — Banner islamico** as the visual target. Reference: `docs/qibla/reference/qibla-banner-variant-5-approved.jpg`.
+
+Approved contract:
+- Normal LiveCompass uses one compact premium horizontal gold banner immediately above the compass, replacing the separate low-contrast Qibla value plus standalone heading row.
+- Banner content: small geometric Kaaba mark at left, prominent high-contrast `Qibla N°`, current true heading/cardinal beneath, subtle mosque/minaret silhouette ornament. No sacred text, Arabic calligraphy, network image or religious claim.
+- Use Arihna Gold/warm derived gold and Arihna Green high-contrast foreground, rounded premium geometry, matching variant 5 as closely as practical in native Compose.
+- Preserve Galaxy S25 portrait single viewport with no vertical scrolling and preserve full dial, top index, yellow marker, location/freshness and all telemetry/guidance.
+- Manual/static semantics remain truthful; no live-alignment claim in Manual mode.
+- Presentation only: no Qibla math, north correction, heading hierarchy/smoothing, geomagnetic, Location/cache, Prayer, persistence, permissions, dependencies, manifest or lifecycle changes.
+- API28 Compose coverage must verify the gold banner, Qibla value, live heading and Kaaba mark while existing regressions remain mandatory with zero skipped tests.
+- Technical implementation commit directly follows this spec commit; exact full gate is required before non-forced main promotion and persistent-debug S25 prerelease. STEP 6 remains open pending physical validation.
+EOF
+          git add PROJECT_SPEC.md
+          git commit -m 'docs(qibla): approve sacred gold banner variant 5'
+          SPEC_SHA=$(git rev-parse HEAD)
+          git push origin HEAD:refs/heads/qibla-banner5-spec
+          git checkout -B qibla-banner5-impl "$SPEC_SHA"
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/main/java/com/archimedeprojects/arihna/feature/qibla/QiblaPlaceholderScreen.kt')
+          s=p.read_text()
+          s=s.replace('import androidx.compose.foundation.shape.CircleShape\n','import androidx.compose.foundation.shape.CircleShape\nimport androidx.compose.foundation.shape.RoundedCornerShape\n')
+          s=s.replace('import androidx.compose.ui.graphics.StrokeCap\n','import androidx.compose.ui.graphics.Brush\nimport androidx.compose.ui.graphics.Color\nimport androidx.compose.ui.graphics.Path\nimport androidx.compose.ui.graphics.StrokeCap\n')
+          old='''private fun LiveCompassContent(state: QiblaState.LiveCompass) {\n    BearingHeader(state.location, state.bearingTrueDegrees)\n    Spacer(Modifier.height(2.dp))\n    Text(\n        text = "${displayDegrees(state.deviceHeadingTrueDegrees)}° ${headingCardinalLabel(state.deviceHeadingTrueDegrees)}",\n        style = MaterialTheme.typography.titleLarge,\n        fontWeight = FontWeight.SemiBold,\n        modifier = Modifier.testTag("qibla-live-heading"),\n    )\n    Spacer(Modifier.height(4.dp))\n'''
+          new='''private fun LiveCompassContent(state: QiblaState.LiveCompass) {\n    LocationSummary(state.location)\n    Spacer(Modifier.height(4.dp))\n    QiblaSacredBanner(state.bearingTrueDegrees, state.deviceHeadingTrueDegrees)\n    Spacer(Modifier.height(4.dp))\n'''
+          if old not in s: raise SystemExit('live block not found')
+          s=s.replace(old,new,1)
+          marker='''@Composable\nprivate fun InstrumentationGrid(state: QiblaState.LiveCompass) {\n'''
+          banner='''@Composable\nprivate fun QiblaSacredBanner(bearingTrueDegrees: Double, deviceHeadingTrueDegrees: Double) {\n    val shape = RoundedCornerShape(18.dp)\n    val brush = Brush.horizontalGradient(listOf(ArihnaGold.copy(alpha = 0.96f), Color(0xFFF2D98A), Color(0xFFE6C45A)))\n    Box(Modifier.fillMaxWidth().height(66.dp).background(brush, shape).testTag("qibla-sacred-banner")) {\n        Canvas(Modifier.fillMaxSize()) {\n            val c = ArihnaGreen.copy(alpha = 0.13f)\n            drawRect(c, Offset(size.width * 0.78f, size.height * 0.34f), androidx.compose.ui.geometry.Size(size.width * 0.018f, size.height * 0.48f))\n            drawRect(c, Offset(size.width * 0.92f, size.height * 0.26f), androidx.compose.ui.geometry.Size(size.width * 0.014f, size.height * 0.56f))\n            drawCircle(c, size.height * 0.19f, Offset(size.width * 0.84f, size.height * 0.64f))\n            drawCircle(c, size.height * 0.13f, Offset(size.width * 0.70f, size.height * 0.70f))\n        }\n        Row(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {\n            KaabaBannerMark()\n            Spacer(Modifier.width(11.dp))\n            Column(verticalArrangement = Arrangement.Center) {\n                Text("Qibla ${displayDegrees(bearingTrueDegrees)}°", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = ArihnaGreen, modifier = Modifier.testTag("qibla-bearing-banner"))\n                Text("${displayDegrees(deviceHeadingTrueDegrees)}° ${headingCardinalLabel(deviceHeadingTrueDegrees)}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = ArihnaGreen.copy(alpha = 0.88f), modifier = Modifier.testTag("qibla-live-heading"))\n            }\n        }\n    }\n}\n\n@Composable\nprivate fun KaabaBannerMark() {\n    Canvas(Modifier.size(42.dp).testTag("qibla-kaaba-mark")) {\n        val l=size.width*0.12f; val t=size.height*0.20f; val r=size.width*0.88f; val b=size.height*0.84f\n        drawRect(Color(0xFF151515), Offset(l,t), androidx.compose.ui.geometry.Size(r-l,b-t))\n        drawRect(ArihnaGold, Offset(l,size.height*0.36f), androidx.compose.ui.geometry.Size(r-l,size.height*0.10f))\n        val roof=Path().apply { moveTo(l,t); lineTo(size.width*0.50f,size.height*0.08f); lineTo(r,t); close() }\n        drawPath(roof, Color(0xFF202020))\n        drawRect(ArihnaGold, Offset(size.width*0.67f,size.height*0.52f), androidx.compose.ui.geometry.Size(size.width*0.10f,size.height*0.22f))\n    }\n}\n\n@Composable\nprivate fun InstrumentationGrid(state: QiblaState.LiveCompass) {\n'''
+          if marker not in s: raise SystemExit('marker not found')
+          p.write_text(s.replace(marker,banner,1))
+          t=Path('app/src/androidTest/java/com/archimedeprojects/arihna/feature/qibla/QiblaScreenAndroidTest.kt')
+          ts=t.read_text(); needle='        composeRule.onNodeWithText("349° N").assertIsDisplayed()\n'
+          if needle not in ts: raise SystemExit('test insertion not found')
+          ts=ts.replace(needle,needle+'        composeRule.onNodeWithTag("qibla-sacred-banner").assertIsDisplayed()\n        composeRule.onNodeWithTag("qibla-bearing-banner").assertIsDisplayed()\n        composeRule.onNodeWithTag("qibla-live-heading").assertIsDisplayed()\n        composeRule.onNodeWithTag("qibla-kaaba-mark").assertIsDisplayed()\n',1)
+          t.write_text(ts)
+          PY
+          git diff --check
+          git add app/src/main/java/com/archimedeprojects/arihna/feature/qibla/QiblaPlaceholderScreen.kt app/src/androidTest/java/com/archimedeprojects/arihna/feature/qibla/QiblaScreenAndroidTest.kt
+          git commit -m 'feat(qibla): add approved sacred gold live banner'
+          git push origin HEAD:refs/heads/qibla-banner5-impl
