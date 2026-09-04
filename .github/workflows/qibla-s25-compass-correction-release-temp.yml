@@ -127,3 +127,5 @@ jobs:
             --title 'S25 validation — Qibla compass correction — e641cb44' \
             --prerelease \
             --notes "DEVICE VALIDATION BUILD. Exact runtime $TARGET_SHA, spec-first parent $TARGET_PARENT_SPEC_SHA. Automated gate run $VERIFIED_GATE_RUN / job $VERIFIED_GATE_JOB completed successfully before promotion. This build corrects only Qibla presentation: the live cardinal rose now follows true device heading while the yellow Qibla marker keeps the previously validated repository relative direction; Manual mode now shows a prominent Bussola statica notice. Qibla bearing math, heading source hierarchy, declination, Location/Prayer behavior, persistence, permissions, dependencies and lifecycle ownership are unchanged. Frozen GeoNames asset is restored and verified. Persistent debug signing identity matches previous S25 validation APKs. APK bytes: $APK_SIZE. APK SHA-256: $APK_SHA. Physical Galaxy S25 revalidation is still required before STEP 6 closure."
+
+# Push after workflow registration to trigger this temporary release job.
