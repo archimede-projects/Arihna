@@ -158,13 +158,7 @@ private fun QiblaSacredBanner(bearingTrueDegrees: Double, deviceHeadingTrueDegre
     val shape = RoundedCornerShape(18.dp)
     val brush = Brush.horizontalGradient(listOf(ArihnaGold.copy(alpha = 0.96f), Color(0xFFF2D98A), Color(0xFFE6C45A)))
     Box(Modifier.fillMaxWidth().height(66.dp).background(brush, shape).testTag("qibla-sacred-banner")) {
-        Canvas(Modifier.fillMaxSize()) {
-            val c = ArihnaGreen.copy(alpha = 0.13f)
-            drawRect(c, Offset(size.width * 0.78f, size.height * 0.34f), androidx.compose.ui.geometry.Size(size.width * 0.018f, size.height * 0.48f))
-            drawRect(c, Offset(size.width * 0.92f, size.height * 0.26f), androidx.compose.ui.geometry.Size(size.width * 0.014f, size.height * 0.56f))
-            drawCircle(c, size.height * 0.19f, Offset(size.width * 0.84f, size.height * 0.64f))
-            drawCircle(c, size.height * 0.13f, Offset(size.width * 0.70f, size.height * 0.70f))
-        }
+        IslamicSkyline(Modifier.fillMaxSize().testTag("qibla-islamic-skyline"))
         Row(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
             KaabaBannerMark()
             Spacer(Modifier.width(11.dp))
@@ -173,6 +167,75 @@ private fun QiblaSacredBanner(bearingTrueDegrees: Double, deviceHeadingTrueDegre
                 Text("${displayDegrees(deviceHeadingTrueDegrees)}° ${headingCardinalLabel(deviceHeadingTrueDegrees)}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = ArihnaGreen.copy(alpha = 0.88f), modifier = Modifier.testTag("qibla-live-heading"))
             }
         }
+    }
+}
+
+@Composable
+private fun IslamicSkyline(modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val c = ArihnaGreen.copy(alpha = 0.15f)
+        val baseline = size.height * 0.82f
+
+        drawRect(
+            color = c,
+            topLeft = Offset(size.width * 0.60f, baseline),
+            size = androidx.compose.ui.geometry.Size(size.width * 0.37f, size.height * 0.07f),
+        )
+
+        fun minaret(x: Float, top: Float, widthFraction: Float = 0.018f) {
+            val w = size.width * widthFraction
+            drawRect(
+                color = c,
+                topLeft = Offset(x - w / 2f, top),
+                size = androidx.compose.ui.geometry.Size(w, baseline - top),
+            )
+            drawCircle(c, w * 0.78f, Offset(x, top))
+            drawLine(
+                color = c,
+                start = Offset(x, top - size.height * 0.12f),
+                end = Offset(x, top),
+                strokeWidth = (w * 0.22f).coerceAtLeast(1f),
+                cap = StrokeCap.Round,
+            )
+            val finial = Path().apply {
+                moveTo(x, top - size.height * 0.14f)
+                lineTo(x - w * 0.28f, top - size.height * 0.10f)
+                lineTo(x + w * 0.28f, top - size.height * 0.10f)
+                close()
+            }
+            drawPath(finial, c)
+        }
+
+        fun dome(cx: Float, crownY: Float, radius: Float, bodyWidth: Float) {
+            drawCircle(c, radius, Offset(cx, crownY + radius))
+            drawRect(
+                color = c,
+                topLeft = Offset(cx - bodyWidth / 2f, crownY + radius),
+                size = androidx.compose.ui.geometry.Size(bodyWidth, baseline - crownY - radius),
+            )
+            drawLine(
+                color = c,
+                start = Offset(cx, crownY - size.height * 0.07f),
+                end = Offset(cx, crownY),
+                strokeWidth = 1.4.dp.toPx(),
+                cap = StrokeCap.Round,
+            )
+        }
+
+        minaret(size.width * 0.66f, size.height * 0.42f, 0.015f)
+        dome(size.width * 0.75f, size.height * 0.48f, size.height * 0.12f, size.width * 0.10f)
+        dome(size.width * 0.84f, size.height * 0.58f, size.height * 0.08f, size.width * 0.07f)
+        minaret(size.width * 0.91f, size.height * 0.34f, 0.014f)
+
+        drawArc(
+            color = c,
+            startAngle = 55f,
+            sweepAngle = 245f,
+            useCenter = false,
+            topLeft = Offset(size.width * 0.80f, size.height * 0.12f),
+            size = androidx.compose.ui.geometry.Size(size.height * 0.22f, size.height * 0.22f),
+            style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round),
+        )
     }
 }
 
@@ -300,7 +363,15 @@ private fun CompassDial(directionDegrees: Double, deviceHeadingTrueDegrees: Doub
                 if (degree == 0 || degree == 90 || degree == 180 || degree == 270) continue
                 PolarLabel(degree.toString(), degree.toDouble(), radiusPx, displayedRose, fontSize = 11f)
             }
-            PolarLabel("N", 0.0, radiusPx * 0.73f, displayedRose, true)
+            PolarLabel(
+                "N",
+                0.0,
+                radiusPx * 0.73f,
+                displayedRose,
+                bold = true,
+                gold = live,
+                modifier = if (live) Modifier.testTag("qibla-north-cardinal-gold") else Modifier,
+            )
             PolarLabel("E", 90.0, radiusPx * 0.73f, displayedRose, true)
             PolarLabel("S", 180.0, radiusPx * 0.73f, displayedRose, true)
             PolarLabel("O", 270.0, radiusPx * 0.73f, displayedRose, true)
@@ -325,18 +396,20 @@ private fun androidx.compose.foundation.layout.BoxScope.PolarLabel(
     roseRotation: Float,
     bold: Boolean = false,
     fontSize: Float = 15f,
+    gold: Boolean = false,
+    modifier: Modifier = Modifier,
 ) {
     val rad = degree * PI / 180.0
     Text(
         text = text,
-        modifier = Modifier.align(Alignment.Center).graphicsLayer {
+        modifier = modifier.align(Alignment.Center).graphicsLayer {
             translationX = (sin(rad) * radiusPx).toFloat()
             translationY = (-cos(rad) * radiusPx).toFloat()
             rotationZ = -roseRotation
         },
         fontSize = fontSize.sp,
         fontWeight = if (bold) FontWeight.Bold else FontWeight.Medium,
-        color = if (text == "N") ArihnaGreen else MaterialTheme.colorScheme.onSurfaceVariant,
+        color = if (gold) ArihnaGold else MaterialTheme.colorScheme.onSurfaceVariant,
     )
 }
 
