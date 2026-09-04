@@ -17,6 +17,12 @@ import com.archimedeprojects.arihna.core.qibla.heading.DeviceHeadingDataSource
 import com.archimedeprojects.arihna.core.qibla.platform.AndroidDeviceHeadingDataSource
 import com.archimedeprojects.arihna.feature.alarms.data.AlarmRuleRepository
 import com.archimedeprojects.arihna.feature.alarms.data.preferences.PreferencesDataStoreAlarmRuleRepository
+import com.archimedeprojects.arihna.feature.alarms.platform.AlarmPlatformScheduler
+import com.archimedeprojects.arihna.feature.alarms.platform.AlarmReconciliationTrigger
+import com.archimedeprojects.arihna.feature.alarms.platform.AndroidExactAlarmBackend
+import com.archimedeprojects.arihna.feature.alarms.platform.DefaultAlarmPlatformScheduler
+import com.archimedeprojects.arihna.feature.alarms.platform.ExactAlarmAccessIntentFactory
+import com.archimedeprojects.arihna.feature.alarms.platform.NoOpAlarmReconciliationTrigger
 import com.archimedeprojects.arihna.feature.prayerschedule.data.PrayerSettingsRepository
 import com.archimedeprojects.arihna.feature.prayerschedule.data.preferences.PreferencesDataStorePrayerSettingsRepository
 
@@ -44,6 +50,17 @@ class AppContainer(context: Context) {
     val alarmRuleRepository: AlarmRuleRepository by lazy {
         PreferencesDataStoreAlarmRuleRepository(appContext.locationPreferencesDataStore)
     }
+
+    val alarmPlatformScheduler: AlarmPlatformScheduler by lazy {
+        DefaultAlarmPlatformScheduler(AndroidExactAlarmBackend(appContext))
+    }
+
+    val exactAlarmAccessIntentFactory: ExactAlarmAccessIntentFactory by lazy {
+        ExactAlarmAccessIntentFactory(appContext)
+    }
+
+    // STEP 4 replaces this bounded no-op trigger with authoritative reconciliation.
+    val alarmReconciliationTrigger: AlarmReconciliationTrigger = NoOpAlarmReconciliationTrigger
 
     val locationCoordinator: LocationCoordinator by lazy {
         LocationCoordinator(
