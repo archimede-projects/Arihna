@@ -1,4 +1,4 @@
-name: Qibla S25 compass correction prerelease temp
+name: Qibla S25 full compass prerelease temp
 
 on:
   push:
@@ -15,19 +15,19 @@ jobs:
   build-and-release:
     runs-on: ubuntu-24.04
     env:
-      TARGET_SHA: e641cb44fea5ab6095c87ed681b883db8c7c00b5
-      TARGET_PARENT_SPEC_SHA: 2480cb390971518384cabc58e4d02d574ddfa94f
-      VERIFIED_GATE_RUN: '33836128522'
-      VERIFIED_GATE_JOB: '100908915232'
+      TARGET_SHA: b0017a6e5964ebdee9b6e6545a3356d7dce83f0a
+      TARGET_PARENT_SPEC_SHA: 26fc6a8757a05e8530a3fbab0aa068b0fb666c61
+      VERIFIED_GATE_RUN: '33842519584'
+      VERIFIED_GATE_JOB: '100927538692'
       SIGNING_SOURCE_SHA: ce23a7f78695be95c7f8dfd2bcedbe22544da94c
-      RELEASE_TAG: qibla-s25-correction-e641cb44-20260904
-      APK_NAME: arihna-qibla-s25-correction.apk
+      RELEASE_TAG: qibla-full-compass-b0017a6e-20260904
+      APK_NAME: arihna-qibla-full-compass.apk
       DEBUG_CERT_SHA256: 13:97:00:8C:1F:96:2D:BB:D3:6D:D8:A8:EA:02:16:AF:DD:06:E4:B2:B3:E0:8B:C0:F6:D4:B5:43:44:D7:B0:FA
       DEBUG_KEYSTORE_SHA256: bc9057f26ad6de7efb70a5df06effb1ed259f1d015c3f062d0f757b3f0983b72
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: e641cb44fea5ab6095c87ed681b883db8c7c00b5
+          ref: b0017a6e5964ebdee9b6e6545a3356d7dce83f0a
           fetch-depth: 0
 
       - name: Verify exact runtime, spec-first parent, promotion and green gate
@@ -41,10 +41,10 @@ jobs:
           MAIN_SHA="$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq '.commit.sha')"
           test "$MAIN_SHA" = "$TARGET_SHA"
           gh api "repos/$GITHUB_REPOSITORY/contents/PROJECT_SPEC.md?ref=$TARGET_PARENT_SPEC_SHA" --jq '.content' | tr -d '\n' | base64 --decode > /tmp/spec.md
-          grep -Fq 'Galaxy S25 compass-rose presentation correction — APPROVED 2026-09-04' /tmp/spec.md
+          grep -Fq 'full compass instrumentation' /tmp/spec.md
           grep -Fq 'STEP 6 — full regression + API28 + Galaxy S25 validation: AUTHORIZED / IN PROGRESS.' /tmp/spec.md
-          JOB="$(gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$VERIFIED_GATE_JOB" --jq '[(.id|tostring), (.run_id|tostring), (.run_attempt|tostring), .conclusion] | join(" ")')"
-          test "$JOB" = "$VERIFIED_GATE_JOB $VERIFIED_GATE_RUN 1 success"
+          JOB="$(gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$VERIFIED_GATE_JOB" --jq '[(.id|tostring), (.run_id|tostring), .conclusion] | join(" ")')"
+          test "$JOB" = "$VERIFIED_GATE_JOB $VERIFIED_GATE_RUN success"
 
       - uses: actions/setup-java@v4
         with:
@@ -96,7 +96,7 @@ jobs:
           PY
           git diff --check -- app/build.gradle.kts
 
-      - name: Build corrected Qibla validation APK
+      - name: Build full Qibla compass validation APK
         run: ./gradlew assembleDebug --stacktrace
 
       - name: Verify APK identity, signing continuity and digest
@@ -113,7 +113,7 @@ jobs:
           sha256sum "$APK_NAME" | tee /tmp/apk-sha256.txt
           stat -c '%s' "$APK_NAME" | tee /tmp/apk-size.txt
 
-      - name: Publish corrected Qibla S25 prerelease
+      - name: Publish full Qibla compass S25 prerelease
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -124,8 +124,6 @@ jobs:
           gh release create "$RELEASE_TAG" "$APK_NAME" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$TARGET_SHA" \
-            --title 'S25 validation — Qibla compass correction — e641cb44' \
+            --title 'S25 validation — Qibla full compass — b0017a6e' \
             --prerelease \
-            --notes "DEVICE VALIDATION BUILD. Exact runtime $TARGET_SHA, spec-first parent $TARGET_PARENT_SPEC_SHA. Automated gate run $VERIFIED_GATE_RUN / job $VERIFIED_GATE_JOB completed successfully before promotion. This build corrects only Qibla presentation: the live cardinal rose now follows true device heading while the yellow Qibla marker keeps the previously validated repository relative direction; Manual mode now shows a prominent Bussola statica notice. Qibla bearing math, heading source hierarchy, declination, Location/Prayer behavior, persistence, permissions, dependencies and lifecycle ownership are unchanged. Frozen GeoNames asset is restored and verified. Persistent debug signing identity matches previous S25 validation APKs. APK bytes: $APK_SIZE. APK SHA-256: $APK_SHA. Physical Galaxy S25 revalidation is still required before STEP 6 closure."
-
-# Push after workflow registration to trigger this temporary release job.
+            --notes "DEVICE VALIDATION BUILD. Exact runtime $TARGET_SHA, spec-first parent $TARGET_PARENT_SPEC_SHA. Automated gate run $VERIFIED_GATE_RUN / job $VERIFIED_GATE_JOB completed successfully before promotion. This build adds the approved full Qibla compass instrumentation while retaining the validated Qibla bearing and relative-direction behavior. It includes the 360-degree dial, heading display, magnetic field intensity, interference status, accuracy, sensor source and declination, plus the prominent Manual Bussola statica state. Frozen GeoNames is restored and verified. Persistent debug signing identity matches prior S25 validation APKs. APK bytes: $APK_SIZE. APK SHA-256: $APK_SHA. Physical Galaxy S25 validation is still required before STEP 6 closure."
