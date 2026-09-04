@@ -1515,3 +1515,18 @@ Approved contract:
 - Presentation only: no Qibla math, north correction, heading hierarchy/smoothing, geomagnetic, Location/cache, Prayer, persistence, permissions, dependencies, manifest or lifecycle changes.
 - API28 Compose coverage must verify the gold banner, Qibla value, live heading and Kaaba mark while existing regressions remain mandatory with zero skipped tests.
 - Technical implementation commit directly follows this spec commit; exact full gate is required before non-forced main promotion and persistent-debug S25 prerelease. STEP 6 remains open pending physical validation.
+
+
+#### Galaxy S25 final Qibla WOW polish — APPROVED 2026-09-04
+
+Physical Galaxy S25 validation of the sacred-gold banner runtime passed the functional STEP 6 checks: the live rose rotates smoothly through a full 360° including north wrap, the true heading changes coherently, the yellow Qibla marker preserves the validated direction, lifecycle behavior remains normal, and the compact screen remains a single portrait viewport. The user approved one final presentation-only refinement before STEP 6 closure.
+
+Approved visual target:
+
+1. Preserve the compact sacred-gold live banner, Kaaba mark, large high-contrast `Qibla <bearing>°`, and live true-heading line exactly as functional content.
+2. Replace the abstract right-side banner decoration with a refined tone-on-tone Islamic skyline inspired by the approved visual reference: layered mosque domes, slim minarets and a crescent, kept decorative and subordinate to the bearing text. No generated Arabic text or sacred scripture is introduced.
+3. In the live compass rose, render only the geographic `N` cardinal in Arihna Gold `#D4AF37`; `E/S/O` and numeric graduations remain neutral. Gold is chosen instead of red so north reads as a premium navigational anchor rather than an alert/error state.
+4. The skyline and gold `N` are presentation-only. Do not change Qibla bearing mathematics, relative-direction math, true-heading/declination processing, sensor-source hierarchy, smoothing, magnetic-field diagnostics, Location/cache semantics, Prayer behavior, persistence, permissions, dependencies, manifest policy, or lifecycle ownership.
+5. Keep the Galaxy S25 portrait LiveCompass screen within one normal viewport with no vertical scrolling. Preserve all existing telemetry and interference guidance.
+6. Add focused Compose/API28 assertions that the approved skyline container is present in LiveCompass and that the north-cardinal presentation has its dedicated semantic/test hook. Existing full unit, assembleDebug, Android 9/API28 connected regression, frozen GeoNames, permission/dependency/no-skips and exact-SHA gates remain mandatory.
+7. After a clean exact-SHA candidate passes the full gate, promote by non-forced fast-forward and publish a new prerelease APK using Arihna's persistent debug signing identity. STEP 6 closes only after physical confirmation of this final presentation build; STEP 7 remains NOT STARTED until then.
