@@ -1,0 +1,38 @@
+name: Alarms step4 spec writer
+
+on:
+  push:
+    branches:
+      - alarms-step4-writer-temp
+    paths:
+      - .github/workflows/alarms-step4-spec-writer-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  write-spec:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout writer branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create clean STEP 4 authorization commit
+        env:
+          RUNTIME_SHA: a87835850bd7f7659909504f76ac1012723f028e
+        run: |
+          cp .github/alarms-step4-spec.py /tmp/alarms-step4-spec.py
+          git checkout --detach "$RUNTIME_SHA"
+          test "$(git rev-parse HEAD)" = "$RUNTIME_SHA"
+          python3 /tmp/alarms-step4-spec.py
+          git diff --check
+          test "$(git diff --name-only)" = "PROJECT_SPEC.md"
+          git config user.name "IbnKhaldoun-svg"
+          git config user.email "essalih.idriss.w@gmail.com"
+          git add PROJECT_SPEC.md
+          git commit -m "docs(alarms): authorize step 4 reconciliation"
+          test "$(git rev-parse HEAD^)" = "$RUNTIME_SHA"
+          test "$(git diff-tree --no-commit-id --name-only -r HEAD)" = "PROJECT_SPEC.md"
+          git push origin HEAD:refs/heads/alarms-step4-spec
