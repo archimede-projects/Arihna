@@ -45,7 +45,7 @@ class QiblaScreenAndroidTest {
     }
 
     @Test
-    fun manualLocationShowsStaticBearingAndNoLiveClaim() {
+    fun manualLocationShowsProminentStaticBearingNoticeAndNoLiveClaim() {
         setScreen(
             state = QiblaState.StaticBearing(
                 location = manualLocation(),
@@ -56,16 +56,17 @@ class QiblaScreenAndroidTest {
         composeRule.onNodeWithText("Roma, Italia").assertIsDisplayed()
         composeRule.onNodeWithText("Posizione manuale").assertIsDisplayed()
         composeRule.onNodeWithText("Qibla 123°").assertIsDisplayed()
-        composeRule.onNodeWithText("Indicazione geografica rispetto al nord vero").assertIsDisplayed()
+        composeRule.onNodeWithText("Bussola statica").assertIsDisplayed()
         composeRule.onNodeWithText(
-            "La bussola live non è applicabile con una posizione manuale: il telefono potrebbe trovarsi altrove.",
+            "La direzione è calcolata per la città selezionata. Per usare la bussola live e allineare il telefono, scegli la posizione del dispositivo.",
         ).assertIsDisplayed()
         composeRule.onNodeWithTag("qibla-static-direction").assertIsDisplayed()
+        composeRule.onNodeWithTag("qibla-static-cardinal-rose").assertIsDisplayed()
         assertTextAbsent("Bussola live")
     }
 
     @Test
-    fun liveCompassShowsBearingAccuracySourceAndCachedProvenance() {
+    fun liveCompassShowsBearingAccuracySourceCachedProvenanceAndLiveRose() {
         setScreen(
             state = QiblaState.LiveCompass(
                 location = deviceLocation(),
@@ -87,6 +88,7 @@ class QiblaScreenAndroidTest {
         composeRule.onNodeWithText("Accuratezza stimata: ±4°").assertIsDisplayed()
         composeRule.onNodeWithText("Sensore: rotation vector").assertIsDisplayed()
         composeRule.onNodeWithTag("qibla-live-direction").assertIsDisplayed()
+        composeRule.onNodeWithTag("qibla-live-cardinal-rose").assertIsDisplayed()
     }
 
     @Test
