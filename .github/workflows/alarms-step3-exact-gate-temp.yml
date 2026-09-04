@@ -1,0 +1,131 @@
+name: Alarms step3 exact-SHA gate
+
+on:
+  push:
+    branches:
+      - alarms-step3-gate-temp
+    paths:
+      - .github/workflows/alarms-step3-exact-gate-temp.yml
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      RUNTIME_SHA: a87835850bd7f7659909504f76ac1012723f028e
+      SPEC_SHA: e9e1f3262b5383df4dc48f010c0f5dcd394ffec7
+      PREV_SHA: 7579490c58e354a5423e76d4d8ad4e1f7749dfac
+    steps:
+      - name: Checkout gate branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify exact lineage and scope
+        run: |
+          git fetch origin main alarms-step3-spec --force
+          test "$(git rev-parse origin/main)" = "$PREV_SHA"
+          test "$(git rev-parse "$RUNTIME_SHA^")" = "$SPEC_SHA"
+          test "$(git rev-parse "$SPEC_SHA^")" = "$PREV_SHA"
+          test "$(git diff --name-only "$PREV_SHA" "$SPEC_SHA")" = "PROJECT_SPEC.md"
+          expected="$(cat <<'EOF'
+          app/src/androidTest/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmPlatformAndroidTest.kt
+          app/src/main/AndroidManifest.xml
+          app/src/main/java/com/archimedeprojects/arihna/app/AppContainer.kt
+          app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmIntentContract.kt
+          app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmPlatformScheduler.kt
+          app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmReceivers.kt
+          app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmReconciliationTrigger.kt
+          app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AndroidAlarmPlatform.kt
+          app/src/test/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmOccurrenceEnvelopeValidatorTest.kt
+          app/src/test/java/com/archimedeprojects/arihna/feature/alarms/platform/DefaultAlarmPlatformSchedulerTest.kt
+          EOF
+          )"
+          actual="$(git diff --name-only "$SPEC_SHA" "$RUNTIME_SHA")"
+          test "$actual" = "$expected"
+          git checkout --detach "$RUNTIME_SHA"
+          test "$(git rev-parse HEAD)" = "$RUNTIME_SHA"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Verify application, permission and dependency policy
+        run: |
+          grep -q 'applicationId = "com.archimedeprojects.arihna"' app/build.gradle.kts
+          grep -q 'minSdk = 28' app/build.gradle.kts
+          grep -q 'android.permission.ACCESS_COARSE_LOCATION' app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.SCHEDULE_EXACT_ALARM' app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.RECEIVE_BOOT_COMPLETED' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.USE_EXACT_ALARM' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.POST_NOTIFICATIONS' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.ACCESS_FINE_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.ACCESS_BACKGROUND_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS' app/src/main/AndroidManifest.xml
+          ! grep -R -q 'com.google.android.gms.location' app/src/main gradle
+          ! git diff --name-only "$SPEC_SHA" "$RUNTIME_SHA" | grep -E '(^|/)build.gradle|libs.versions.toml|gradle.properties'
+          ! grep -R -q '@Ignore' app/src/androidTest/java/com/archimedeprojects/arihna/feature/alarms app/src/test/java/com/archimedeprojects/arihna/feature/alarms
+          grep -q 'setExactAndAllowWhileIdle' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AndroidAlarmPlatform.kt
+          grep -q 'canScheduleExactAlarms' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AndroidAlarmPlatform.kt
+
+      - name: Restore frozen GeoNames asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rm -rf /tmp/step4-asset app/src/main/assets/geonames
+          mkdir -p /tmp/step4-asset app/src/main/assets/geonames
+          gh run download 33296099459 \
+            --repo "$GITHUB_REPOSITORY" \
+            --name geonames-step4-runtime-minimal \
+            --dir /tmp/step4-asset
+          DB="$(find /tmp/step4-asset -type f -name cities.db -print -quit)"
+          test -n "$DB"
+          cp "$DB" app/src/main/assets/geonames/cities.db
+          echo '7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb  app/src/main/assets/geonames/cities.db' | sha256sum -c -
+
+      - name: Run unfiltered unit regression
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Run Android 9 API28 regression and verify zero skipped
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 28
+          arch: x86_64
+          target: default
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: |
+            ./gradlew :app:connectedDebugAndroidTest --stacktrace
+            python3 - <<'PY'
+            import glob, xml.etree.ElementTree as ET
+            files=glob.glob('app/build/outputs/androidTest-results/connected/debug/**/*.xml', recursive=True)
+            assert files, 'no connected test XML'
+            tests=failures=errors=skipped=0
+            names=[]
+            for f in files:
+                root=ET.parse(f).getroot()
+                tests += int(root.attrib.get('tests',0))
+                failures += int(root.attrib.get('failures',0))
+                errors += int(root.attrib.get('errors',0))
+                skipped += int(root.attrib.get('skipped',0))
+                names += [tc.attrib.get('classname','') for tc in root.iter('testcase')]
+            print(f'CONNECTED_TOTAL tests={tests} failures={failures} errors={errors} skipped={skipped}')
+            assert tests > 0
+            assert failures == 0 and errors == 0 and skipped == 0
+            assert any('AlarmPlatformAndroidTest' in n for n in names)
+            PY
