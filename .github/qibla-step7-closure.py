@@ -1,0 +1,36 @@
+from pathlib import Path
+
+p = Path("PROJECT_SPEC.md")
+t = p.read_text()
+
+old_heading = "### 5.4 Qibla — MILESTONE OPEN / STEP 1 SPEC-FIRST CLOSED"
+old6 = "6. **STEP 6 — full regression + API28 + Galaxy S25 validation: AUTHORIZED / IN PROGRESS.** The automated full-regression portion is satisfied by the definitive exact-SHA STEP 5 gate on runtime `73ec85f3c40b5dced87eef2e16dc41eaca80173d`: unfiltered unit/build/API28 Prayer+Location+Integration+Qibla gates are green. STEP 6 may package **that exact runtime SHA only** as a prerelease APK using Arihna's persistent debug signing identity and perform the required real Galaxy S25 compass validation. No runtime, Prayer, Location, sensor-algorithm, permission, dependency or persistence change is authorized in STEP 6; only packaging/verification metadata and the physical-device test are in scope. STEP 6 remains open until the user completes the hardware test."
+new6 = "6. **STEP 6 — full regression + API28 + Galaxy S25 validation: CLOSED.** Final approved WOW runtime `1b40c9f2e98014ce3b36f5b8629d8a8ac1931e37`, directly above spec-first `f0e5262a524a901d673dc6b51991177d0a79baa4`, passed definitive exact-runtime run `33880602477` / job `101048037602`: unit regression PASS, `assembleDebug` PASS, Android 9/API28 **47/47**, 0 failed and 0 skipped, frozen GeoNames and policy checks PASS. Persistent-debug prerelease `qibla-wow-1b40c9f2-20260904` was identity/signature/digest verified and physically validated PASS on the primary Galaxy S25."
+old7 = "7. **STEP 7 — documentation-only milestone closure: NOT STARTED.** Record exact technical SHA/run/device evidence after promotion and stop."
+new7 = "7. **STEP 7 — documentation-only milestone closure: CLOSED by this documentation step.** This commit records already-verified STEP 6 evidence only; no application code or runtime policy changes are made."
+
+assert t.count(old_heading) == 1
+assert t.count(old6) == 1
+assert t.count(old7) == 1
+
+t = t.replace(old_heading, "### 5.4 Qibla — MILESTONE CLOSED", 1)
+t = t.replace(old6, new6, 1)
+t = t.replace(old7, new7, 1)
+
+marker = "\n### 5.5 Alarms"
+assert t.count(marker) == 1
+
+evidence = """
+
+#### STEP 6/7 definitive closure evidence — 2026-09-04
+
+- Definitive runtime: `1b40c9f2e98014ce3b36f5b8629d8a8ac1931e37` (`feat(qibla): add final wow compass polish`), direct parent spec `f0e5262a524a901d673dc6b51991177d0a79baa4`.
+- Definitive full exact-runtime gate: run `33880602477`, job `101048037602`, `success`; unit regression and `assembleDebug` passed; Android 9/API28 connected regression completed **47/47 tests, 0 failed, 0 skipped**; frozen GeoNames SHA-256 remained `7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb`; established permission/dependency checks passed.
+- Galaxy S25 prerelease: `qibla-wow-1b40c9f2-20260904`, asset `arihna-qibla-wow.apk`, exact runtime target, `uploaded`, 49,609,751 bytes, APK SHA-256 `a76be3d084ecb413aba5309a882a1c874a2618c88e0108789db5b99a47c6960f`.
+- APK identity: `com.archimedeprojects.arihna`; persistent Arihna debug certificate SHA-256 `13:97:00:8C:1F:96:2D:BB:D3:6D:D8:A8:EA:02:16:AF:DD:06:E4:B2:B3:E0:8B:C0:F6:D4:B5:43:44:D7:B0:FA`; keystore SHA-256 `bc9057f26ad6de7efb70a5df06effb1ed259f1d015c3f062d0f757b3f0983b72`.
+- Physical Galaxy S25 final PASS: approved WOW presentation confirmed, including tone-on-tone Islamic skyline and gold geographic `N`; the already-validated dynamic checks remain PASS: smooth 360° rotation, correct `359°→0°` wrap, coherent true heading, correct Qibla marker direction, normal lifecycle and compact single portrait viewport without scroll.
+- STEP 7 changes documentation only. Qibla mathematics, heading/sensor algorithms, declination, Location/cache, Prayer, lifecycle, permissions, dependencies, persistence and manifest policy remain unchanged.
+- Qibla STEP 1–7 are CLOSED; the Qibla milestone is CLOSED. No next product milestone is authorized or started by this closure.
+"""
+
+p.write_text(t.replace(marker, evidence + marker, 1))
