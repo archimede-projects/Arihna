@@ -70,6 +70,10 @@ sealed interface AlarmReconcileOutcome {
         override val alarmId: String,
     ) : AlarmReconcileOutcome
 
+    data class NeedsNotificationPermission(
+        override val alarmId: String,
+    ) : AlarmReconcileOutcome
+
     data class Cancelled(
         override val alarmId: String,
         val reason: Reason,
@@ -88,6 +92,7 @@ class AlarmReconciler(
     private val prayerScheduleSource: AlarmPrayerScheduleSource,
     private val clock: Clock,
     private val deviceZoneId: () -> ZoneId,
+    private val deliveryReady: () -> Boolean = { true },
 ) {
     suspend fun reconcile(): AlarmReconciliationReport {
         val now = clock.instant()
@@ -103,6 +108,10 @@ class AlarmReconciler(
                         alarmId = rule.alarmId,
                         reason = AlarmReconcileOutcome.Cancelled.Reason.DISABLED,
                     )
+                }
+                if (!deliveryReady()) {
+                    platformScheduler.cancel(rule.alarmId)
+                    return@map AlarmReconcileOutcome.NeedsNotificationPermission(rule.alarmId)
                 }
 
                 val occurrence = when (val definition = rule.definition) {
@@ -135,8 +144,10 @@ class AlarmReconciler(
                             occurrence = occurrence,
                         )
 
-                        AlarmScheduleResult.NeedsExactAlarmAccess ->
+                        AlarmScheduleResult.NeedsExactAlarmAccess -> {
+                            platformScheduler.cancel(rule.alarmId)
                             AlarmReconcileOutcome.NeedsExactAlarmAccess(rule.alarmId)
+                        }
                     }
                 }
             }

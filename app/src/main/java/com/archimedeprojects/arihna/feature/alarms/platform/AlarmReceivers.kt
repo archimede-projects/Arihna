@@ -17,9 +17,7 @@ class AlarmOccurrenceReceiver : BroadcastReceiver() {
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
                 val application = context.applicationContext as? ArihnaApplication ?: return@launch
-                val rule = application.appContainer.alarmRuleRepository.get(envelope.alarmId)
-                AlarmOccurrenceEnvelopeValidator.isCurrent(envelope, rule)
-                // STEP 3 deliberately has no user-visible delivery. STEP 5 owns notification/sound.
+                application.appContainer.alarmOccurrenceHandler.handle(envelope)
             } finally {
                 pendingResult.finish()
             }
