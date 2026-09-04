@@ -1,0 +1,191 @@
+name: Qibla full compass implementation helper
+
+on:
+  push:
+    branches:
+      - qibla-full-compass-spec-helper
+    paths:
+      - .github/workflows/qibla-full-compass-impl-helper.yml
+
+permissions:
+  contents: write
+
+jobs:
+  finish-impl:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qibla-full-compass-impl
+          fetch-depth: 0
+      - name: Fix UI capture and add focused tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/archimedeprojects/arihna/feature/qibla/QiblaPlaceholderScreen.kt')
+          s = p.read_text()
+          old = '    val radiusPx = with(LocalDensity.current) { 123.dp.toPx() }\n\n    Box(Modifier.size(310.dp)'
+          new = '    val radiusPx = with(LocalDensity.current) { 123.dp.toPx() }\n    val dialTickColor = MaterialTheme.colorScheme.onSurfaceVariant\n\n    Box(Modifier.size(310.dp)'
+          if old not in s: raise SystemExit('radius anchor not found')
+          s = s.replace(old, new, 1)
+          old2 = '                        color = MaterialTheme.colorScheme.onSurfaceVariant,\n                        start = Offset('
+          if old2 not in s: raise SystemExit('tick color anchor not found')
+          s = s.replace(old2, '                        color = dialTickColor,\n                        start = Offset(', 1)
+          p.write_text(s)
+          PY
+          cat > app/src/test/java/com/archimedeprojects/arihna/feature/qibla/QiblaCompassMotionTest.kt <<'EOF'
+          package com.archimedeprojects.arihna.feature.qibla
+          
+          import org.junit.Assert.assertEquals
+          import org.junit.Test
+          
+          class QiblaCompassMotionTest {
+              @Test fun northWrapClockwiseUsesTwoDegreeShortestPath() = assertEquals(361f, shortestUnwrappedCompassTarget(359f, 1f), 0.0001f)
+              @Test fun northWrapCounterClockwiseUsesTwoDegreeShortestPath() = assertEquals(-1f, shortestUnwrappedCompassTarget(1f, 359f), 0.0001f)
+              @Test fun cardinalRoseKeepsTrueNorthOppositeDeviceHeading() {
+                  assertEquals(0f, cardinalRoseWrappedTarget(0f), 0.0001f)
+                  assertEquals(270f, cardinalRoseWrappedTarget(90f), 0.0001f)
+                  assertEquals(180f, cardinalRoseWrappedTarget(180f), 0.0001f)
+                  assertEquals(90f, cardinalRoseWrappedTarget(270f), 0.0001f)
+              }
+              @Test fun cardinalRoseCrossesNorthByShortestPath() {
+                  val before = cardinalRoseWrappedTarget(359f)
+                  val after = cardinalRoseWrappedTarget(1f)
+                  assertEquals(-1f, shortestUnwrappedCompassTarget(before, after), 0.0001f)
+              }
+              @Test fun headingCardinalLabelsUseItalianWest() {
+                  assertEquals("N", headingCardinalLabel(359.0))
+                  assertEquals("NE", headingCardinalLabel(45.0))
+                  assertEquals("E", headingCardinalLabel(90.0))
+                  assertEquals("SO", headingCardinalLabel(225.0))
+                  assertEquals("O", headingCardinalLabel(270.0))
+              }
+              @Test fun magneticFieldDiagnosticClassifiesAmbientAndInterference() {
+                  assertEquals(MagneticFieldStatus.NORMAL, classifyMagneticField(47.0))
+                  assertEquals(MagneticFieldStatus.INTERFERENCE, classifyMagneticField(120.0))
+                  assertEquals(MagneticFieldStatus.INTERFERENCE, classifyMagneticField(5.0))
+                  assertEquals(MagneticFieldStatus.UNAVAILABLE, classifyMagneticField(null))
+              }
+          }
+          EOF
+          cat > app/src/androidTest/java/com/archimedeprojects/arihna/feature/qibla/QiblaScreenAndroidTest.kt <<'EOF'
+          package com.archimedeprojects.arihna.feature.qibla
+          
+          import androidx.compose.foundation.layout.PaddingValues
+          import androidx.compose.ui.test.assertIsDisplayed
+          import androidx.compose.ui.test.junit4.createComposeRule
+          import androidx.compose.ui.test.onAllNodesWithText
+          import androidx.compose.ui.test.onNodeWithTag
+          import androidx.compose.ui.test.onNodeWithText
+          import androidx.compose.ui.test.performClick
+          import androidx.compose.ui.unit.dp
+          import com.archimedeprojects.arihna.core.location.model.LocationFreshness
+          import com.archimedeprojects.arihna.core.location.model.LocationResolutionState
+          import com.archimedeprojects.arihna.core.location.model.LocationSource
+          import com.archimedeprojects.arihna.core.location.model.SelectedLocation
+          import com.archimedeprojects.arihna.core.prayer.model.Coordinates
+          import com.archimedeprojects.arihna.core.qibla.heading.HeadingQuality
+          import com.archimedeprojects.arihna.core.qibla.heading.HeadingSource
+          import com.archimedeprojects.arihna.core.qibla.heading.HeadingUnavailableReason
+          import com.archimedeprojects.arihna.core.ui.theme.ArihnaTheme
+          import com.archimedeprojects.arihna.feature.qibla.domain.QiblaState
+          import java.time.Instant
+          import java.time.ZoneId
+          import org.junit.Assert.assertEquals
+          import org.junit.Assert.assertTrue
+          import org.junit.Rule
+          import org.junit.Test
+          
+          class QiblaScreenAndroidTest {
+              @get:Rule val composeRule = createComposeRule()
+          
+              @Test fun noLocationShowsSettingsCtaWithoutInventedDegrees() {
+                  var calls = 0
+                  setScreen(QiblaState.NoLocation(LocationResolutionState.Unconfigured)) { calls += 1 }
+                  composeRule.onNodeWithText("Posizione necessaria").assertIsDisplayed()
+                  composeRule.onNodeWithText("Configura posizione").assertIsDisplayed().performClick()
+                  composeRule.runOnIdle { assertEquals(1, calls) }
+                  assertTextAbsent("Qibla 0°")
+              }
+          
+              @Test fun manualLocationRemainsStaticAndHasNoLiveInstrumentation() {
+                  setScreen(QiblaState.StaticBearing(manualLocation(), 123.276))
+                  composeRule.onNodeWithText("Qibla 123°").assertIsDisplayed()
+                  composeRule.onNodeWithText("Bussola statica").assertIsDisplayed()
+                  composeRule.onNodeWithTag("qibla-static-compass").assertIsDisplayed()
+                  assertTextAbsent("Bussola live")
+                  assertTextAbsent("Intensità campo magnetico")
+              }
+          
+              @Test fun liveCompassShowsFullDialHeadingAndInstrumentation() {
+                  setScreen(QiblaState.LiveCompass(
+                      location = deviceLocation(), bearingTrueDegrees = 123.276,
+                      deviceHeadingTrueDegrees = 349.0, relativeQiblaDirectionDegrees = 134.276,
+                      quality = HeadingQuality.HIGH, estimatedAccuracyDegrees = 4.2,
+                      headingSource = HeadingSource.ROTATION_VECTOR,
+                      declinationDegrees = 0.8, magneticFieldMicroTesla = 47.0,
+                  ))
+                  composeRule.onNodeWithText("Posizione memorizzata (CACHED)").assertIsDisplayed()
+                  composeRule.onNodeWithText("Qibla 123°").assertIsDisplayed()
+                  composeRule.onNodeWithText("349° N").assertIsDisplayed()
+                  composeRule.onNodeWithTag("qibla-full-compass").assertIsDisplayed()
+                  composeRule.onNodeWithTag("qibla-live-cardinal-rose").assertIsDisplayed()
+                  composeRule.onNodeWithTag("qibla-live-direction").assertIsDisplayed()
+                  composeRule.onNodeWithText("47 µT").assertIsDisplayed()
+                  composeRule.onNodeWithText("Normale").assertIsDisplayed()
+                  composeRule.onNodeWithText("Alta").assertIsDisplayed()
+                  composeRule.onNodeWithText("Rotation Vector").assertIsDisplayed()
+                  composeRule.onNodeWithText("0.8° E").assertIsDisplayed()
+                  composeRule.onNodeWithText("Per una maggiore precisione").assertIsDisplayed()
+              }
+          
+              @Test fun highMagneticFieldShowsInterferenceAdvisory() {
+                  setScreen(QiblaState.LiveCompass(
+                      location = deviceLocation(), bearingTrueDegrees = 123.276,
+                      deviceHeadingTrueDegrees = 90.0, relativeQiblaDirectionDegrees = 33.276,
+                      quality = HeadingQuality.LOW, estimatedAccuracyDegrees = null,
+                      headingSource = HeadingSource.ACCELEROMETER_MAGNETIC_FIELD,
+                      declinationDegrees = 0.8, magneticFieldMicroTesla = 120.0,
+                  ))
+                  composeRule.onNodeWithText("Possibile interferenza magnetica").assertIsDisplayed()
+                  composeRule.onNodeWithText("Bassa").assertIsDisplayed()
+              }
+          
+              @Test fun sensorUnavailableKeepsNumericBearingWithoutLiveMarker() {
+                  setScreen(QiblaState.SensorUnavailable(deviceLocation(), 123.276, HeadingUnavailableReason.NO_SUPPORTED_SENSOR))
+                  composeRule.onNodeWithText("Qibla 123°").assertIsDisplayed()
+                  composeRule.onNodeWithText("Bussola live non disponibile").assertIsDisplayed()
+                  composeRule.onNodeWithTag("qibla-static-direction").assertIsDisplayed()
+              }
+          
+              private fun setScreen(state: QiblaState, onOpenLocationSettings: () -> Unit = {}) {
+                  composeRule.setContent { ArihnaTheme { QiblaScreen(PaddingValues(0.dp), state, onOpenLocationSettings) } }
+              }
+              private fun assertTextAbsent(text: String) {
+                  assertTrue(composeRule.onAllNodesWithText(text).fetchSemanticsNodes().isEmpty())
+              }
+              private fun manualLocation() = SelectedLocation(LocationSource.Manual(1L), Coordinates(41.9028, 12.4964), ZoneId.of("Europe/Rome"), "Roma, Italia")
+              private fun deviceLocation() = SelectedLocation(
+                  source = LocationSource.Device(Instant.parse("2026-09-03T04:00:00Z"), 2_000f),
+                  coordinates = Coordinates(44.99, 10.85), zoneId = ZoneId.of("Europe/Rome"),
+                  displayName = "Pegognaga, Italia", freshness = LocationFreshness.CACHED,
+              )
+          }
+          EOF
+          python3 - <<'PY'
+          from pathlib import Path
+          for p in [
+              Path('app/src/test/java/com/archimedeprojects/arihna/feature/qibla/QiblaCompassMotionTest.kt'),
+              Path('app/src/androidTest/java/com/archimedeprojects/arihna/feature/qibla/QiblaScreenAndroidTest.kt'),
+          ]:
+              lines = p.read_text().splitlines()
+              p.write_text('\n'.join(line[10:] if line.startswith('          ') else line for line in lines).rstrip() + '\n')
+          PY
+          git config user.name "IbnKhaldoun-svg"
+          git config user.email "essalih.idriss.w@gmail.com"
+          git add app/src/main/java/com/archimedeprojects/arihna/feature/qibla/QiblaPlaceholderScreen.kt app/src/test/java/com/archimedeprojects/arihna/feature/qibla/QiblaCompassMotionTest.kt app/src/androidTest/java/com/archimedeprojects/arihna/feature/qibla/QiblaScreenAndroidTest.kt
+          git diff --cached --check
+          git commit -m "test(qibla): cover full compass instrumentation"
+          git push origin HEAD:qibla-full-compass-impl
