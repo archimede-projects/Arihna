@@ -694,7 +694,7 @@ STEP 2 Prayer settings persistence, STEP 3 schedule orchestration, STEP 4 presen
 - Location technology at closure remains Android framework `LocationManager`, COARSE-only, no background permission and no Google Play Services Location. A possible future migration to Google Play Services `FusedLocationProviderClient` is explicitly **DEFERRED / PENDING** and is not decided by this closure.
 - STEP 7 is documentation-only. No new product milestone is authorized or started; development stops here under the one-objective rule until the next objective is explicitly selected.
 
-### 5.4 Qibla — MILESTONE OPEN / STEP 1 SPEC-FIRST CLOSED
+### 5.4 Qibla — MILESTONE CLOSED
 
 The Qibla milestone consumes the already-closed Location contract and must not reopen location acquisition, prayer calculation, persistence, or provider policy. Its purpose is to calculate the great-circle initial bearing from the active `SelectedLocation` to the Kaaba and, when suitable Android orientation sensors exist, present the live device direction relative to that true-north Qibla bearing. Once a valid `SelectedLocation` exists, Qibla calculation and compass operation require no network service.
 
@@ -904,7 +904,7 @@ STEP 5 UI states are fixed as follows: `NoLocation` shows a clear location-requi
 Compass motion smoothing, if applied, is presentation-only and must cross `0°/360°` by the shortest circular path. A small pure helper may unwrap consecutive relative angles for Compose animation; it must not alter the repository bearing/heading values. No fixed alignment threshold is introduced. Styling uses the existing Arihna theme with Green `#0F5132`, Gold `#D4AF37`, Off-white `#FAFAF6`, a large central dial, clear north/cardinal reference and Qibla marker.
 
 STEP 5 verification must add focused Compose/API28 coverage for at least NoLocation + settings CTA, Manual/static bearing with no live claim, LiveCompass rendering, degraded/unavailable sensor state, and absence of fabricated values. Pure/JVM coverage must verify shortest-path north-wrap helper if introduced. The exact technical candidate must pass unfiltered `testDebugUnitTest`, `assembleDebug`, Android 9/API28 `connectedDebugAndroidTest`, frozen GeoNames integrity and existing permission/dependency/no-ignored-test gates before promotion. After a green STEP 5 candidate is promoted, STEP 6 may package that exact runtime code as a prerelease APK for physical Galaxy S25 compass validation; STEP 6 is not closed until the user performs that hardware test.
-6. **STEP 6 — full regression + API28 + Galaxy S25 validation: AUTHORIZED / IN PROGRESS.** The automated full-regression portion is satisfied by the definitive exact-SHA STEP 5 gate on runtime `73ec85f3c40b5dced87eef2e16dc41eaca80173d`: unfiltered unit/build/API28 Prayer+Location+Integration+Qibla gates are green. STEP 6 may package **that exact runtime SHA only** as a prerelease APK using Arihna's persistent debug signing identity and perform the required real Galaxy S25 compass validation. No runtime, Prayer, Location, sensor-algorithm, permission, dependency or persistence change is authorized in STEP 6; only packaging/verification metadata and the physical-device test are in scope. STEP 6 remains open until the user completes the hardware test.
+6. **STEP 6 — full regression + API28 + Galaxy S25 validation: CLOSED.** Final approved WOW runtime `1b40c9f2e98014ce3b36f5b8629d8a8ac1931e37`, directly above spec-first `f0e5262a524a901d673dc6b51991177d0a79baa4`, passed definitive exact-runtime run `33880602477` / job `101048037602`: unit regression PASS, `assembleDebug` PASS, Android 9/API28 **47/47**, 0 failed and 0 skipped, frozen GeoNames and policy checks PASS. Persistent-debug prerelease `qibla-wow-1b40c9f2-20260904` was identity/signature/digest verified and physically validated PASS on the primary Galaxy S25.
 #### Galaxy S25 compass-rose presentation correction — APPROVED 2026-09-04
 
 Physical STEP 6 validation on the primary Samsung Galaxy S25 established that the closed STEP 5 runtime is mathematically and sensor-wise directionally correct but its live compass presentation has one semantic defect. With Device/CACHED location at Mirandola the app displayed a true-north Qibla bearing of **125°**; when the yellow Qibla marker was brought to the top of the phone, an independent compass also read **125°**. A complete physical rotation was smooth through the `359°→0°` crossing, lifecycle leave/re-enter behavior remained normal, the runtime selected `ROTATION_VECTOR`, and heading quality was reported HIGH. However, while the Qibla marker rotated correctly, the cardinal labels `N/E/S/O` remained fixed to the screen. In a UI explicitly presented as a live true-north compass, those fixed cardinals can misrepresent geographic north after the phone rotates.
@@ -923,7 +923,7 @@ Approved correction, narrowly scoped to Qibla presentation:
 
 This decision **supersedes only** STEP 6's earlier restriction that the physical validation must use runtime `73ec85f3c40b5dced87eef2e16dc41eaca80173d` unchanged. STEP 6 remains **AUTHORIZED / IN PROGRESS** and is reopened only enough to permit this presentation correction plus its required regression and focused Galaxy S25 revalidation. STEP 7 remains **NOT STARTED**.
 
-7. **STEP 7 — documentation-only milestone closure: NOT STARTED.** Record exact technical SHA/run/device evidence after promotion and stop.
+7. **STEP 7 — documentation-only milestone closure: CLOSED by this documentation step.** This commit records already-verified STEP 6 evidence only; no application code or runtime policy changes are made.
 
 #### STEP 5 closure / STEP 6 authorization evidence — 2026-09-03
 
@@ -956,6 +956,17 @@ Evidence basis reviewed for STEP 1 on 2026-09-02: Android Developers documentati
 
 STEP 2 is **CLOSED**. STEP 3 Android heading/sensor layer remains **NOT STARTED** and requires separate explicit authorization. No sensor registration, UI or new permission is started by this closure.
 
+
+
+#### STEP 6/7 definitive closure evidence — 2026-09-04
+
+- Definitive runtime: `1b40c9f2e98014ce3b36f5b8629d8a8ac1931e37` (`feat(qibla): add final wow compass polish`), direct parent spec `f0e5262a524a901d673dc6b51991177d0a79baa4`.
+- Definitive full exact-runtime gate: run `33880602477`, job `101048037602`, `success`; unit regression and `assembleDebug` passed; Android 9/API28 connected regression completed **47/47 tests, 0 failed, 0 skipped**; frozen GeoNames SHA-256 remained `7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb`; established permission/dependency checks passed.
+- Galaxy S25 prerelease: `qibla-wow-1b40c9f2-20260904`, asset `arihna-qibla-wow.apk`, exact runtime target, `uploaded`, 49,609,751 bytes, APK SHA-256 `a76be3d084ecb413aba5309a882a1c874a2618c88e0108789db5b99a47c6960f`.
+- APK identity: `com.archimedeprojects.arihna`; persistent Arihna debug certificate SHA-256 `13:97:00:8C:1F:96:2D:BB:D3:6D:D8:A8:EA:02:16:AF:DD:06:E4:B2:B3:E0:8B:C0:F6:D4:B5:43:44:D7:B0:FA`; keystore SHA-256 `bc9057f26ad6de7efb70a5df06effb1ed259f1d015c3f062d0f757b3f0983b72`.
+- Physical Galaxy S25 final PASS: approved WOW presentation confirmed, including tone-on-tone Islamic skyline and gold geographic `N`; the already-validated dynamic checks remain PASS: smooth 360° rotation, correct `359°→0°` wrap, coherent true heading, correct Qibla marker direction, normal lifecycle and compact single portrait viewport without scroll.
+- STEP 7 changes documentation only. Qibla mathematics, heading/sensor algorithms, declination, Location/cache, Prayer, lifecycle, permissions, dependencies, persistence and manifest policy remain unchanged.
+- Qibla STEP 1–7 are CLOSED; the Qibla milestone is CLOSED. No next product milestone is authorized or started by this closure.
 
 ### 5.5 Alarms
 
