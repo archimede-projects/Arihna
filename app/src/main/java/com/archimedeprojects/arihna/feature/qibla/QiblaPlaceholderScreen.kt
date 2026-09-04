@@ -15,9 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
@@ -66,12 +64,12 @@ fun QiblaRoute(contentPadding: PaddingValues, states: Flow<QiblaState>, onOpenLo
 @Composable
 fun QiblaScreen(contentPadding: PaddingValues, state: QiblaState, onOpenLocationSettings: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(contentPadding).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 16.dp),
+        modifier = Modifier.fillMaxSize().padding(contentPadding).padding(horizontal = 16.dp, vertical = 8.dp).testTag("qibla-single-viewport"),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("Qibla", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
-        Text("Direzione verso la Kaaba · riferimento nord vero", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(18.dp))
+        Text("Qibla", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+        Text("Direzione verso la Kaaba · nord vero", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(8.dp))
         when (state) {
             is QiblaState.NoLocation -> NoLocationContent(onOpenLocationSettings)
             is QiblaState.BearingUnavailable -> BearingUnavailableContent(state)
@@ -122,57 +120,64 @@ private fun LiveStartingContent(state: QiblaState.LiveCompassStarting) {
 @Composable
 private fun LiveCompassContent(state: QiblaState.LiveCompass) {
     BearingHeader(state.location, state.bearingTrueDegrees)
-    Spacer(Modifier.height(6.dp))
+    Spacer(Modifier.height(2.dp))
     Text(
         text = "${displayDegrees(state.deviceHeadingTrueDegrees)}° ${headingCardinalLabel(state.deviceHeadingTrueDegrees)}",
-        style = MaterialTheme.typography.headlineMedium,
+        style = MaterialTheme.typography.titleLarge,
         fontWeight = FontWeight.SemiBold,
         modifier = Modifier.testTag("qibla-live-heading"),
     )
-    Spacer(Modifier.height(8.dp))
+    Spacer(Modifier.height(4.dp))
     CompassDial(
         directionDegrees = state.relativeQiblaDirectionDegrees,
         deviceHeadingTrueDegrees = state.deviceHeadingTrueDegrees,
         live = true,
         animationKey = state.location,
     )
-    Spacer(Modifier.height(14.dp))
-    Text("Bussola live", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-    Spacer(Modifier.height(10.dp))
+    Spacer(Modifier.height(6.dp))
     InstrumentationGrid(state)
-    Spacer(Modifier.height(10.dp))
+    Spacer(Modifier.height(6.dp))
     val fieldStatus = classifyMagneticField(state.magneticFieldMicroTesla)
     if (fieldStatus == MagneticFieldStatus.INTERFERENCE) {
-        MessageCard("Possibile interferenza magnetica", "Il campo magnetico rilevato è fuori dall’intervallo ambientale atteso. Allontana caricatore, metallo, magneti e accessori magnetici, poi ricontrolla la direzione.")
-        Spacer(Modifier.height(10.dp))
+        CompactMessageCard(
+  "Possibile interferenza magnetica",
+  "Allontana caricatore, metallo e magneti, poi ricontrolla la direzione.",
+  Modifier.testTag("qibla-interference-banner"),
+        )
+        Spacer(Modifier.height(4.dp))
     }
-    MessageCard("Per una maggiore precisione", "Tieni il telefono circa orizzontale e lontano da caricabatterie, metallo, magneti e custodie/accessori magnetici. L’intensità del campo è solo diagnostica e non garantisce da sola la precisione della direzione.")
+    Text(
+        "Tieni il telefono circa orizzontale e lontano da fonti magnetiche.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.testTag("qibla-precision-guidance"),
+    )
 }
 
 @Composable
 private fun InstrumentationGrid(state: QiblaState.LiveCompass) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         InstrumentCard(
-            title = "Intensità campo magnetico",
-            value = state.magneticFieldMicroTesla?.takeIf { it.isFinite() }?.let { "${it.roundToInt()} µT" } ?: "Non disponibile",
-            detail = magneticFieldStatusLabel(classifyMagneticField(state.magneticFieldMicroTesla)),
-            modifier = Modifier.weight(1f).testTag("qibla-magnetic-field"),
+  title = "Campo",
+  value = state.magneticFieldMicroTesla?.takeIf { it.isFinite() }?.let { "${it.roundToInt()} µT" } ?: "N/D",
+  detail = magneticFieldStatusLabel(classifyMagneticField(state.magneticFieldMicroTesla)),
+  modifier = Modifier.weight(1f).testTag("qibla-magnetic-field"),
         )
         InstrumentCard(
-            title = "Accuratezza bussola",
-            value = qualityShortLabel(state.quality),
-            detail = state.estimatedAccuracyDegrees?.takeIf { it.isFinite() && it >= 0.0 }?.let { "±${it.roundToInt()}° stimati" } ?: "Stima non disponibile",
-            modifier = Modifier.weight(1f).testTag("qibla-heading-quality"),
+  title = "Accuratezza",
+  value = qualityShortLabel(state.quality),
+  detail = state.estimatedAccuracyDegrees?.takeIf { it.isFinite() && it >= 0.0 }?.let { "±${it.roundToInt()}°" } ?: "Stima N/D",
+  modifier = Modifier.weight(1f).testTag("qibla-heading-quality"),
         )
     }
-    Spacer(Modifier.height(10.dp))
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        InstrumentCard("Sensore utilizzato", headingSourceLabel(state.headingSource), "Nord vero", Modifier.weight(1f).testTag("qibla-heading-source"))
+    Spacer(Modifier.height(6.dp))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        InstrumentCard("Sensore", headingSourceLabel(state.headingSource), "Nord vero", Modifier.weight(1f).testTag("qibla-heading-source"))
         InstrumentCard(
-            "Declinazione magnetica",
-            state.declinationDegrees?.takeIf { it.isFinite() }?.let(::formatDeclination) ?: "Non applicabile",
-            if (state.declinationDegrees == null) "Sensore nord vero diretto" else "Correzione geomagnetica",
-            Modifier.weight(1f).testTag("qibla-declination"),
+  "Declinazione",
+  state.declinationDegrees?.takeIf { it.isFinite() }?.let(::formatDeclination) ?: "N/A",
+  if (state.declinationDegrees == null) "Nord vero diretto" else "Correzione geomagnetica",
+  Modifier.weight(1f).testTag("qibla-declination"),
         )
     }
 }
@@ -180,11 +185,10 @@ private fun InstrumentationGrid(state: QiblaState.LiveCompass) {
 @Composable
 private fun InstrumentCard(title: String, value: String, detail: String, modifier: Modifier = Modifier) {
     ElevatedCard(modifier = modifier) {
-        Column(Modifier.padding(12.dp)) {
-            Text(title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(4.dp))
-            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
+  Text(title, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+  Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+  Text(detail, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         }
     }
 }
@@ -202,13 +206,13 @@ private fun SensorUnavailableContent(state: QiblaState.SensorUnavailable) {
 @Composable
 private fun BearingHeader(location: SelectedLocation, bearingTrueDegrees: Double) {
     LocationSummary(location)
-    Spacer(Modifier.height(8.dp))
-    Text("Qibla ${displayDegrees(bearingTrueDegrees)}°", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = ArihnaGreen)
+    Spacer(Modifier.height(3.dp))
+    Text("Qibla ${displayDegrees(bearingTrueDegrees)}°", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = ArihnaGreen)
 }
 
 @Composable
 private fun LocationSummary(location: SelectedLocation) {
-    Text(location.displayName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
+    Text(location.displayName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium, maxLines = 1)
     Text(if (location.source is LocationSource.Device) "Posizione dispositivo" else "Posizione manuale", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     if (location.freshness == LocationFreshness.CACHED) Text("Posizione memorizzata (CACHED)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
@@ -230,10 +234,10 @@ private fun CompassDial(directionDegrees: Double, deviceHeadingTrueDegrees: Doub
     }
     val animatedRose by animateFloatAsState(roseTarget, label = "cardinalRoseDirection")
     val displayedRose = if (live) animatedRose else 0f
-    val radiusPx = with(LocalDensity.current) { 123.dp.toPx() }
+    val radiusPx = with(LocalDensity.current) { 99.dp.toPx() }
     val dialTickColor = MaterialTheme.colorScheme.onSurfaceVariant
 
-    Box(Modifier.size(310.dp).testTag(if (live) "qibla-full-compass" else "qibla-static-compass"), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(252.dp).testTag(if (live) "qibla-full-compass" else "qibla-static-compass"), contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             drawCircle(ArihnaGreen.copy(alpha = 0.08f))
             drawCircle(ArihnaGreen, style = Stroke(width = 3.dp.toPx()))
@@ -268,7 +272,7 @@ private fun CompassDial(directionDegrees: Double, deviceHeadingTrueDegrees: Doub
             PolarLabel("O", 270.0, radiusPx * 0.73f, displayedRose, true)
         }
         Text("▼", modifier = Modifier.align(Alignment.TopCenter).padding(top = 4.dp), fontSize = 18.sp, fontWeight = FontWeight.Bold)
-        Box(Modifier.size(214.dp).graphicsLayer { rotationZ = displayedDirection }.testTag(if (live) "qibla-live-direction" else "qibla-static-direction")) {
+        Box(Modifier.size(174.dp).graphicsLayer { rotationZ = displayedDirection }.testTag(if (live) "qibla-live-direction" else "qibla-static-direction")) {
             Text("▲", modifier = Modifier.align(Alignment.TopCenter), color = ArihnaGold, fontSize = 38.sp, fontWeight = FontWeight.Bold)
         }
         Box(Modifier.size(14.dp).background(ArihnaGreen, CircleShape))
@@ -303,9 +307,23 @@ private fun androidx.compose.foundation.layout.BoxScope.PolarLabel(
 }
 
 @Composable
+private fun CompactMessageCard(title: String, body: String, modifier: Modifier = Modifier) {
+    ElevatedCard(modifier.fillMaxWidth()) {
+        Row(
+  Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+  horizontalArrangement = Arrangement.spacedBy(8.dp),
+  verticalAlignment = Alignment.CenterVertically,
+        ) {
+  Text(title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+  Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
 private fun MessageCard(title: String, body: String) {
     ElevatedCard(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) {
+        Column(Modifier.padding(12.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(6.dp))
             Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -7,7 +7,6 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
 import com.archimedeprojects.arihna.core.location.model.LocationFreshness
 import com.archimedeprojects.arihna.core.location.model.LocationResolutionState
@@ -41,7 +40,7 @@ class QiblaScreenAndroidTest {
     @Test fun manualLocationRemainsStaticAndHasNoLiveInstrumentation() {
         setScreen(QiblaState.StaticBearing(manualLocation(), 123.276))
         composeRule.onNodeWithText("Qibla 123°").assertIsDisplayed()
-        composeRule.onNodeWithText("Bussola statica").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Bussola statica").assertIsDisplayed()
         composeRule.onNodeWithTag("qibla-static-compass").assertIsDisplayed()
         assertTextAbsent("Bussola live")
         assertTextAbsent("Intensità campo magnetico")
@@ -67,12 +66,13 @@ class QiblaScreenAndroidTest {
         composeRule.onNodeWithTag("qibla-full-compass").assertIsDisplayed()
         composeRule.onNodeWithTag("qibla-live-cardinal-rose").assertIsDisplayed()
         composeRule.onNodeWithTag("qibla-live-direction").assertIsDisplayed()
-        composeRule.onNodeWithText("47 µT").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Normale").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Alta").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Rotation Vector").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("0.8° E").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Per una maggiore precisione").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("47 µT").assertIsDisplayed()
+        composeRule.onNodeWithText("Normale").assertIsDisplayed()
+        composeRule.onNodeWithText("Alta").assertIsDisplayed()
+        composeRule.onNodeWithText("Rotation Vector").assertIsDisplayed()
+        composeRule.onNodeWithText("0.8° E").assertIsDisplayed()
+        composeRule.onNodeWithTag("qibla-precision-guidance").assertIsDisplayed()
+        composeRule.onNodeWithTag("qibla-single-viewport").assertIsDisplayed()
     }
 
     @Test fun highMagneticFieldShowsInterferenceAdvisory() {
@@ -89,14 +89,15 @@ class QiblaScreenAndroidTest {
                 magneticFieldMicroTesla = 120.0,
             ),
         )
-        composeRule.onNodeWithText("Bassa").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Possibile interferenza magnetica").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Bassa").assertIsDisplayed()
+        composeRule.onNodeWithText("Possibile interferenza magnetica").assertIsDisplayed()
+        composeRule.onNodeWithTag("qibla-interference-banner").assertIsDisplayed()
     }
 
     @Test fun sensorUnavailableKeepsNumericBearingWithoutLiveMarker() {
         setScreen(QiblaState.SensorUnavailable(deviceLocation(), 123.276, HeadingUnavailableReason.NO_SUPPORTED_SENSOR))
         composeRule.onNodeWithText("Qibla 123°").assertIsDisplayed()
-        composeRule.onNodeWithText("Bussola live non disponibile").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Bussola live non disponibile").assertIsDisplayed()
         composeRule.onNodeWithTag("qibla-static-direction").assertIsDisplayed()
     }
 
