@@ -82,7 +82,7 @@ jobs:
           ! grep -R -q '@Ignore' app/src/test/java/com/archimedeprojects/arihna/feature/alarms app/src/androidTest/java/com/archimedeprojects/arihna/feature/alarms
           grep -q 'AlarmOccurrenceHandler' app/src/main/java/com/archimedeprojects/arihna/app/AppContainer.kt
           grep -q 'ActivityResultContracts.RequestPermission' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/AlarmsPlaceholderScreen.kt
-          grep -q 'NEEDS_NOTIFICATION_PERMISSION' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/domain/AlarmReconciler.kt
+          grep -q 'NeedsNotificationPermission' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/domain/AlarmReconciler.kt
           grep -q 'CHANNEL_SILENT' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmNotifications.kt
 
       - name: Restore frozen GeoNames asset
