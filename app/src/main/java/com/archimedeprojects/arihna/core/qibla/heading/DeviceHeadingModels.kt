@@ -33,5 +33,6 @@ sealed interface DeviceHeadingState {
         val source: HeadingSource,
         val magneticHeadingDegrees: Double?,
         val declinationDegrees: Double?,
+        val magneticFieldMicroTesla: Double? = null,
     ) : DeviceHeadingState
 }
