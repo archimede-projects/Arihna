@@ -8,28 +8,37 @@ import com.archimedeprojects.arihna.core.location.data.LocationPreferencesReposi
 import com.archimedeprojects.arihna.core.location.data.preferences.PreferencesDataStoreLocationPreferencesRepository
 import com.archimedeprojects.arihna.core.location.data.sqlite.SQLiteCityRepository
 import com.archimedeprojects.arihna.core.location.domain.LocationCoordinator
+import com.archimedeprojects.arihna.core.location.model.LocationPermissionState
 import com.archimedeprojects.arihna.core.location.platform.AndroidLocationEnvironment
 import com.archimedeprojects.arihna.core.location.platform.AndroidLocationPermissionStateResolver
 import com.archimedeprojects.arihna.core.location.platform.LocationManagerDeviceLocationDataSource
+import com.archimedeprojects.arihna.core.prayer.calculation.AdhanPrayerTimeCalculator
 import com.archimedeprojects.arihna.core.qibla.calculation.GreatCircleQiblaBearingCalculator
 import com.archimedeprojects.arihna.core.qibla.calculation.QiblaBearingCalculator
 import com.archimedeprojects.arihna.core.qibla.heading.DeviceHeadingDataSource
 import com.archimedeprojects.arihna.core.qibla.platform.AndroidDeviceHeadingDataSource
 import com.archimedeprojects.arihna.feature.alarms.data.AlarmRuleRepository
 import com.archimedeprojects.arihna.feature.alarms.data.preferences.PreferencesDataStoreAlarmRuleRepository
+import com.archimedeprojects.arihna.feature.alarms.domain.AlarmReconciler
+import com.archimedeprojects.arihna.feature.alarms.domain.RepositoryAlarmPrayerScheduleSource
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmPlatformScheduler
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmReconciliationTrigger
 import com.archimedeprojects.arihna.feature.alarms.platform.AndroidExactAlarmBackend
 import com.archimedeprojects.arihna.feature.alarms.platform.DefaultAlarmPlatformScheduler
+import com.archimedeprojects.arihna.feature.alarms.platform.DefaultAlarmReconciliationTrigger
 import com.archimedeprojects.arihna.feature.alarms.platform.ExactAlarmAccessIntentFactory
-import com.archimedeprojects.arihna.feature.alarms.platform.NoOpAlarmReconciliationTrigger
 import com.archimedeprojects.arihna.feature.prayerschedule.data.PrayerSettingsRepository
 import com.archimedeprojects.arihna.feature.prayerschedule.data.preferences.PreferencesDataStorePrayerSettingsRepository
+import com.archimedeprojects.arihna.feature.prayerschedule.domain.DefaultPrayerScheduleRepository
+import java.time.Clock
+import java.time.ZoneId
+import kotlinx.coroutines.flow.flow
 
 private val Context.locationPreferencesDataStore by preferencesDataStore(name = "location")
 
 class AppContainer(context: Context) {
     private val appContext = context.applicationContext
+    private val alarmClock: Clock = Clock.systemUTC()
 
     val cityRepository: CityRepository by lazy {
         SQLiteCityRepository(appContext)
@@ -59,8 +68,41 @@ class AppContainer(context: Context) {
         ExactAlarmAccessIntentFactory(appContext)
     }
 
-    // STEP 4 replaces this bounded no-op trigger with authoritative reconciliation.
-    val alarmReconciliationTrigger: AlarmReconciliationTrigger = NoOpAlarmReconciliationTrigger
+    private val backgroundPrayerScheduleRepository by lazy {
+        DefaultPrayerScheduleRepository(
+            locationStates = flow {
+                // Background alarm reconciliation must never acquire a new fix. Passing Granted/true
+                // here only asks the closed coordinator to expose an already-persisted accepted fix.
+                emit(
+                    locationCoordinator.restorePersistedState(
+                        permissionState = LocationPermissionState.Granted,
+                        locationServicesEnabled = true,
+                    ),
+                )
+            },
+            prayerSettingsRepository = prayerSettingsRepository,
+            prayerTimeCalculator = AdhanPrayerTimeCalculator(),
+            clock = alarmClock,
+        )
+    }
+
+    val alarmReconciler: AlarmReconciler by lazy {
+        val alarmPrayerCalculator = AdhanPrayerTimeCalculator()
+        AlarmReconciler(
+            ruleRepository = alarmRuleRepository,
+            platformScheduler = alarmPlatformScheduler,
+            prayerScheduleSource = RepositoryAlarmPrayerScheduleSource(
+                repository = backgroundPrayerScheduleRepository,
+                prayerTimeCalculator = alarmPrayerCalculator,
+            ),
+            clock = alarmClock,
+            deviceZoneId = { ZoneId.systemDefault() },
+        )
+    }
+
+    val alarmReconciliationTrigger: AlarmReconciliationTrigger by lazy {
+        DefaultAlarmReconciliationTrigger(alarmReconciler)
+    }
 
     val locationCoordinator: LocationCoordinator by lazy {
         LocationCoordinator(
