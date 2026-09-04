@@ -1,0 +1,129 @@
+name: Qibla S25 compact prerelease temp
+
+on:
+  push:
+    branches:
+      - qibla-compact-layout-release-temp
+    paths:
+      - .github/workflows/qibla-compact-layout-release-temp.yml
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-24.04
+    env:
+      TARGET_SHA: 7d88b83b423de353a399c07ab80ccaf247b4b45d
+      TARGET_PARENT_SPEC_SHA: c3fc3855606a79d3d57bfa24668c1a59072faa65
+      VERIFIED_GATE_RUN: '33856531668'
+      VERIFIED_GATE_JOB: '100976407659'
+      SIGNING_SOURCE_SHA: ce23a7f78695be95c7f8dfd2bcedbe22544da94c
+      RELEASE_TAG: qibla-compact-7d88b83b-20260904
+      APK_NAME: arihna-qibla-compact.apk
+      DEBUG_CERT_SHA256: 13:97:00:8C:1F:96:2D:BB:D3:6D:D8:A8:EA:02:16:AF:DD:06:E4:B2:B3:E0:8B:C0:F6:D4:B5:43:44:D7:B0:FA
+      DEBUG_KEYSTORE_SHA256: bc9057f26ad6de7efb70a5df06effb1ed259f1d015c3f062d0f757b3f0983b72
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 7d88b83b423de353a399c07ab80ccaf247b4b45d
+          fetch-depth: 0
+
+      - name: Verify exact runtime, spec-first parent, promotion and green gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD^)" = "$TARGET_PARENT_SPEC_SHA"
+          MAIN_SHA="$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq '.commit.sha')"
+          test "$MAIN_SHA" = "$TARGET_SHA"
+          gh api "repos/$GITHUB_REPOSITORY/contents/PROJECT_SPEC.md?ref=$TARGET_PARENT_SPEC_SHA" --jq '.content' | tr -d '\n' | base64 --decode > /tmp/spec.md
+          grep -Fq 'Galaxy S25 compact single-viewport Qibla layout — APPROVED 2026-09-04' /tmp/spec.md
+          grep -Fq 'STEP 6 — full regression + API28 + Galaxy S25 validation: AUTHORIZED / IN PROGRESS.' /tmp/spec.md
+          JOB="$(gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$VERIFIED_GATE_JOB" --jq '[(.id|tostring), (.run_id|tostring), .conclusion] | join(" ")')"
+          test "$JOB" = "$VERIFIED_GATE_JOB $VERIFIED_GATE_RUN success"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Restore exact GeoNames city asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/qibla-asset app/src/main/assets/geonames
+          mkdir -p /tmp/qibla-asset app/src/main/assets/geonames
+          gh run download 33296099459 --repo "$GITHUB_REPOSITORY" --name geonames-step4-runtime-minimal --dir /tmp/qibla-asset
+          DB="$(find /tmp/qibla-asset -type f -name cities.db -print -quit)"
+          test -n "$DB"
+          cp "$DB" app/src/main/assets/geonames/cities.db
+          echo '7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb  app/src/main/assets/geonames/cities.db' | sha256sum -c -
+
+      - name: Restore persistent debug signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin location-step5-device-test
+          mkdir -p "$HOME/.android"
+          git show "$SIGNING_SOURCE_SHA:.github/test-signing/arihna-debug.keystore.b64" | base64 --decode > "$HOME/.android/debug.keystore"
+          test "$(sha256sum "$HOME/.android/debug.keystore" | awk '{print $1}')" = "$DEBUG_KEYSTORE_SHA256"
+          keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | grep -F "$DEBUG_CERT_SHA256"
+
+      - name: Apply transient persistent debug signing configuration
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('app/build.gradle.kts')
+          text = path.read_text()
+          marker = '    buildFeatures {\n'
+          block = '''    signingConfigs {\n        getByName("debug") {\n            storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")\n            storePassword = "android"\n            keyAlias = "androiddebugkey"\n            keyPassword = "android"\n        }\n    }\n\n'''
+          if marker not in text:
+              raise SystemExit('buildFeatures marker not found')
+          path.write_text(text.replace(marker, block + marker, 1))
+          PY
+          git diff --check -- app/build.gradle.kts
+
+      - name: Build compact Qibla validation APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Verify APK identity, signing continuity and digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee /tmp/apksigner.txt
+          grep -Fi '1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa' /tmp/apksigner.txt
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$AAPT" dump badging "$APK" | grep -F "package: name='com.archimedeprojects.arihna'"
+          cp "$APK" "$APK_NAME"
+          sha256sum "$APK_NAME" | tee /tmp/apk-sha256.txt
+          stat -c '%s' "$APK_NAME" | tee /tmp/apk-size.txt
+
+      - name: Publish compact Qibla S25 prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK_SHA="$(awk '{print $1}' /tmp/apk-sha256.txt)"
+          APK_SIZE="$(cat /tmp/apk-size.txt)"
+          gh release create "$RELEASE_TAG" "$APK_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$TARGET_SHA" \
+            --title 'S25 validation — Qibla compact layout — 7d88b83b' \
+            --prerelease \
+            --notes "DEVICE VALIDATION BUILD. Exact runtime $TARGET_SHA, spec-first parent $TARGET_PARENT_SPEC_SHA. Automated gate run $VERIFIED_GATE_RUN / job $VERIFIED_GATE_JOB completed successfully before promotion. This build applies the approved compact single-viewport Qibla layout while preserving the validated compass mathematics, sensor hierarchy, telemetry and location behavior. Frozen GeoNames is restored and verified. Persistent debug signing identity matches prior S25 validation APKs. APK bytes: $APK_SIZE. APK SHA-256: $APK_SHA. Physical Galaxy S25 validation is still required before STEP 6 closure."
