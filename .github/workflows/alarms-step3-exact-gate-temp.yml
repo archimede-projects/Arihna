@@ -100,7 +100,7 @@ jobs:
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace
 
-      - name: Run Android 9 API28 regression and verify zero skipped
+      - name: Run Android 9 API28 regression
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 28
@@ -109,23 +109,9 @@ jobs:
           profile: pixel_2
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
-          script: |
-            ./gradlew :app:connectedDebugAndroidTest --stacktrace
-            python3 - <<'PY'
-            import glob, xml.etree.ElementTree as ET
-            files=glob.glob('app/build/outputs/androidTest-results/connected/debug/**/*.xml', recursive=True)
-            assert files, 'no connected test XML'
-            tests=failures=errors=skipped=0
-            names=[]
-            for f in files:
-                root=ET.parse(f).getroot()
-                tests += int(root.attrib.get('tests',0))
-                failures += int(root.attrib.get('failures',0))
-                errors += int(root.attrib.get('errors',0))
-                skipped += int(root.attrib.get('skipped',0))
-                names += [tc.attrib.get('classname','') for tc in root.iter('testcase')]
-            print(f'CONNECTED_TOTAL tests={tests} failures={failures} errors={errors} skipped={skipped}')
-            assert tests > 0
-            assert failures == 0 and errors == 0 and skipped == 0
-            assert any('AlarmPlatformAndroidTest' in n for n in names)
-            PY
+          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
+
+      - name: Verify API28 connected totals and zero skipped
+        shell: bash
+        run: |
+          python3 -c "import glob,xml.etree.ElementTree as ET; fs=glob.glob('app/build/outputs/androidTest-results/connected/debug/**/*.xml',recursive=True); assert fs,'no connected test XML'; roots=[ET.parse(f).getroot() for f in fs]; tests=sum(int(r.attrib.get('tests',0)) for r in roots); failures=sum(int(r.attrib.get('failures',0)) for r in roots); errors=sum(int(r.attrib.get('errors',0)) for r in roots); skipped=sum(int(r.attrib.get('skipped',0)) for r in roots); names=[tc.attrib.get('classname','') for r in roots for tc in r.iter('testcase')]; print(f'CONNECTED_TOTAL tests={tests} failures={failures} errors={errors} skipped={skipped}'); assert tests>0 and failures==0 and errors==0 and skipped==0; assert any('AlarmPlatformAndroidTest' in n for n in names)"
