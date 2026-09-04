@@ -139,14 +139,9 @@ private fun StaticBearingContent(state: QiblaState.StaticBearing) {
         animationKey = state.location,
     )
     Spacer(Modifier.height(14.dp))
-    Text(
-        text = "Indicazione geografica rispetto al nord vero",
-        style = MaterialTheme.typography.titleSmall,
-    )
-    Text(
-        text = "La bussola live non è applicabile con una posizione manuale: il telefono potrebbe trovarsi altrove.",
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    MessageCard(
+        title = "Bussola statica",
+        body = "La direzione è calcolata per la città selezionata. Per usare la bussola live e allineare il telefono, scegli la posizione del dispositivo.",
     )
 }
 
@@ -172,6 +167,7 @@ private fun LiveCompassContent(state: QiblaState.LiveCompass) {
     Spacer(Modifier.height(18.dp))
     CompassDial(
         directionDegrees = state.relativeQiblaDirectionDegrees,
+        deviceHeadingTrueDegrees = state.deviceHeadingTrueDegrees,
         live = true,
         animationKey = state.location,
     )
@@ -272,23 +268,45 @@ private fun LocationSummary(location: SelectedLocation) {
 @Composable
 private fun CompassDial(
     directionDegrees: Double,
+    deviceHeadingTrueDegrees: Double = 0.0,
     live: Boolean,
     animationKey: Any,
 ) {
-    val wrapped = directionDegrees.toFloat()
-    var unwrappedTarget by remember(animationKey) { mutableFloatStateOf(wrapped) }
-    LaunchedEffect(animationKey, wrapped, live) {
-        unwrappedTarget = if (live) {
-            shortestUnwrappedCompassTarget(unwrappedTarget, wrapped)
+    val wrappedDirection = directionDegrees.toFloat()
+    var unwrappedDirectionTarget by remember(animationKey) { mutableFloatStateOf(wrappedDirection) }
+    LaunchedEffect(animationKey, wrappedDirection, live) {
+        unwrappedDirectionTarget = if (live) {
+            shortestUnwrappedCompassTarget(unwrappedDirectionTarget, wrappedDirection)
         } else {
-            wrapped
+            wrappedDirection
         }
     }
     val animatedDirection by animateFloatAsState(
-        targetValue = unwrappedTarget,
+        targetValue = unwrappedDirectionTarget,
         label = "qiblaDirection",
     )
-    val displayedDirection = if (live) animatedDirection else wrapped
+    val displayedDirection = if (live) animatedDirection else wrappedDirection
+
+    val wrappedCardinalRose = if (live) {
+        cardinalRoseWrappedTarget(deviceHeadingTrueDegrees.toFloat())
+    } else {
+        0f
+    }
+    var unwrappedCardinalRoseTarget by remember(animationKey) {
+        mutableFloatStateOf(wrappedCardinalRose)
+    }
+    LaunchedEffect(animationKey, wrappedCardinalRose, live) {
+        unwrappedCardinalRoseTarget = if (live) {
+            shortestUnwrappedCompassTarget(unwrappedCardinalRoseTarget, wrappedCardinalRose)
+        } else {
+            0f
+        }
+    }
+    val animatedCardinalRose by animateFloatAsState(
+        targetValue = unwrappedCardinalRoseTarget,
+        label = "cardinalRoseDirection",
+    )
+    val displayedCardinalRose = if (live) animatedCardinalRose else 0f
 
     Box(
         modifier = Modifier.size(280.dp),
@@ -306,27 +324,46 @@ private fun CompassDial(
                 style = Stroke(width = 1.dp.toPx()),
             )
         }
-        Text(
-            text = "N",
-            modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp),
-            color = ArihnaGreen,
-            fontWeight = FontWeight.Bold,
-        )
-        Text(
-            text = "E",
-            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 14.dp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = "S",
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = "O",
-            modifier = Modifier.align(Alignment.CenterStart).padding(start = 14.dp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer { rotationZ = displayedCardinalRose }
+                .testTag(if (live) "qibla-live-cardinal-rose" else "qibla-static-cardinal-rose"),
+        ) {
+            Text(
+                text = "N",
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 12.dp)
+                    .graphicsLayer { rotationZ = -displayedCardinalRose },
+                color = ArihnaGreen,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = "E",
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 14.dp)
+                    .graphicsLayer { rotationZ = -displayedCardinalRose },
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = "S",
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 12.dp)
+                    .graphicsLayer { rotationZ = -displayedCardinalRose },
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = "O",
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = 14.dp)
+                    .graphicsLayer { rotationZ = -displayedCardinalRose },
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Box(
             modifier = Modifier
                 .size(214.dp)
