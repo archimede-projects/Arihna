@@ -1501,3 +1501,17 @@ Approved correction:
 6. This correction is presentation-only. Do not change Qibla bearing/relative-direction mathematics, heading source hierarchy, declination, sensor fusion, magnetic diagnostic thresholds, Location/cache behavior, Prayer behavior, persistence, permissions, dependencies, manifest policy or lifecycle ownership.
 7. Focused Compose/API28 tests must verify the compact live hierarchy and retained instrumentation without relying on scrolling to reach normal live telemetry, plus Manual non-live behavior and interference visibility. Existing host/unit, `assembleDebug`, Android 9/API28 connected, GeoNames, permission/dependency and no-skipped-test gates remain mandatory.
 8. The exact clean technical candidate must pass the full gate before non-forced promotion to `main`, followed by a new persistent-debug-signed Galaxy S25 prerelease. STEP 6 closes only after physical confirmation that the compact screen is satisfactory and the already-validated compass behavior remains correct.
+
+### Qibla sacred gold banner — APPROVED 2026-09-04
+
+Galaxy S25 review of compact runtime `7d88b83b423de353a399c07ab80ccaf247b4b45d` confirmed the single-viewport layout but exposed insufficient contrast for the primary Qibla value. The user explicitly approved generated concept **variant 5 — Banner islamico** as the visual target. Reference: `docs/qibla/reference/qibla-banner-variant-5-approved.jpg`.
+
+Approved contract:
+- Normal LiveCompass uses one compact premium horizontal gold banner immediately above the compass, replacing the separate low-contrast Qibla value plus standalone heading row.
+- Banner content: small geometric Kaaba mark at left, prominent high-contrast `Qibla N°`, current true heading/cardinal beneath, subtle mosque/minaret silhouette ornament. No sacred text, Arabic calligraphy, network image or religious claim.
+- Use Arihna Gold/warm derived gold and Arihna Green high-contrast foreground, rounded premium geometry, matching variant 5 as closely as practical in native Compose.
+- Preserve Galaxy S25 portrait single viewport with no vertical scrolling and preserve full dial, top index, yellow marker, location/freshness and all telemetry/guidance.
+- Manual/static semantics remain truthful; no live-alignment claim in Manual mode.
+- Presentation only: no Qibla math, north correction, heading hierarchy/smoothing, geomagnetic, Location/cache, Prayer, persistence, permissions, dependencies, manifest or lifecycle changes.
+- API28 Compose coverage must verify the gold banner, Qibla value, live heading and Kaaba mark while existing regressions remain mandatory with zero skipped tests.
+- Technical implementation commit directly follows this spec commit; exact full gate is required before non-forced main promotion and persistent-debug S25 prerelease. STEP 6 remains open pending physical validation.
