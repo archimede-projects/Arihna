@@ -1,0 +1,52 @@
+name: Qibla full compass spec helper
+
+on:
+  push:
+    branches:
+      - qibla-full-compass-spec-helper
+    paths:
+      - .github/workflows/qibla-full-compass-spec-helper.yml
+
+permissions:
+  contents: write
+
+jobs:
+  write-spec:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Append approved full compass scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat >> PROJECT_SPEC.md <<'EOF'
+
+#### Full Qibla compass instrumentation — APPROVED 2026-09-04
+
+Galaxy S25 physical revalidation confirmed that the corrected live cardinal rose is directionally valid when the phone is free from nearby magnetic interference. The earlier apparent fixed-north error was reproduced while the charger was connected and disappeared after removing the charger; therefore the runtime correction at `e641cb44fea5ab6095c87ed681b883db8c7c00b5` remains valid and STEP 6 stays AUTHORIZED / IN PROGRESS.
+
+The user explicitly approves an immediate full-feature compass presentation inspired by the validated Samsung compass reference while preserving Arihna branding and Qibla semantics. This is a Qibla STEP 6 enhancement, not STEP 7 closure.
+
+Approved implementation contract:
+
+1. Live Device mode shall present a full 360° compass dial with readable degree graduations, major 30° labels, cardinal labels N/E/S/O, a fixed screen-top heading index, and the existing yellow Qibla marker. The rose continues to rotate from authoritative true heading using shortest circular presentation paths; the Qibla marker continues to consume `relativeQiblaDirectionDegrees` unchanged.
+2. Live Device mode shall prominently show the current true heading in degrees plus a compact cardinal sector label. This display is derived from `deviceHeadingTrueDegrees` only and must not alter bearing calculations.
+3. Live Device mode shall show instrumentation cards for heading quality/estimated accuracy, selected heading source, magnetic declination when available, and magnetic-field intensity in microtesla when a magnetic-field sensor is available.
+4. Magnetic-field intensity is diagnostic telemetry only. It must never be used to change Qibla bearing, heading-source selection, declination correction, smoothing, or sensor fusion. The magnetic sensor may be observed in parallel only while the existing lifecycle-bound Qibla heading collection is active, and must be unregistered with the same lifecycle ownership.
+5. The UI shall surface an interference advisory when magnetic-field intensity is implausibly high or low for normal ambient use, and shall always include concise guidance to keep the phone approximately horizontal and away from chargers, metal, magnets, cases/accessories with magnets, and other interference sources. The UI must not claim that intensity alone proves heading accuracy.
+6. When the selected heading source is magnetic-reference, show the authoritative geomagnetic declination already computed by the heading layer. When `TYPE_HEADING` supplies true north directly, declination may be shown as not applicable/unavailable rather than fabricated.
+7. Manual mode remains strictly static: north-referenced Qibla diagram, prominent `Bussola statica` explanation, no live heading, magnetic telemetry, or physical-alignment claim.
+8. Preserve the existing source hierarchy, true-north correction, Qibla bearing math, Location/cache behavior, Prayer behavior, persistence, permissions, dependencies, manifest policy, and lifecycle ownership. No FINE/BACKGROUND/BODY_SENSORS permission and no Google Play Services Location dependency may be introduced.
+9. Add focused host tests for heading/cardinal presentation and diagnostic classification; update Compose/API28 tests for full dial, instrumentation cards, declination availability semantics, interference guidance, and Manual non-live behavior. Existing regressions remain mandatory with zero skipped tests.
+10. The exact technical candidate must pass unfiltered `testDebugUnitTest`, `assembleDebug`, Android 9/API28 `connectedDebugAndroidTest`, GeoNames integrity, and existing permission/dependency policy gates before any promotion to `main`. After promotion, produce a new persistent-debug-signed Galaxy S25 prerelease APK and physically revalidate the full compass with the charger disconnected and with normal ambient magnetic conditions. STEP 6 is not CLOSED until that physical validation passes.
+
+EOF
+          git config user.name "IbnKhaldoun-svg"
+          git config user.email "essalih.idriss.w@gmail.com"
+          git add PROJECT_SPEC.md
+          git diff --cached --check
+          git commit -m "docs(qibla): authorize full compass instrumentation"
+          git push origin HEAD:qibla-full-compass-spec --force-with-lease
