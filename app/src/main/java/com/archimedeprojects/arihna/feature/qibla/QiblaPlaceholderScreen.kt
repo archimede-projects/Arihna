@@ -231,6 +231,7 @@ private fun CompassDial(directionDegrees: Double, deviceHeadingTrueDegrees: Doub
     val animatedRose by animateFloatAsState(roseTarget, label = "cardinalRoseDirection")
     val displayedRose = if (live) animatedRose else 0f
     val radiusPx = with(LocalDensity.current) { 123.dp.toPx() }
+    val dialTickColor = MaterialTheme.colorScheme.onSurfaceVariant
 
     Box(Modifier.size(310.dp).testTag(if (live) "qibla-full-compass" else "qibla-static-compass"), contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
@@ -249,7 +250,7 @@ private fun CompassDial(directionDegrees: Double, deviceHeadingTrueDegrees: Doub
                     val ux = sin(rad).toFloat()
                     val uy = -cos(rad).toFloat()
                     drawLine(
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = dialTickColor,
                         start = Offset(center.x + ux * (outer - length), center.y + uy * (outer - length)),
                         end = Offset(center.x + ux * outer, center.y + uy * outer),
                         strokeWidth = if (major) 2.5.dp.toPx() else 1.4.dp.toPx(),
