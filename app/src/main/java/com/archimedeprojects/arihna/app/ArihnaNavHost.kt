@@ -19,7 +19,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.archimedeprojects.arihna.core.location.platform.AndroidLocationEnvironment
 import com.archimedeprojects.arihna.core.location.platform.AndroidLocationPermissionStateResolver
-import com.archimedeprojects.arihna.feature.alarms.AlarmsPlaceholderScreen
+import com.archimedeprojects.arihna.feature.alarms.AlarmsRoute
+import com.archimedeprojects.arihna.feature.alarms.AlarmsViewModel
+import com.archimedeprojects.arihna.feature.alarms.platform.ExactAlarmAccessIntentFactory
 import com.archimedeprojects.arihna.feature.home.HomePrayerScheduleRoute
 import com.archimedeprojects.arihna.feature.prayers.PrayerTimesPlaceholderScreen
 import com.archimedeprojects.arihna.feature.prayerschedule.presentation.PrayerScheduleViewModel
@@ -47,6 +49,8 @@ fun ArihnaNavHost(
     activity: Activity,
     locationSettingsViewModel: LocationSettingsViewModel,
     prayerScheduleViewModel: PrayerScheduleViewModel,
+    alarmsViewModel: AlarmsViewModel,
+    exactAlarmAccessIntentFactory: ExactAlarmAccessIntentFactory,
     qiblaRepository: QiblaRepository,
     locationEnvironment: AndroidLocationEnvironment,
     locationPermissionStateResolver: AndroidLocationPermissionStateResolver,
@@ -133,7 +137,13 @@ fun ArihnaNavHost(
                 )
             }
             composable(Destination.Quran.route) { QuranPlaceholderScreen(innerPadding) }
-            composable(Destination.Alarms.route) { AlarmsPlaceholderScreen(innerPadding) }
+            composable(Destination.Alarms.route) {
+                AlarmsRoute(
+                    contentPadding = innerPadding,
+                    viewModel = alarmsViewModel,
+                    exactAlarmAccessIntentFactory = exactAlarmAccessIntentFactory,
+                )
+            }
             composable(Destination.Settings.route) {
                 LocationSettingsRoute(
                     contentPadding = innerPadding,

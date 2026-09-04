@@ -12,6 +12,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.archimedeprojects.arihna.core.prayer.calculation.AdhanPrayerTimeCalculator
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaTheme
+import com.archimedeprojects.arihna.feature.alarms.AlarmsViewModel
 import com.archimedeprojects.arihna.feature.prayerschedule.domain.DefaultPrayerScheduleRepository
 import com.archimedeprojects.arihna.feature.prayerschedule.presentation.OneSecondPrayerScheduleTicker
 import com.archimedeprojects.arihna.feature.prayerschedule.presentation.PrayerScheduleViewModel
@@ -61,9 +62,21 @@ fun ArihnaApp(
             }
         }
     }
-    val prayerScheduleViewModel: PrayerScheduleViewModel = viewModel(
-        factory = prayerScheduleViewModelFactory,
-    )
+    val prayerScheduleViewModel: PrayerScheduleViewModel = viewModel(factory = prayerScheduleViewModelFactory)
+
+    val alarmsViewModelFactory = remember(appContainer) {
+        viewModelFactory {
+            initializer {
+                AlarmsViewModel(
+                    repository = appContainer.alarmRuleRepository,
+                    reconciler = appContainer.alarmReconciler,
+                    scheduler = appContainer.alarmPlatformScheduler,
+                    notificationPermissionReader = appContainer.alarmNotificationPermissionReader,
+                )
+            }
+        }
+    }
+    val alarmsViewModel: AlarmsViewModel = viewModel(factory = alarmsViewModelFactory)
 
     val qiblaRepository: QiblaRepository = remember(appContainer, locationViewModel) {
         DefaultQiblaRepository(
@@ -108,6 +121,8 @@ fun ArihnaApp(
             activity = activity,
             locationSettingsViewModel = locationViewModel,
             prayerScheduleViewModel = prayerScheduleViewModel,
+            alarmsViewModel = alarmsViewModel,
+            exactAlarmAccessIntentFactory = appContainer.exactAlarmAccessIntentFactory,
             qiblaRepository = qiblaRepository,
             locationEnvironment = appContainer.locationEnvironment,
             locationPermissionStateResolver = appContainer.locationPermissionStateResolver,
