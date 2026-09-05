@@ -37,13 +37,66 @@ jobs:
           python /tmp/alarms_ux_tests.py
           python - <<'PY'
           from pathlib import Path
-          p = Path('app/src/main/java/com/archimedeprojects/arihna/feature/alarms/AlarmsPlaceholderScreen.kt')
-          text = p.read_text(encoding='utf-8')
+
+          alarms = Path('app/src/main/java/com/archimedeprojects/arihna/feature/alarms/AlarmsPlaceholderScreen.kt')
+          text = alarms.read_text(encoding='utf-8')
           bad = 'days.sortedBy { it.value }.joinToString(" • ")(::dayShort)'
           good = 'days.sortedBy { it.value }.joinToString(separator = " • ", transform = ::dayShort)'
           if bad not in text:
               raise SystemExit('expected recurrence transform marker missing')
-          p.write_text(text.replace(bad, good, 1), encoding='utf-8')
+          alarms.write_text(text.replace(bad, good, 1), encoding='utf-8')
+
+          settings = Path('app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt')
+          text = settings.read_text(encoding='utf-8')
+          alarm_cards = '''        item {
+            AlarmSystemSettingsCard(
+                state = alarmSettings,
+                onManageNotifications = onManageNotifications,
+                onManageExactAlarms = onManageExactAlarms,
+                onManageFullScreen = onManageFullScreen,
+            )
+        }
+        item {
+            AlarmDiagnosticCard(
+                state = alarmSettings,
+                onTestAlarm = onTestAlarm,
+                onTestAdhan = onTestAdhan,
+                onCancelDiagnostic = onCancelDiagnostic,
+            )
+        }
+'''
+          if text.count(alarm_cards) != 1:
+              raise SystemExit('expected top alarm settings block missing or duplicated')
+          text = text.replace(alarm_cards, '', 1)
+          insertion = '''        items(
+            items = uiState.searchResults,
+            key = { city -> city.id },
+        ) { city ->
+            CityResultCard(city = city, onSelectCity = onSelectCity)
+        }
+'''
+          moved = insertion + '''
+        item {
+            AlarmSystemSettingsCard(
+                state = alarmSettings,
+                onManageNotifications = onManageNotifications,
+                onManageExactAlarms = onManageExactAlarms,
+                onManageFullScreen = onManageFullScreen,
+            )
+        }
+        item {
+            AlarmDiagnosticCard(
+                state = alarmSettings,
+                onTestAlarm = onTestAlarm,
+                onTestAdhan = onTestAdhan,
+                onCancelDiagnostic = onCancelDiagnostic,
+            )
+        }
+'''
+          if text.count(insertion) != 1:
+              raise SystemExit('expected city results insertion marker missing or duplicated')
+          settings.write_text(text.replace(insertion, moved, 1), encoding='utf-8')
+
           for p in Path('app/src').rglob('*'):
               if p.is_file() and p.suffix in {'.kt', '.xml'}:
                   text = p.read_text(encoding='utf-8')
