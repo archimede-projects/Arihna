@@ -1,0 +1,30 @@
+name: Alarms compact UI gate fixer temp
+
+on:
+  push:
+    branches:
+      - alarms-compact-ui-gate-temp
+    paths:
+      - .github/workflows/alarms-compact-ui-gate-fixer-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix-gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: alarms-compact-ui-gate-temp
+      - name: Correct static test-name assertion
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE=.github/workflows/alarms-compact-ui-definitive-gate-temp.yml
+          sed -i 's/newAlarmEditorHasNoDeleteAction/newAlarmEditorDoesNotExposeDeleteAction/' "$FILE"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$FILE"
+          git commit -m "fix(ci): correct compact UI gate assertion"
+          git push origin HEAD:alarms-compact-ui-gate-temp
