@@ -18,7 +18,7 @@ jobs:
     env:
       PRE_REMEDIATION_MAIN_SHA: 3c0e73bb82a4a28806039dc4189ddc07090bcfd1
       SPEC_SHA: 218caf289105ffbdf15e000a7242b2eb34f05e5e
-      CANDIDATE_SHA: fde4aee3b51941827d2ff39eb029b297a3e42898
+      CANDIDATE_SHA: e5799896c7c266cca2f15a1d2b16f68a139ec3a0
       ADHAN_SHA256: 3b350bc210d657727578ed977e32323c06b63c2088c3ebcea9fc9afb7d487702
     steps:
       - uses: actions/checkout@v4
@@ -136,7 +136,7 @@ jobs:
     env:
       PRE_REMEDIATION_MAIN_SHA: 3c0e73bb82a4a28806039dc4189ddc07090bcfd1
       SPEC_SHA: 218caf289105ffbdf15e000a7242b2eb34f05e5e
-      CANDIDATE_SHA: fde4aee3b51941827d2ff39eb029b297a3e42898
+      CANDIDATE_SHA: e5799896c7c266cca2f15a1d2b16f68a139ec3a0
       ADHAN_SHA256: 3b350bc210d657727578ed977e32323c06b63c2088c3ebcea9fc9afb7d487702
     steps:
       - uses: actions/checkout@v4
