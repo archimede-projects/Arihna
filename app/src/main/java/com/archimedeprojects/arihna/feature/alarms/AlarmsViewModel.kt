@@ -65,7 +65,7 @@ class AlarmsViewModel(
                     AlarmRuleDraft(
                         alarmId = id,
                         enabled = enabled,
-                        soundProfile = AlarmSoundProfile.SYSTEM_DEFAULT,
+                        soundProfile = AlarmSoundProfile.ADHAN,
                         definition = AlarmDefinition.PrayerLinked(prayer = prayer, offsetMinutes = 0),
                     ),
                 )
@@ -105,20 +105,22 @@ class AlarmsViewModel(
         mutate { repository.delete(rule.alarmId) }
     }
 
-    fun toggleSound(rule: AlarmRule) {
+    fun setSound(rule: AlarmRule, soundProfile: AlarmSoundProfile) {
+        if (rule.definition is AlarmDefinition.Custom && soundProfile == AlarmSoundProfile.ADHAN) {
+            message.value = "Adhan è disponibile per le sveglie di preghiera"
+            return
+        }
+        if (rule.soundProfile == soundProfile) return
         mutate {
             repository.save(
                 AlarmRuleDraft(
                     alarmId = rule.alarmId,
                     enabled = rule.enabled,
-                    soundProfile = if (rule.soundProfile == AlarmSoundProfile.SYSTEM_DEFAULT) {
-                        AlarmSoundProfile.SILENT
-                    } else {
-                        AlarmSoundProfile.SYSTEM_DEFAULT
-                    },
+                    soundProfile = soundProfile,
                     definition = rule.definition,
                 ),
             )
+            message.value = "Suono aggiornato"
         }
     }
 

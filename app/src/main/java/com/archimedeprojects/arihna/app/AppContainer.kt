@@ -21,6 +21,7 @@ import com.archimedeprojects.arihna.feature.alarms.data.AlarmRuleRepository
 import com.archimedeprojects.arihna.feature.alarms.data.preferences.PreferencesDataStoreAlarmRuleRepository
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmReconciler
 import com.archimedeprojects.arihna.feature.alarms.domain.RepositoryAlarmPrayerScheduleSource
+import com.archimedeprojects.arihna.feature.alarms.platform.AlarmFullScreenAccess
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmNotificationDelivery
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmNotificationPermissionReader
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmOccurrenceHandler
@@ -62,6 +63,7 @@ class AppContainer(context: Context) {
     val exactAlarmAccessIntentFactory: ExactAlarmAccessIntentFactory by lazy {
         ExactAlarmAccessIntentFactory(appContext)
     }
+    val alarmFullScreenAccess: AlarmFullScreenAccess by lazy { AlarmFullScreenAccess(appContext) }
     val alarmNotificationPermissionReader: AlarmNotificationPermissionReader by lazy {
         AndroidAlarmNotificationPermissionReader(appContext)
     }

@@ -123,6 +123,7 @@ fun ArihnaApp(
             prayerScheduleViewModel = prayerScheduleViewModel,
             alarmsViewModel = alarmsViewModel,
             exactAlarmAccessIntentFactory = appContainer.exactAlarmAccessIntentFactory,
+            alarmFullScreenAccess = appContainer.alarmFullScreenAccess,
             qiblaRepository = qiblaRepository,
             locationEnvironment = appContainer.locationEnvironment,
             locationPermissionStateResolver = appContainer.locationPermissionStateResolver,

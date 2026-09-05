@@ -13,6 +13,7 @@ enum class AlarmPrayer {
 }
 
 enum class AlarmSoundProfile {
+    ADHAN,
     SYSTEM_DEFAULT,
     SILENT,
 }
