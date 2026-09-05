@@ -205,6 +205,7 @@ class AlarmRingingService : Service() {
     private var mediaPlayer: MediaPlayer? = null
     private var activeNotificationId: Int? = null
     private var activeAlarmId: String? = null
+    private val ringingOverlay by lazy { AlarmRingingOverlay(this) }
     private val safetyStop = Runnable { stopRinging() }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -244,6 +245,15 @@ class AlarmRingingService : Service() {
             startForeground(activeNotificationId ?: 1, notification)
         }
         startAudio(payload.soundProfile, payload.ringtoneUri)
+        ringingOverlay.show(
+            payload = payload,
+            onStop = { stopRinging() },
+            onSnooze = {
+                if (AlarmSnoozeScheduler(this).schedule(payload)) {
+                    stopRinging()
+                }
+            },
+        )
         mainHandler.removeCallbacks(safetyStop)
         mainHandler.postDelayed(safetyStop, MAX_RINGING_MILLIS)
         return START_NOT_STICKY
@@ -320,6 +330,7 @@ class AlarmRingingService : Service() {
 
     private fun stopRinging() {
         mainHandler.removeCallbacks(safetyStop)
+        ringingOverlay.hide()
         stopAudioOnly()
         activeNotificationId?.let { id ->
             (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(id)
@@ -337,6 +348,7 @@ class AlarmRingingService : Service() {
 
     override fun onDestroy() {
         mainHandler.removeCallbacks(safetyStop)
+        ringingOverlay.hide()
         stopAudioOnly()
         activeNotificationId?.let { id ->
             (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(id)
