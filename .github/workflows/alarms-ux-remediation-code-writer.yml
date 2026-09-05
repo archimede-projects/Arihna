@@ -37,6 +37,13 @@ jobs:
           python /tmp/alarms_ux_tests.py
           python - <<'PY'
           from pathlib import Path
+          p = Path('app/src/main/java/com/archimedeprojects/arihna/feature/alarms/AlarmsPlaceholderScreen.kt')
+          text = p.read_text(encoding='utf-8')
+          bad = 'days.sortedBy { it.value }.joinToString(" • ")(::dayShort)'
+          good = 'days.sortedBy { it.value }.joinToString(separator = " • ", transform = ::dayShort)'
+          if bad not in text:
+              raise SystemExit('expected recurrence transform marker missing')
+          p.write_text(text.replace(bad, good, 1), encoding='utf-8')
           for p in Path('app/src').rglob('*'):
               if p.is_file() and p.suffix in {'.kt', '.xml'}:
                   text = p.read_text(encoding='utf-8')
