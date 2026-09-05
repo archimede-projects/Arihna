@@ -8,6 +8,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
@@ -23,6 +24,7 @@ import com.archimedeprojects.arihna.core.ui.theme.ArihnaTheme
 import java.time.Instant
 import java.time.ZoneId
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -42,7 +44,7 @@ class LocationSettingsScreenAndroidTest {
             ),
             updateState = { state = it },
             "Posizione non configurata",
-            "Origine: Non configurata",
+            "Non configurata",
         )
         assertState(
             newState = LocationSettingsUiState(
@@ -51,7 +53,7 @@ class LocationSettingsScreenAndroidTest {
             ),
             updateState = { state = it },
             "Risoluzione in corso",
-            "Origine: Device",
+            "Device",
         )
         assertState(
             newState = LocationSettingsUiState(
@@ -62,8 +64,9 @@ class LocationSettingsScreenAndroidTest {
                 activeMode = LocationModeUi.Device,
             ),
             updateState = { state = it },
-            "Posizione dispositivo pronta",
-            "Dati: FRESH",
+            "Ferrara, Italia",
+            "FRESH",
+            "Europe/Rome",
         )
         assertState(
             newState = LocationSettingsUiState(
@@ -74,9 +77,32 @@ class LocationSettingsScreenAndroidTest {
                 activeMode = LocationModeUi.Manual,
             ),
             updateState = { state = it },
-            "Città manuale attiva",
-            "Origine: Manuale",
+            "Makkah, Saudi Arabia",
+            "Manuale",
         )
+    }
+
+    @Test
+    fun premiumSectionsReplaceVerboseTemporaryCopy() {
+        setScreen { LocationSettingsUiState() }
+
+        composeRule.onNodeWithText("Impostazioni").assertIsDisplayed()
+        composeRule.onNodeWithText("Posizione").assertIsDisplayed()
+        assertTrue(
+            composeRule.onAllNodesWithText("Pannello funzionale STEP 6 — la Home definitiva verrà costruita più avanti.")
+                .fetchSemanticsNodes().isEmpty(),
+        )
+        assertTrue(
+            composeRule.onAllNodesWithText("Controlli di sistema e test rapidi per sveglie e Adhan.")
+                .fetchSemanticsNodes().isEmpty(),
+        )
+
+        composeRule.onNode(hasScrollAction())
+            .performScrollToNode(hasText("Sveglie e notifiche"))
+        composeRule.onNodeWithText("Sveglie e notifiche").assertIsDisplayed()
+        composeRule.onNode(hasScrollAction())
+            .performScrollToNode(hasText("Test rapidi"))
+        composeRule.onNodeWithText("Test rapidi").assertIsDisplayed()
     }
 
     @Test
