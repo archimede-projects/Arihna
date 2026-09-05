@@ -1,0 +1,90 @@
+name: Alarms STEP 7 ringing remediation implementation writer
+
+on:
+  push:
+    branches:
+      - alarms-step7-remediation-impl-writer-temp
+    paths:
+      - .github/workflows/alarms-step7-remediation-impl-writer-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  write-candidate:
+    runs-on: ubuntu-24.04
+    env:
+      PRE_FAIL_MAIN_SHA: 68a05293e47d1bad412e4c857f1a4d481dd490b6
+      REMEDIATION_SPEC_SHA: c0fa43c5b16355c0e4b2748b6b6b85df4bfbb7db
+      ADHAN_SOURCE: https://commons.wikimedia.org/wiki/Special:Redirect/file/Muslim%20calling%20to%20prayer.ogg
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify writer ancestry and spec parent
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main alarms-step7-remediation-spec --force
+          test "$(git rev-parse origin/main)" = "$PRE_FAIL_MAIN_SHA"
+          test "$(git rev-parse origin/alarms-step7-remediation-spec)" = "$REMEDIATION_SPEC_SHA"
+          test "$(git rev-parse "$REMEDIATION_SPEC_SHA^")" = "$PRE_FAIL_MAIN_SHA"
+          cp .github/alarms-step7-remediation-impl-writer.py /tmp/alarms-step7-remediation-impl-writer.py
+
+      - name: Build clean corrective candidate directly above spec
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout -B alarms-step7-remediation-candidate "$REMEDIATION_SPEC_SHA"
+          python3 /tmp/alarms-step7-remediation-impl-writer.py
+
+          mkdir -p app/src/main/res/raw docs/audio
+          curl --fail --location --retry 4 --retry-delay 2 "$ADHAN_SOURCE" -o app/src/main/res/raw/adhan_cc0.ogg
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/res/raw/adhan_cc0.ogg')
+          if not p.exists() or p.stat().st_size < 100_000:
+              raise SystemExit('Adhan artifact missing or unexpectedly small')
+          if p.read_bytes()[:4] != b'OggS':
+              raise SystemExit('Adhan artifact is not an Ogg stream')
+          PY
+          ADHAN_SHA="$(sha256sum app/src/main/res/raw/adhan_cc0.ogg | awk '{print $1}')"
+          ADHAN_SIZE="$(stat -c '%s' app/src/main/res/raw/adhan_cc0.ogg)"
+          cat > docs/audio/ADHAN.md <<EOF
+          # Bundled Adhan audio
+
+          Arihna bundles `app/src/main/res/raw/adhan_cc0.ogg` for offline Prayer-linked alarm playback.
+
+          - Source: Wikimedia Commons — `Muslim calling to prayer.ogg`
+          - Source URL: https://commons.wikimedia.org/wiki/File:Muslim_calling_to_prayer.ogg
+          - Author: Aishatu98
+          - Source date: 2026-07-15
+          - License: CC0 1.0 Universal Public Domain Dedication
+          - Bundled bytes: ${ADHAN_SIZE}
+          - Bundled SHA-256: `${ADHAN_SHA}`
+          - Runtime use: complete local recording, `AudioAttributes.USAGE_ALARM`; no textual religious quotation is derived from this asset.
+          EOF
+          sed -i 's/^          //' docs/audio/ADHAN.md
+
+          git diff --check
+          test -f app/src/main/res/raw/adhan_cc0.ogg
+          grep -Fq 'android.permission.USE_FULL_SCREEN_INTENT' app/src/main/AndroidManifest.xml
+          grep -Fq 'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK' app/src/main/AndroidManifest.xml
+          grep -Fq 'foregroundServiceType="mediaPlayback"' app/src/main/AndroidManifest.xml
+          grep -Fq 'AlarmSoundProfile.ADHAN' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/AlarmsViewModel.kt
+          grep -Fq 'setFullScreenIntent' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
+          grep -Fq 'AudioAttributes.USAGE_ALARM' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
+          grep -Fq 'AlarmRingingActivity' app/src/main/AndroidManifest.xml
+          grep -Fq 'AlarmRingingService' app/src/main/AndroidManifest.xml
+          test -z "$(git diff --name-only | grep '^PROJECT_SPEC.md$' || true)"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main app/src/test app/src/androidTest docs/audio/ADHAN.md
+          git commit -m "fix(alarms): add full-screen ringing and adhan"
+          test "$(git rev-parse HEAD^)" = "$REMEDIATION_SPEC_SHA"
+          test "$(git diff --name-only HEAD^ HEAD | grep -c '^PROJECT_SPEC.md$' || true)" = "0"
+          echo "ADHAN_SHA256=$ADHAN_SHA"
+          echo "ADHAN_SIZE=$ADHAN_SIZE"
+          git push --force-with-lease origin HEAD:alarms-step7-remediation-candidate
