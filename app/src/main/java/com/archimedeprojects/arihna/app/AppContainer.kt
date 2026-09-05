@@ -21,8 +21,13 @@ import com.archimedeprojects.arihna.feature.alarms.data.AlarmRuleRepository
 import com.archimedeprojects.arihna.feature.alarms.data.preferences.PreferencesDataStoreAlarmRuleRepository
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmReconciler
 import com.archimedeprojects.arihna.feature.alarms.domain.RepositoryAlarmPrayerScheduleSource
+import com.archimedeprojects.arihna.feature.alarms.platform.AlarmNotificationDelivery
+import com.archimedeprojects.arihna.feature.alarms.platform.AlarmNotificationPermissionReader
+import com.archimedeprojects.arihna.feature.alarms.platform.AlarmOccurrenceHandler
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmPlatformScheduler
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmReconciliationTrigger
+import com.archimedeprojects.arihna.feature.alarms.platform.AndroidAlarmNotificationDelivery
+import com.archimedeprojects.arihna.feature.alarms.platform.AndroidAlarmNotificationPermissionReader
 import com.archimedeprojects.arihna.feature.alarms.platform.AndroidExactAlarmBackend
 import com.archimedeprojects.arihna.feature.alarms.platform.DefaultAlarmPlatformScheduler
 import com.archimedeprojects.arihna.feature.alarms.platform.DefaultAlarmReconciliationTrigger
@@ -40,39 +45,33 @@ class AppContainer(context: Context) {
     private val appContext = context.applicationContext
     private val alarmClock: Clock = Clock.systemUTC()
 
-    val cityRepository: CityRepository by lazy {
-        SQLiteCityRepository(appContext)
-    }
-
-    val deviceLocationDataSource: DeviceLocationDataSource by lazy {
-        LocationManagerDeviceLocationDataSource(appContext)
-    }
-
+    val cityRepository: CityRepository by lazy { SQLiteCityRepository(appContext) }
+    val deviceLocationDataSource: DeviceLocationDataSource by lazy { LocationManagerDeviceLocationDataSource(appContext) }
     val locationPreferencesRepository: LocationPreferencesRepository by lazy {
         PreferencesDataStoreLocationPreferencesRepository(appContext.locationPreferencesDataStore)
     }
-
     val prayerSettingsRepository: PrayerSettingsRepository by lazy {
         PreferencesDataStorePrayerSettingsRepository(appContext.locationPreferencesDataStore)
     }
-
     val alarmRuleRepository: AlarmRuleRepository by lazy {
         PreferencesDataStoreAlarmRuleRepository(appContext.locationPreferencesDataStore)
     }
-
     val alarmPlatformScheduler: AlarmPlatformScheduler by lazy {
         DefaultAlarmPlatformScheduler(AndroidExactAlarmBackend(appContext))
     }
-
     val exactAlarmAccessIntentFactory: ExactAlarmAccessIntentFactory by lazy {
         ExactAlarmAccessIntentFactory(appContext)
+    }
+    val alarmNotificationPermissionReader: AlarmNotificationPermissionReader by lazy {
+        AndroidAlarmNotificationPermissionReader(appContext)
+    }
+    val alarmNotificationDelivery: AlarmNotificationDelivery by lazy {
+        AndroidAlarmNotificationDelivery(appContext, alarmNotificationPermissionReader)
     }
 
     private val backgroundPrayerScheduleRepository by lazy {
         DefaultPrayerScheduleRepository(
             locationStates = flow {
-                // Background alarm reconciliation must never acquire a new fix. Passing Granted/true
-                // here only asks the closed coordinator to expose an already-persisted accepted fix.
                 emit(
                     locationCoordinator.restorePersistedState(
                         permissionState = LocationPermissionState.Granted,
@@ -87,19 +86,25 @@ class AppContainer(context: Context) {
     }
 
     val alarmReconciler: AlarmReconciler by lazy {
-        val alarmPrayerCalculator = AdhanPrayerTimeCalculator()
         AlarmReconciler(
             ruleRepository = alarmRuleRepository,
             platformScheduler = alarmPlatformScheduler,
             prayerScheduleSource = RepositoryAlarmPrayerScheduleSource(
                 repository = backgroundPrayerScheduleRepository,
-                prayerTimeCalculator = alarmPrayerCalculator,
+                prayerTimeCalculator = AdhanPrayerTimeCalculator(),
             ),
             clock = alarmClock,
             deviceZoneId = { ZoneId.systemDefault() },
+            deliveryReady = { alarmNotificationPermissionReader.isGranted() },
         )
     }
-
+    val alarmOccurrenceHandler: AlarmOccurrenceHandler by lazy {
+        AlarmOccurrenceHandler(
+            ruleRepository = alarmRuleRepository,
+            notificationDelivery = alarmNotificationDelivery,
+            reconcileNow = { alarmReconciler.reconcile() },
+        )
+    }
     val alarmReconciliationTrigger: AlarmReconciliationTrigger by lazy {
         DefaultAlarmReconciliationTrigger(alarmReconciler)
     }
@@ -111,18 +116,10 @@ class AppContainer(context: Context) {
             preferencesRepository = locationPreferencesRepository,
         )
     }
-
-    val locationEnvironment: AndroidLocationEnvironment by lazy {
-        AndroidLocationEnvironment(appContext)
-    }
-
+    val locationEnvironment: AndroidLocationEnvironment by lazy { AndroidLocationEnvironment(appContext) }
     val locationPermissionStateResolver: AndroidLocationPermissionStateResolver by lazy {
         AndroidLocationPermissionStateResolver(appContext)
     }
-
     val qiblaBearingCalculator: QiblaBearingCalculator = GreatCircleQiblaBearingCalculator
-
-    val qiblaHeadingDataSource: DeviceHeadingDataSource by lazy {
-        AndroidDeviceHeadingDataSource(appContext)
-    }
+    val qiblaHeadingDataSource: DeviceHeadingDataSource by lazy { AndroidDeviceHeadingDataSource(appContext) }
 }
