@@ -30,6 +30,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -55,7 +56,12 @@ import com.archimedeprojects.arihna.feature.alarms.platform.AlarmDiagnosticKind
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmDiagnosticScheduleResult
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmDiagnosticTestScheduler
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmFullScreenAccess
+import com.archimedeprojects.arihna.feature.alarms.platform.AlarmOverlayAccess
+import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeChangeResult
+import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeController
+import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeState
 import com.archimedeprojects.arihna.feature.alarms.platform.ExactAlarmAccessIntentFactory
+import kotlin.math.roundToInt
 
 @Composable
 fun LocationSettingsRoute(
@@ -87,6 +93,11 @@ fun LocationSettingsRoute(
     var capabilityRefresh by remember { mutableIntStateOf(0) }
     var diagnosticMessage by remember { mutableStateOf<String?>(null) }
     val fullScreenReady = alarmFullScreenAccess.isGranted()
+    val alarmOverlayAccess = remember(activity) { AlarmOverlayAccess(activity) }
+    val alarmVolumeController = remember(activity) { AlarmVolumeController(activity) }
+    val overlayReady = alarmOverlayAccess.isGranted()
+    var alarmVolumeState by remember { mutableStateOf(alarmVolumeController.read()) }
+    var alarmVolumeMessage by remember { mutableStateOf<String?>(null) }
 
     val notificationLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -101,6 +112,12 @@ fun LocationSettingsRoute(
         alarmsViewModel.refreshCapabilities()
     }
     val fullScreenLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) {
+        capabilityRefresh += 1
+        alarmsViewModel.refreshCapabilities()
+    }
+    val overlayLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult(),
     ) {
         capabilityRefresh += 1
@@ -150,6 +167,9 @@ fun LocationSettingsRoute(
             notificationReady = alarmsState.notificationReady,
             exactReady = alarmsState.exactAlarmReady,
             fullScreenReady = fullScreenReady,
+            overlayReady = overlayReady,
+            alarmVolumeState = alarmVolumeState,
+            alarmVolumeMessage = alarmVolumeMessage,
             diagnosticMessage = diagnosticMessage,
         ),
         onManageNotifications = {
@@ -169,6 +189,21 @@ fun LocationSettingsRoute(
         onManageFullScreen = {
             alarmFullScreenAccess.createSettingsIntent()?.let(fullScreenLauncher::launch)
                 ?: alarmsViewModel.refreshCapabilities()
+        },
+        onManageOverlay = {
+            overlayLauncher.launch(alarmOverlayAccess.createSettingsIntent())
+        },
+        onAlarmVolumeChange = { requested ->
+            when (val result = alarmVolumeController.setVolume(requested)) {
+                is AlarmVolumeChangeResult.Success -> {
+                    alarmVolumeState = result.state
+                    alarmVolumeMessage = null
+                }
+                is AlarmVolumeChangeResult.Failure -> {
+                    alarmVolumeState = result.state
+                    alarmVolumeMessage = result.message
+                }
+            }
         },
         onTestAlarm = {
             diagnosticMessage = diagnosticResultMessage(
@@ -204,6 +239,8 @@ fun LocationSettingsScreen(
     onManageNotifications: () -> Unit = {},
     onManageExactAlarms: () -> Unit = {},
     onManageFullScreen: () -> Unit = {},
+    onManageOverlay: () -> Unit = {},
+    onAlarmVolumeChange: (Int) -> Unit = {},
     onTestAlarm: () -> Unit = {},
     onTestAdhan: () -> Unit = {},
     onCancelDiagnostic: () -> Unit = {},
@@ -407,6 +444,8 @@ fun LocationSettingsScreen(
                 onManageNotifications = onManageNotifications,
                 onManageExactAlarms = onManageExactAlarms,
                 onManageFullScreen = onManageFullScreen,
+                onManageOverlay = onManageOverlay,
+                onAlarmVolumeChange = onAlarmVolumeChange,
             )
         }
         item {
@@ -497,6 +536,9 @@ data class AlarmSettingsPresentation(
     val notificationReady: Boolean = false,
     val exactReady: Boolean = false,
     val fullScreenReady: Boolean = false,
+    val overlayReady: Boolean = false,
+    val alarmVolumeState: AlarmVolumeState = AlarmVolumeState(current = 0, min = 0, max = 1),
+    val alarmVolumeMessage: String? = null,
     val diagnosticMessage: String? = null,
 )
 
@@ -506,6 +548,8 @@ private fun AlarmSystemSettingsCard(
     onManageNotifications: () -> Unit,
     onManageExactAlarms: () -> Unit,
     onManageFullScreen: () -> Unit,
+    onManageOverlay: () -> Unit,
+    onAlarmVolumeChange: (Int) -> Unit,
 ) {
     Card(modifier = Modifier.fillMaxWidth().testTag("settings-alarm-capabilities")) {
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -520,6 +564,19 @@ private fun AlarmSystemSettingsCard(
             AlarmCapabilitySettingRow("Allarmi esatti", state.exactReady, "Gestisci", onManageExactAlarms)
             HorizontalDivider()
             AlarmCapabilitySettingRow("Schermo intero", state.fullScreenReady, "Apri impostazioni", onManageFullScreen)
+            HorizontalDivider()
+            AlarmCapabilitySettingRow(
+                label = "Popup sveglia",
+                ready = state.overlayReady,
+                actionLabel = "Gestisci",
+                onClick = onManageOverlay,
+                modifier = Modifier.testTag("settings-overlay-access"),
+            )
+            HorizontalDivider()
+            AlarmVolumeSetting(
+                state = state,
+                onAlarmVolumeChange = onAlarmVolumeChange,
+            )
         }
     }
 }
@@ -530,9 +587,10 @@ private fun AlarmCapabilitySettingRow(
     ready: Boolean,
     actionLabel: String,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -545,6 +603,44 @@ private fun AlarmCapabilitySettingRow(
             )
         }
         OutlinedButton(onClick = onClick) { Text(actionLabel) }
+    }
+}
+
+@Composable
+private fun AlarmVolumeSetting(
+    state: AlarmSettingsPresentation,
+    onAlarmVolumeChange: (Int) -> Unit,
+) {
+    val volume = state.alarmVolumeState
+    val sliderMax = if (volume.max > volume.min) volume.max else volume.min + 1
+    Column(
+        modifier = Modifier.fillMaxWidth().testTag("settings-alarm-volume"),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Volume sveglia", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text("${volume.percent}%", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+        }
+        Slider(
+            value = volume.current.coerceIn(volume.min, volume.max).toFloat(),
+            onValueChange = { onAlarmVolumeChange(it.roundToInt()) },
+            valueRange = volume.min.toFloat()..sliderMax.toFloat(),
+            steps = (volume.max - volume.min - 1).coerceAtLeast(0),
+            enabled = volume.max > volume.min,
+            modifier = Modifier.fillMaxWidth().testTag("settings-alarm-volume-slider"),
+        )
+        Text(
+            "Modifica il volume globale delle sveglie del telefono.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        state.alarmVolumeMessage?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        }
     }
 }
 
