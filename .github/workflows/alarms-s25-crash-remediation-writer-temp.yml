@@ -1,0 +1,111 @@
+name: Alarms S25 crash remediation writer temp
+
+on:
+  push:
+    branches: [alarms-s25-crash-remediation-writer-temp]
+    paths:
+      - .github/workflows/alarms-s25-crash-remediation-writer-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  write-spec-and-candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      BASE_SHA: 9de81ce72ed0c6ee2f22cad26ea8dc05394de9dc
+      SPEC_BRANCH: alarms-s25-crash-remediation-spec
+      CANDIDATE_BRANCH: alarms-s25-crash-remediation-candidate
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify frozen main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --force
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+      - name: Write spec-first remediation commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git checkout --detach "$BASE_SHA"
+          git switch -c "$SPEC_BRANCH"
+          cat >> PROJECT_SPEC.md <<'EOF'
+
+### Galaxy S25 immediate alarm crash remediation — APPROVED 2026-09-05
+
+Physical validation of runtime `9de81ce72ed0c6ee2f22cad26ea8dc05394de9dc` on the primary Samsung Galaxy S25 failed. The real diagnostic alarm reaches its scheduled trigger, produces only a momentary vibration/notification effect, then Arihna terminates and Samsung reports that the application closed because of a bug. A ringing lifetime of effectively milliseconds, no durable heads-up/full-screen alarm surface, and a process crash are all release-blocking failures.
+
+The failure first appears in the runtime that introduced custom `RemoteViews` heads-up/big notification content and changed full-screen intent attachment from the existing `AlarmFullScreenAccess.isGranted()` guard to unconditional attachment. CI proved generic Android API28/API36 behavior but cannot certify Samsung SystemUI/OEM rendering. Without device logcat the exact OEM exception is not claimed as proven; the correction therefore removes only the newly introduced risky notification-rendering changes and restores the previously validated platform-native notification path.
+
+Approved correction:
+
+- Remove custom `RemoteViews` heads-up/big notification content and `DecoratedCustomViewStyle`; use the standard `NotificationCompat` alarm layout with normal `Interrompi` and `Rinvia` actions.
+- Restore conditional full-screen intent attachment: call `setFullScreenIntent(...)` only when `AlarmFullScreenAccess.isGranted()` is true. Android 14+ denied full-screen special access must degrade to the normal high-importance alarm notification instead of forcing the full-screen contract.
+- Preserve the real ringing foreground service, alarm audio, 10-minute safety stop, `Interrompi`, 5-minute `Rinvia`, the full-screen ringing activity controls, exact-alarm/notification permission model, and the 20-second diagnostic delay.
+- Do not clear user data/cache as part of the fix and do not change applicationId, signing identity, prayer/location logic, GeoNames, dependencies, SDK levels, or unrelated UI.
+- Definitive validation must rerun unfiltered JVM + assembleDebug + Android 9/API28 connected tests with zero skipped, plus Android 16/API36 denied/granted exact-alarm, notification and full-screen-access behavior using the platform-native notification path.
+- Only after the corrective candidate is green may it fast-forward to `main` and be packaged with the persistent Arihna debug signer for a new Galaxy S25 physical retest.
+EOF
+          git add PROJECT_SPEC.md
+          git commit -m 'docs(alarms): authorize S25 crash remediation'
+          SPEC_SHA="$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          test "$(git diff --name-only "$BASE_SHA" "$SPEC_SHA")" = "PROJECT_SPEC.md"
+          git push origin "HEAD:refs/heads/$SPEC_BRANCH"
+          echo "SPEC_SHA=$SPEC_SHA" >> "$GITHUB_ENV"
+      - name: Implement minimal OEM-safe notification rollback
+        shell: bash
+        run: |
+          set -euo pipefail
+          git switch -c "$CANDIDATE_BRANCH"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt')
+          s = p.read_text()
+          s = s.replace('import android.widget.RemoteViews\n', '')
+          block = '''        fun alarmRemoteViews(): RemoteViews = RemoteViews(\n            context.packageName,\n            R.layout.notification_alarm_heads_up,\n        ).apply {\n            setTextViewText(R.id.notification_alarm_title, payload.title)\n            setTextViewText(R.id.notification_alarm_subtitle, subtitle)\n            setOnClickPendingIntent(R.id.notification_alarm_stop, stopPendingIntent)\n            setOnClickPendingIntent(R.id.notification_alarm_snooze, snoozePendingIntent)\n        }\n'''
+          if block not in s:
+              raise SystemExit('RemoteViews block not found')
+          s = s.replace(block, '')
+          old = '''            .setContentIntent(activityPendingIntent)\n            .setCustomHeadsUpContentView(alarmRemoteViews())\n            .setCustomBigContentView(alarmRemoteViews())\n            .setStyle(NotificationCompat.DecoratedCustomViewStyle())\n            .setFullScreenIntent(activityPendingIntent, true)\n            .addAction(0, "Interrompi", stopPendingIntent)\n            .addAction(0, "Rinvia", snoozePendingIntent)\n        return builder.build()\n'''
+          new = '''            .setContentIntent(activityPendingIntent)\n            .setStyle(NotificationCompat.BigTextStyle().bigText(subtitle))\n            .addAction(0, "Interrompi", stopPendingIntent)\n            .addAction(0, "Rinvia", snoozePendingIntent)\n        if (fullScreenAccess.isGranted()) {\n            builder.setFullScreenIntent(activityPendingIntent, true)\n        }\n        return builder.build()\n'''
+          if old not in s:
+              raise SystemExit('notification builder block not found')
+          p.write_text(s.replace(old, new))
+
+          t = Path('app/src/androidTest/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmNotificationAndroidTest.kt')
+          x = t.read_text()
+          x = x.replace('        assertNotNull(notification.headsUpContentView)\n        assertNotNull(notification.bigContentView)\n', '        assertNull(notification.headsUpContentView)\n        assertNull(notification.bigContentView)\n')
+          t.write_text(x)
+          PY
+          rm app/src/main/res/layout/notification_alarm_heads_up.xml
+          git diff --check
+          grep -Fq '.setStyle(NotificationCompat.BigTextStyle().bigText(subtitle))' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
+          grep -Fq 'if (fullScreenAccess.isGranted())' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
+          ! grep -Fq 'RemoteViews' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
+          ! grep -Fq 'setCustomHeadsUpContentView' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
+          ! test -e app/src/main/res/layout/notification_alarm_heads_up.xml
+          grep -Fq 'const val TEST_DELAY_MILLIS = 20_000L' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmDiagnosticTestScheduler.kt
+          grep -Fq 'Text("Interrompi"' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingActivity.kt
+          grep -Fq 'Text("Rinvia 5 min"' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingActivity.kt
+          git add -A
+          git commit -m 'fix(alarms): restore OEM-safe ringing notification'
+          CANDIDATE_SHA="$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          git push origin "HEAD:refs/heads/$CANDIDATE_BRANCH"
+          echo "CANDIDATE_SHA=$CANDIDATE_SHA" >> "$GITHUB_ENV"
+      - name: Verify two-commit lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "SPEC_SHA=$SPEC_SHA"
+          echo "CANDIDATE_SHA=$CANDIDATE_SHA"
+          test "$(git rev-parse "$CANDIDATE_SHA^")" = "$SPEC_SHA"
+          test "$(git rev-parse "$SPEC_SHA^")" = "$BASE_SHA"
