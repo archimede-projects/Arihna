@@ -1,0 +1,171 @@
+name: Alarms STEP 6 definitive regression gate
+
+on:
+  push:
+    branches:
+      - alarms-step6-gate-temp
+    paths:
+      - .github/workflows/alarms-step6-definitive-gate-temp.yml
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  api28-full-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      RUNTIME_SHA: 310413e886e9d7d54ea6f86c3fc7849360069c49
+      STEP5_SPEC_SHA: 864514bad53e4d7e3cbeaa2efaf486efcb3d99c1
+      STEP6_SPEC_SHA: 68a05293e47d1bad412e4c857f1a4d481dd490b6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify exact runtime lineage and STEP 6 authorization
+        run: |
+          set -euo pipefail
+          cp .github/alarms-step6/verify-connected.py /tmp/verify-connected.py
+          git fetch origin main --force
+          test "$(git rev-parse origin/main)" = "$STEP6_SPEC_SHA"
+          test "$(git rev-parse "$STEP6_SPEC_SHA^")" = "$RUNTIME_SHA"
+          test "$(git rev-parse "$RUNTIME_SHA^")" = "$STEP5_SPEC_SHA"
+          test "$(git diff --name-only "$RUNTIME_SHA" "$STEP6_SPEC_SHA")" = "PROJECT_SPEC.md"
+          git show "$STEP6_SPEC_SHA:PROJECT_SPEC.md" | grep -Fq 'STEP 6 definitive regression + package authorization — APPROVED 2026-09-05'
+          git checkout --detach "$RUNTIME_SHA"
+          test "$(git rev-parse HEAD)" = "$RUNTIME_SHA"
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Verify policy and frozen scope
+        run: |
+          set -euo pipefail
+          grep -q 'applicationId = "com.archimedeprojects.arihna"' app/build.gradle.kts
+          grep -q 'minSdk = 28' app/build.gradle.kts
+          grep -q 'compileSdk = 37' app/build.gradle.kts
+          grep -q 'targetSdk = 37' app/build.gradle.kts
+          grep -q 'android.permission.ACCESS_COARSE_LOCATION' app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.POST_NOTIFICATIONS' app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.SCHEDULE_EXACT_ALARM' app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.RECEIVE_BOOT_COMPLETED' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.USE_EXACT_ALARM' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.ACCESS_FINE_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.ACCESS_BACKGROUND_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS' app/src/main/AndroidManifest.xml
+          ! grep -R -q '@Ignore' app/src/test/java/com/archimedeprojects/arihna/feature/alarms app/src/androidTest/java/com/archimedeprojects/arihna/feature/alarms
+
+      - name: Restore frozen GeoNames asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh run download 33296099459 --repo "$GITHUB_REPOSITORY" --name geonames-step4-runtime-minimal --dir /tmp/geonames
+          DB="$(find /tmp/geonames -type f -name cities.db -print -quit)"
+          test -n "$DB"
+          cp "$DB" app/src/main/assets/geonames/cities.db
+          echo '7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb  app/src/main/assets/geonames/cities.db' | sha256sum -c -
+
+      - name: Run unfiltered JVM regression
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build exact runtime debug APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Run Android 9 API28 connected regression
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 28
+          arch: x86_64
+          target: default
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
+
+      - name: Verify API28 totals and Alarm coverage
+        run: python3 /tmp/verify-connected.py 62 AlarmPlatformAndroidTest AlarmsScreenAndroidTest AlarmNotificationAndroidTest
+
+  api36-modern-permission-matrix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      RUNTIME_SHA: 310413e886e9d7d54ea6f86c3fc7849360069c49
+      STEP5_SPEC_SHA: 864514bad53e4d7e3cbeaa2efaf486efcb3d99c1
+      STEP6_SPEC_SHA: 68a05293e47d1bad412e4c857f1a4d481dd490b6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify exact runtime and stage temporary modern harness
+        run: |
+          set -euo pipefail
+          cp .github/alarms-step6/Step6ModernAndroidTest.kt /tmp/Step6ModernAndroidTest.kt
+          cp .github/alarms-step6/run-modern-api36.sh /tmp/run-modern-api36.sh
+          chmod +x /tmp/run-modern-api36.sh
+          git fetch origin main --force
+          test "$(git rev-parse origin/main)" = "$STEP6_SPEC_SHA"
+          test "$(git rev-parse "$STEP6_SPEC_SHA^")" = "$RUNTIME_SHA"
+          test "$(git rev-parse "$RUNTIME_SHA^")" = "$STEP5_SPEC_SHA"
+          git checkout --detach "$RUNTIME_SHA"
+          test "$(git rev-parse HEAD)" = "$RUNTIME_SHA"
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Verify modern permission policy
+        run: |
+          set -euo pipefail
+          grep -q 'compileSdk = 37' app/build.gradle.kts
+          grep -q 'targetSdk = 37' app/build.gradle.kts
+          grep -q 'android.permission.POST_NOTIFICATIONS' app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.SCHEDULE_EXACT_ALARM' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.USE_EXACT_ALARM' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.WAKE_LOCK' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.FOREGROUND_SERVICE' app/src/main/AndroidManifest.xml
+
+      - name: Restore frozen GeoNames asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh run download 33296099459 --repo "$GITHUB_REPOSITORY" --name geonames-step4-runtime-minimal --dir /tmp/geonames
+          DB="$(find /tmp/geonames -type f -name cities.db -print -quit)"
+          test -n "$DB"
+          cp "$DB" app/src/main/assets/geonames/cities.db
+          echo '7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb  app/src/main/assets/geonames/cities.db' | sha256sum -c -
+
+      - name: Run Android 16 API36 exact-alarm + notification matrix
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          arch: x86_64
+          target: google_apis
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: /tmp/run-modern-api36.sh
