@@ -30,7 +30,9 @@ class PreferencesDataStoreAlarmRuleRepository(
             val unchanged = existing?.let {
                 it.enabled == draft.enabled &&
                     it.soundProfile == draft.soundProfile &&
-                    it.definition == draft.definition
+                    it.definition == draft.definition &&
+                    it.ringtoneUri == draft.ringtoneUri &&
+                    it.ringtoneTitle == draft.ringtoneTitle
             } == true
             if (unchanged) {
                 persistedRule = existing
@@ -43,6 +45,8 @@ class PreferencesDataStoreAlarmRuleRepository(
                 enabled = draft.enabled,
                 soundProfile = draft.soundProfile,
                 definition = draft.definition,
+                ringtoneUri = draft.ringtoneUri,
+                ringtoneTitle = draft.ringtoneTitle,
             )
             persistedRule = updated
             AlarmRulePreferencesCodec.write(

@@ -124,6 +124,7 @@ fun ArihnaApp(
             alarmsViewModel = alarmsViewModel,
             exactAlarmAccessIntentFactory = appContainer.exactAlarmAccessIntentFactory,
             alarmFullScreenAccess = appContainer.alarmFullScreenAccess,
+            alarmDiagnosticTestScheduler = appContainer.alarmDiagnosticTestScheduler,
             qiblaRepository = qiblaRepository,
             locationEnvironment = appContainer.locationEnvironment,
             locationPermissionStateResolver = appContainer.locationPermissionStateResolver,
