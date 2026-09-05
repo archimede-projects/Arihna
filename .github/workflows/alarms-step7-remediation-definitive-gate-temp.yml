@@ -1,0 +1,238 @@
+name: Alarms STEP 7 ringing remediation definitive gate
+
+on:
+  push:
+    branches:
+      - alarms-step7-remediation-gate-temp
+    paths:
+      - .github/workflows/alarms-step7-remediation-definitive-gate-temp.yml
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  api28-full-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      PRE_FAIL_MAIN_SHA: 68a05293e47d1bad412e4c857f1a4d481dd490b6
+      SPEC_SHA: c0fa43c5b16355c0e4b2748b6b6b85df4bfbb7db
+      CANDIDATE_SHA: 3c0e73bb82a4a28806039dc4189ddc07090bcfd1
+      ADHAN_SHA256: 3b350bc210d657727578ed977e32323c06b63c2088c3ebcea9fc9afb7d487702
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify exact corrective lineage and frozen main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main alarms-step7-remediation-spec alarms-step7-remediation-candidate --force
+          test "$(git rev-parse origin/main)" = "$PRE_FAIL_MAIN_SHA"
+          test "$(git rev-parse origin/alarms-step7-remediation-spec)" = "$SPEC_SHA"
+          test "$(git rev-parse origin/alarms-step7-remediation-candidate)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse "$SPEC_SHA^")" = "$PRE_FAIL_MAIN_SHA"
+          test "$(git rev-parse "$CANDIDATE_SHA^")" = "$SPEC_SHA"
+          test "$(git diff --name-only "$PRE_FAIL_MAIN_SHA" "$SPEC_SHA")" = "PROJECT_SPEC.md"
+          git show "$SPEC_SHA:PROJECT_SPEC.md" | grep -Fq 'STEP 7 physical FAIL remediation — APPROVED 2026-09-05'
+          git show "$SPEC_SHA:PROJECT_SPEC.md" | grep -Fq 'PHYSICAL FAIL / CORRECTIVE ROUND AUTHORIZED'
+          ! git diff --name-only "$SPEC_SHA" "$CANDIDATE_SHA" | grep -qx 'PROJECT_SPEC.md'
+          git diff --quiet "$PRE_FAIL_MAIN_SHA" "$CANDIDATE_SHA" -- app/build.gradle.kts gradle/libs.versions.toml settings.gradle.kts build.gradle.kts gradle/wrapper/gradle-wrapper.properties
+          git checkout --detach "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Verify identity, permission policy and ringing contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'applicationId = "com.archimedeprojects.arihna"' app/build.gradle.kts
+          grep -q 'minSdk = 28' app/build.gradle.kts
+          grep -q 'compileSdk = 37' app/build.gradle.kts
+          grep -q 'targetSdk = 37' app/build.gradle.kts
+          for P in ACCESS_COARSE_LOCATION POST_NOTIFICATIONS SCHEDULE_EXACT_ALARM RECEIVE_BOOT_COMPLETED USE_FULL_SCREEN_INTENT FOREGROUND_SERVICE FOREGROUND_SERVICE_MEDIA_PLAYBACK; do
+            grep -q "android.permission.$P" app/src/main/AndroidManifest.xml
+          done
+          ! grep -q 'android.permission.USE_EXACT_ALARM' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.ACCESS_FINE_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.ACCESS_BACKGROUND_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.WAKE_LOCK' app/src/main/AndroidManifest.xml
+          grep -q 'foregroundServiceType="mediaPlayback"' app/src/main/AndroidManifest.xml
+          grep -Fq 'AudioAttributes.USAGE_ALARM' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
+          grep -Fq 'setFullScreenIntent' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
+          grep -Fq 'canUseFullScreenIntent' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmFullScreenAccess.kt
+          grep -Fq 'ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmFullScreenAccess.kt
+          grep -Fq 'AlarmSoundProfile.ADHAN' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/AlarmsViewModel.kt
+          test "$(stat -c '%s' app/src/main/res/raw/adhan_cc0.ogg)" = "820174"
+          test "$(sha256sum app/src/main/res/raw/adhan_cc0.ogg | awk '{print $1}')" = "$ADHAN_SHA256"
+          test "$(head -c 4 app/src/main/res/raw/adhan_cc0.ogg)" = "OggS"
+          grep -Fq "$ADHAN_SHA256" docs/audio/ADHAN.md
+          grep -Fq 'CC0 1.0' docs/audio/ADHAN.md
+          ! grep -R -q '@Ignore' app/src/test/java/com/archimedeprojects/arihna/feature/alarms app/src/androidTest/java/com/archimedeprojects/arihna/feature/alarms
+
+      - name: Restore and verify frozen GeoNames asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh run download 33296099459 --repo "$GITHUB_REPOSITORY" --name geonames-step4-runtime-minimal --dir /tmp/geonames
+          DB="$(find /tmp/geonames -type f -name cities.db -print -quit)"
+          test -n "$DB"
+          cp "$DB" app/src/main/assets/geonames/cities.db
+          echo '7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb  app/src/main/assets/geonames/cities.db' | sha256sum -c -
+
+      - name: Run unfiltered JVM regression
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build exact corrective runtime
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Enable KVM acceleration for API28 emulator
+        run: |
+          set -euo pipefail
+          if [ -e /dev/kvm ]; then
+            sudo chmod 666 /dev/kvm
+            test -r /dev/kvm
+            test -w /dev/kvm
+          fi
+
+      - name: Run Android 9 API28 connected regression
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 28
+          arch: x86_64
+          target: default
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
+
+      - name: Verify API28 totals, zero skips and Alarm coverage
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import glob
+          import xml.etree.ElementTree as ET
+          files = glob.glob('app/build/outputs/androidTest-results/connected/debug/**/*.xml', recursive=True)
+          assert files, 'no connected test XML'
+          tests = failures = errors = skipped = 0
+          names = []
+          for file in files:
+              root = ET.parse(file).getroot()
+              tests += int(root.attrib.get('tests', 0))
+              failures += int(root.attrib.get('failures', 0))
+              errors += int(root.attrib.get('errors', 0))
+              skipped += int(root.attrib.get('skipped', 0))
+              names.extend(tc.attrib.get('classname', '') for tc in root.iter('testcase'))
+          print(f'CONNECTED_TOTAL tests={tests} failures={failures} errors={errors} skipped={skipped}')
+          assert tests >= 64, tests
+          assert failures == 0 and errors == 0 and skipped == 0
+          for needle in ['AlarmPlatformAndroidTest', 'AlarmsScreenAndroidTest', 'AlarmNotificationAndroidTest']:
+              assert any(needle in name for name in names), needle
+          PY
+
+  api36-modern-permission-and-fullscreen:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      PRE_FAIL_MAIN_SHA: 68a05293e47d1bad412e4c857f1a4d481dd490b6
+      SPEC_SHA: c0fa43c5b16355c0e4b2748b6b6b85df4bfbb7db
+      CANDIDATE_SHA: 3c0e73bb82a4a28806039dc4189ddc07090bcfd1
+      ADHAN_SHA256: 3b350bc210d657727578ed977e32323c06b63c2088c3ebcea9fc9afb7d487702
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Stage modern harness and checkout exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .github/alarms-step7/Step7ModernAndroidTest.kt /tmp/Step7ModernAndroidTest.kt
+          cp .github/alarms-step7/run-modern-api36.sh /tmp/run-modern-api36.sh
+          chmod +x /tmp/run-modern-api36.sh
+          git fetch origin main alarms-step7-remediation-spec alarms-step7-remediation-candidate --force
+          test "$(git rev-parse origin/main)" = "$PRE_FAIL_MAIN_SHA"
+          test "$(git rev-parse origin/alarms-step7-remediation-spec)" = "$SPEC_SHA"
+          test "$(git rev-parse origin/alarms-step7-remediation-candidate)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse "$CANDIDATE_SHA^")" = "$SPEC_SHA"
+          git checkout --detach "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Verify target-37 urgent audio and full-screen policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'targetSdk = 37' app/build.gradle.kts
+          grep -q 'android.permission.POST_NOTIFICATIONS' app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.SCHEDULE_EXACT_ALARM' app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.USE_FULL_SCREEN_INTENT' app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.FOREGROUND_SERVICE' app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK' app/src/main/AndroidManifest.xml
+          grep -q 'foregroundServiceType="mediaPlayback"' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.USE_EXACT_ALARM' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.WAKE_LOCK' app/src/main/AndroidManifest.xml
+          grep -Fq 'AudioAttributes.USAGE_ALARM' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
+          test "$(sha256sum app/src/main/res/raw/adhan_cc0.ogg | awk '{print $1}')" = "$ADHAN_SHA256"
+
+      - name: Restore frozen GeoNames asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh run download 33296099459 --repo "$GITHUB_REPOSITORY" --name geonames-step4-runtime-minimal --dir /tmp/geonames
+          DB="$(find /tmp/geonames -type f -name cities.db -print -quit)"
+          test -n "$DB"
+          cp "$DB" app/src/main/assets/geonames/cities.db
+          echo '7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb  app/src/main/assets/geonames/cities.db' | sha256sum -c -
+
+      - name: Enable KVM acceleration for API36 emulator
+        run: |
+          set -euo pipefail
+          if [ -e /dev/kvm ]; then
+            sudo chmod 666 /dev/kvm
+            test -r /dev/kvm
+            test -w /dev/kvm
+          fi
+
+      - name: Run Android 16 API36 exact + notification + full-screen matrix
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          arch: x86_64
+          target: google_apis
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: /tmp/run-modern-api36.sh
