@@ -7,19 +7,21 @@ import com.archimedeprojects.arihna.feature.alarms.domain.AlarmSoundProfile
 import java.time.DayOfWeek
 import java.time.LocalTime
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AlarmRulePreferencesCodecTest {
     @Test
-    fun emptyCollectionHasStableVersionedEncoding() {
-        assertEquals("ARIHNA_ALARMS_V1", AlarmRulePreferencesCodec.encode(emptyList()))
+    fun emptyCollectionHasStableV2EncodingAndV1StillDecodes() {
+        assertEquals("ARIHNA_ALARMS_V2", AlarmRulePreferencesCodec.encode(emptyList()))
+        assertEquals(emptyList<AlarmRule>(), AlarmRulePreferencesCodec.decode("ARIHNA_ALARMS_V2"))
         assertEquals(emptyList<AlarmRule>(), AlarmRulePreferencesCodec.decode("ARIHNA_ALARMS_V1"))
         assertEquals(emptyList<AlarmRule>(), AlarmRulePreferencesCodec.decode(null))
     }
 
     @Test
-    fun prayerAndCustomRulesRoundTripLosslessly() {
+    fun prayerAndCustomRulesRoundTripRingtoneSelectionLosslessly() {
         val rules = listOf(
             AlarmRule(
                 alarmId = "prayer|fajr/à",
@@ -27,6 +29,8 @@ class AlarmRulePreferencesCodecTest {
                 enabled = true,
                 soundProfile = AlarmSoundProfile.SYSTEM_DEFAULT,
                 definition = AlarmDefinition.PrayerLinked(AlarmPrayer.FAJR, -35),
+                ringtoneUri = "content://media/alarm/17",
+                ringtoneTitle = "Morning Flower",
             ),
             AlarmRule(
                 alarmId = "custom:work",
@@ -42,35 +46,23 @@ class AlarmRulePreferencesCodecTest {
         )
 
         val encoded = AlarmRulePreferencesCodec.encode(rules)
-        val decoded = AlarmRulePreferencesCodec.decode(encoded)
-
-        assertEquals(rules.sortedBy { it.alarmId }, decoded)
+        assertTrue(encoded.startsWith("ARIHNA_ALARMS_V2\n"))
+        assertEquals(rules.sortedBy { it.alarmId }, AlarmRulePreferencesCodec.decode(encoded))
     }
 
     @Test
-    fun adhanProfileRoundTripsWithoutChangingVersionAndOldProfilesStillDecode() {
-        val adhan = AlarmRule(
-            alarmId = "prayer-adhan",
-            revision = 4,
-            enabled = true,
-            soundProfile = AlarmSoundProfile.ADHAN,
-            definition = AlarmDefinition.PrayerLinked(AlarmPrayer.MAGHRIB),
-        )
-        val encoded = AlarmRulePreferencesCodec.encode(listOf(adhan))
-        assertTrue(encoded.startsWith("ARIHNA_ALARMS_V1\n"))
-        assertEquals(listOf(adhan), AlarmRulePreferencesCodec.decode(encoded))
-
+    fun v1RulesMigrateWithoutInventingRingtone() {
         val oldSystem = "ARIHNA_ALARMS_V1\nP|cHJheWVyLWZhanI|1|1|SYSTEM_DEFAULT|FAJR|0"
-        val oldSilent = "ARIHNA_ALARMS_V1\nP|cHJheWVyLWlzaGE|2|0|SILENT|ISHA|0"
-        assertEquals(AlarmSoundProfile.SYSTEM_DEFAULT, AlarmRulePreferencesCodec.decode(oldSystem).single().soundProfile)
-        assertEquals(AlarmSoundProfile.SILENT, AlarmRulePreferencesCodec.decode(oldSilent).single().soundProfile)
+        val decoded = AlarmRulePreferencesCodec.decode(oldSystem).single()
+        assertEquals(AlarmSoundProfile.SYSTEM_DEFAULT, decoded.soundProfile)
+        assertNull(decoded.ringtoneUri)
+        assertNull(decoded.ringtoneTitle)
     }
 
     @Test
     fun collectionEncodingIsDeterministicRegardlessOfInputOrder() {
         val first = prayer("z", AlarmPrayer.ISHA)
         val second = prayer("a", AlarmPrayer.DHUHR)
-
         assertEquals(
             AlarmRulePreferencesCodec.encode(listOf(first, second)),
             AlarmRulePreferencesCodec.encode(listOf(second, first)),
@@ -79,7 +71,7 @@ class AlarmRulePreferencesCodecTest {
 
     @Test(expected = AlarmRulesPersistenceException::class)
     fun rejectsUnknownVersionRatherThanSilentlyDroppingRules() {
-        AlarmRulePreferencesCodec.decode("ARIHNA_ALARMS_V2")
+        AlarmRulePreferencesCodec.decode("ARIHNA_ALARMS_V3")
     }
 
     @Test(expected = AlarmRulesPersistenceException::class)
@@ -104,8 +96,7 @@ class AlarmRulePreferencesCodecTest {
                 ),
             ),
         )
-
-        assertTrue(encoded.endsWith("|1,2,7"))
+        assertTrue(encoded.contains("|1,2,7|-|-"))
     }
 
     private fun prayer(id: String, prayer: AlarmPrayer) = AlarmRule(

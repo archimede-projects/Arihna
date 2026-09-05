@@ -30,6 +30,24 @@ internal data class AlarmRingingPayload(
     val soundProfile: AlarmSoundProfile,
     val isPrayer: Boolean,
     val occurrenceToken: String,
+    val ringtoneUri: String? = null,
+    val ringtoneTitle: String? = null,
+)
+
+internal fun createAlarmRingingPayload(
+    rule: AlarmRule,
+    occurrence: AlarmOccurrence,
+): AlarmRingingPayload = AlarmRingingPayload(
+    alarmId = rule.alarmId,
+    title = when (val definition = rule.definition) {
+        is AlarmDefinition.PrayerLinked -> definition.prayer.displayName()
+        is AlarmDefinition.Custom -> definition.label
+    },
+    soundProfile = rule.soundProfile,
+    isPrayer = rule.definition is AlarmDefinition.PrayerLinked,
+    occurrenceToken = occurrence.occurrenceToken,
+    ringtoneUri = rule.ringtoneUri,
+    ringtoneTitle = rule.ringtoneTitle,
 )
 
 internal object AlarmRingingIntentContract {
@@ -38,6 +56,8 @@ internal object AlarmRingingIntentContract {
     const val EXTRA_SOUND_PROFILE = "arihna.ringing.sound_profile"
     const val EXTRA_IS_PRAYER = "arihna.ringing.is_prayer"
     const val EXTRA_OCCURRENCE_TOKEN = "arihna.ringing.occurrence_token"
+    const val EXTRA_RINGTONE_URI = "arihna.ringing.ringtone_uri"
+    const val EXTRA_RINGTONE_TITLE = "arihna.ringing.ringtone_title"
 
     fun put(intent: Intent, payload: AlarmRingingPayload): Intent = intent.apply {
         putExtra(EXTRA_ALARM_ID, payload.alarmId)
@@ -45,6 +65,8 @@ internal object AlarmRingingIntentContract {
         putExtra(EXTRA_SOUND_PROFILE, payload.soundProfile.name)
         putExtra(EXTRA_IS_PRAYER, payload.isPrayer)
         putExtra(EXTRA_OCCURRENCE_TOKEN, payload.occurrenceToken)
+        putExtra(EXTRA_RINGTONE_URI, payload.ringtoneUri)
+        putExtra(EXTRA_RINGTONE_TITLE, payload.ringtoneTitle)
     }
 
     fun decode(intent: Intent?): AlarmRingingPayload? {
@@ -61,13 +83,15 @@ internal object AlarmRingingIntentContract {
             soundProfile = sound,
             isPrayer = intent.getBooleanExtra(EXTRA_IS_PRAYER, false),
             occurrenceToken = token,
+            ringtoneUri = intent.getStringExtra(EXTRA_RINGTONE_URI),
+            ringtoneTitle = intent.getStringExtra(EXTRA_RINGTONE_TITLE),
         )
     }
 }
 
 internal object AlarmRingingNotificationFactory {
-    const val CHANNEL_PRAYER = "arihna_prayer_alarm_v2"
-    const val CHANNEL_CUSTOM = "arihna_custom_alarm_v2"
+    const val CHANNEL_PRAYER = "arihna_prayer_alarm_v3"
+    const val CHANNEL_CUSTOM = "arihna_custom_alarm_v3"
 
     fun ensureChannels(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -129,7 +153,9 @@ internal object AlarmRingingNotificationFactory {
         )
         val subtitle = when (payload.soundProfile) {
             AlarmSoundProfile.ADHAN -> "Adhan • tocca Stop per interrompere"
-            AlarmSoundProfile.SYSTEM_DEFAULT -> "Sveglia in corso • tocca Stop per interrompere"
+            AlarmSoundProfile.SYSTEM_DEFAULT -> payload.ringtoneTitle
+                ?.let { "$it • tocca Stop per interrompere" }
+                ?: "Sveglia in corso • tocca Stop per interrompere"
             AlarmSoundProfile.SILENT -> "Sveglia silenziosa • tocca Stop per chiudere"
         }
         val builder = NotificationCompat.Builder(context, channel)
@@ -190,57 +216,66 @@ class AlarmRingingService : Service() {
         } else {
             startForeground(activeNotificationId ?: 1, notification)
         }
-        startAudio(payload.soundProfile)
+        startAudio(payload.soundProfile, payload.ringtoneUri)
         mainHandler.removeCallbacks(safetyStop)
         mainHandler.postDelayed(safetyStop, MAX_RINGING_MILLIS)
         return START_NOT_STICKY
     }
 
-    private fun startAudio(profile: AlarmSoundProfile) {
+    private fun startAudio(profile: AlarmSoundProfile, selectedRingtoneUri: String?) {
         if (profile == AlarmSoundProfile.SILENT) return
         val attributes = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_ALARM)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build()
-        val player = MediaPlayer()
-        try {
-            player.setAudioAttributes(attributes)
-            when (profile) {
-                AlarmSoundProfile.SYSTEM_DEFAULT -> {
-                    val alarmUri = RingtoneManager.getActualDefaultRingtoneUri(
-                        this,
-                        RingtoneManager.TYPE_ALARM,
-                    ) ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-                    player.setDataSource(this, alarmUri)
-                    player.isLooping = true
+
+        if (profile == AlarmSoundProfile.ADHAN) {
+            val player = MediaPlayer()
+            try {
+                player.setAudioAttributes(attributes)
+                resources.openRawResourceFd(R.raw.adhan_cc0).use { descriptor ->
+                    player.setDataSource(
+                        descriptor.fileDescriptor,
+                        descriptor.startOffset,
+                        descriptor.length,
+                    )
                 }
-                AlarmSoundProfile.ADHAN -> {
-                    resources.openRawResourceFd(R.raw.adhan_cc0).use { descriptor ->
-                        player.setDataSource(
-                            descriptor.fileDescriptor,
-                            descriptor.startOffset,
-                            descriptor.length,
-                        )
-                    }
-                    player.isLooping = false
-                }
-                AlarmSoundProfile.SILENT -> Unit
-            }
-            player.prepare()
-            player.start()
-            if (profile == AlarmSoundProfile.ADHAN) {
+                player.isLooping = false
+                player.prepare()
+                player.start()
                 player.setOnCompletionListener { completed ->
-                    if (mediaPlayer === completed) {
-                        mediaPlayer = null
-                    }
+                    if (mediaPlayer === completed) mediaPlayer = null
                     completed.release()
                 }
+                mediaPlayer = player
+            } catch (throwable: Throwable) {
+                player.release()
+                mediaPlayer = null
             }
-            mediaPlayer = player
-        } catch (throwable: Throwable) {
-            player.release()
-            mediaPlayer = null
+            return
         }
+
+        val candidates = buildList<Uri> {
+            selectedRingtoneUri?.let { raw -> runCatching { Uri.parse(raw) }.getOrNull()?.let(::add) }
+            RingtoneManager.getActualDefaultRingtoneUri(this@AlarmRingingService, RingtoneManager.TYPE_ALARM)?.let(::add)
+            add(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM))
+        }.distinct()
+        for (uri in candidates) {
+            val player = MediaPlayer()
+            val started = runCatching {
+                player.setAudioAttributes(attributes)
+                player.setDataSource(this, uri)
+                player.isLooping = true
+                player.prepare()
+                player.start()
+            }.isSuccess
+            if (started) {
+                mediaPlayer = player
+                return
+            }
+            player.release()
+        }
+        mediaPlayer = null
     }
 
     private fun stopAudioOnly() {
@@ -285,13 +320,7 @@ class AlarmRingingService : Service() {
         private const val MAX_RINGING_MILLIS = 10 * 60 * 1000L
 
         fun ringIntent(context: Context, rule: AlarmRule, occurrence: AlarmOccurrence): Intent {
-            val payload = AlarmRingingPayload(
-                alarmId = rule.alarmId,
-                title = titleFor(rule),
-                soundProfile = rule.soundProfile,
-                isPrayer = rule.definition is AlarmDefinition.PrayerLinked,
-                occurrenceToken = occurrence.occurrenceToken,
-            )
+            val payload = createAlarmRingingPayload(rule, occurrence)
             return AlarmRingingIntentContract.put(
                 Intent(context, AlarmRingingService::class.java).setAction(ACTION_RING),
                 payload,
@@ -309,10 +338,6 @@ class AlarmRingingService : Service() {
                     .build()
             }
 
-        private fun titleFor(rule: AlarmRule): String = when (val definition = rule.definition) {
-            is AlarmDefinition.PrayerLinked -> definition.prayer.displayName()
-            is AlarmDefinition.Custom -> definition.label
-        }
     }
 }
 
