@@ -47,6 +47,8 @@ class AlarmNotificationAndroidTest {
         val notification = AlarmRingingNotificationFactory.build(context, payload)
         assertNotNull(notification.fullScreenIntent)
         assertNotNull(notification.contentIntent)
+        assertNotNull(notification.headsUpContentView)
+        assertNotNull(notification.bigContentView)
         assertEquals(Notification.CATEGORY_ALARM, notification.category)
         assertTrue(notification.flags and Notification.FLAG_ONGOING_EVENT != 0)
         assertEquals(2, notification.actions.size)

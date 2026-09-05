@@ -110,7 +110,7 @@ fun LocationSettingsRoute(
     fun diagnosticResultMessage(kind: AlarmDiagnosticKind, result: AlarmDiagnosticScheduleResult): String =
         when (result) {
             AlarmDiagnosticScheduleResult.SCHEDULED ->
-                if (kind == AlarmDiagnosticKind.ADHAN) "Test Adhan programmato tra 1 minuto" else "Test sveglia programmato tra 1 minuto"
+                if (kind == AlarmDiagnosticKind.ADHAN) "Test Adhan programmato tra 20 secondi" else "Test sveglia programmato tra 20 secondi"
             AlarmDiagnosticScheduleResult.NEEDS_NOTIFICATION_PERMISSION -> "Consenti prima le notifiche"
             AlarmDiagnosticScheduleResult.NEEDS_EXACT_ALARM_ACCESS -> "Consenti prima gli allarmi esatti"
             AlarmDiagnosticScheduleResult.NEEDS_FULL_SCREEN_ACCESS -> "Consenti prima lo schermo intero"
@@ -559,18 +559,18 @@ private fun AlarmDiagnosticCard(
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Test hardware", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Text(
-                "Esegue un test reale tra 1 minuto usando lo stesso percorso di sveglie, notifica e schermo intero.",
+                "Esegue un test reale tra 20 secondi usando lo stesso percorso di sveglie, notifica e schermo intero.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Button(
                 onClick = onTestAlarm,
                 modifier = Modifier.fillMaxWidth().testTag("settings-test-alarm-one-minute"),
-            ) { Text("Test sveglia (1 minuto)") }
+            ) { Text("Test sveglia (20 secondi)") }
             Button(
                 onClick = onTestAdhan,
                 modifier = Modifier.fillMaxWidth().testTag("settings-test-adhan-one-minute"),
-            ) { Text("Test Adhan (1 minuto)") }
+            ) { Text("Test Adhan (20 secondi)") }
             TextButton(
                 onClick = onCancelDiagnostic,
                 modifier = Modifier.fillMaxWidth().testTag("settings-test-cancel"),

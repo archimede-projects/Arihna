@@ -88,7 +88,7 @@ class AlarmDiagnosticTestScheduler(
     }
 
     companion object {
-        const val TEST_DELAY_MILLIS = 60_000L
+        const val TEST_DELAY_MILLIS = 20_000L
         internal const val EXTRA_KIND = "arihna.diagnostic.kind"
         internal const val EXTRA_TRIGGER_AT = "arihna.diagnostic.trigger_at"
         internal const val EXTRA_TOKEN = "arihna.diagnostic.token"

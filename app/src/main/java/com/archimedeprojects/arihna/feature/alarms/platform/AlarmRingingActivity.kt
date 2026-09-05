@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -61,7 +62,7 @@ class AlarmRingingActivity : ComponentActivity() {
         }
         setContent {
             ArihnaTheme(darkTheme = true) {
-                AlarmRingingScreen(current, onStop = ::stopAndFinish)
+                AlarmRingingScreen(current, onStop = ::stopAndFinish, onSnooze = ::snoozeAndFinish)
             }
         }
     }
@@ -73,7 +74,7 @@ class AlarmRingingActivity : ComponentActivity() {
         payload?.let { current ->
             setContent {
                 ArihnaTheme(darkTheme = true) {
-                    AlarmRingingScreen(current, onStop = ::stopAndFinish)
+                    AlarmRingingScreen(current, onStop = ::stopAndFinish, onSnooze = ::snoozeAndFinish)
                 }
             }
         }
@@ -105,8 +106,19 @@ class AlarmRingingActivity : ComponentActivity() {
         finishAndRemoveTask()
     }
 
+    private fun snoozeAndFinish() {
+        payload?.let { current ->
+            startService(AlarmRingingService.snoozeIntent(this, current))
+        }
+        finishAndRemoveTask()
+    }
+
     @Composable
-    private fun AlarmRingingScreen(payload: AlarmRingingPayload, onStop: () -> Unit) {
+    private fun AlarmRingingScreen(
+        payload: AlarmRingingPayload,
+        onStop: () -> Unit,
+        onSnooze: () -> Unit,
+    ) {
         BackHandler(onBack = onStop)
         var now by remember { mutableStateOf(LocalTime.now()) }
         LaunchedEffect(Unit) {
@@ -193,7 +205,15 @@ class AlarmRingingActivity : ComponentActivity() {
                             contentColor = ArihnaGreen,
                         ),
                     ) {
-                        Text("Stop", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+                        Text("Interrompi", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedButton(
+                        onClick = onSnooze,
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        shape = RoundedCornerShape(20.dp),
+                    ) {
+                        Text("Rinvia 5 min", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
                 }
             }
