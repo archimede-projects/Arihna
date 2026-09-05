@@ -84,6 +84,15 @@ jobs:
       - name: Build exact runtime debug APK
         run: ./gradlew assembleDebug --stacktrace
 
+      - name: Enable KVM acceleration for API28 emulator
+        run: |
+          set -euo pipefail
+          if [ -e /dev/kvm ]; then
+            sudo chmod 666 /dev/kvm
+            test -r /dev/kvm
+            test -w /dev/kvm
+          fi
+
       - name: Run Android 9 API28 connected regression
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -158,6 +167,15 @@ jobs:
           test -n "$DB"
           cp "$DB" app/src/main/assets/geonames/cities.db
           echo '7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb  app/src/main/assets/geonames/cities.db' | sha256sum -c -
+
+      - name: Enable KVM acceleration for API36 emulator
+        run: |
+          set -euo pipefail
+          if [ -e /dev/kvm ]; then
+            sudo chmod 666 /dev/kvm
+            test -r /dev/kvm
+            test -w /dev/kvm
+          fi
 
       - name: Run Android 16 API36 exact-alarm + notification matrix
         uses: reactivecircus/android-emulator-runner@v2
