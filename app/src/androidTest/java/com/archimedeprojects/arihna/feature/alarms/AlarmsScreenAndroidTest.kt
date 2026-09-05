@@ -7,12 +7,14 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaTheme
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmDefinition
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmPrayer
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmRule
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmSoundProfile
+import java.time.DayOfWeek
 import java.time.LocalTime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -69,6 +71,47 @@ class AlarmsScreenAndroidTest {
         )
         setScreen(AlarmsUiState(rules = listOf(custom)))
         composeRule.onNodeWithText("Morning Flower").assertIsDisplayed()
+    }
+
+    @Test
+    fun soundUpdatedStatusIsNeverRenderedOnPersonalAlarmSurface() {
+        setScreen(AlarmsUiState(message = "Suono aggiornato"))
+        assertTextAbsent("Suono aggiornato")
+        assertTrue(composeRule.onAllNodesWithText("Nessuna sveglia personale").fetchSemanticsNodes().isNotEmpty())
+    }
+
+    @Test
+    fun personalAlarmEditorUsesSingleLetterDaysAndOneRingtoneRowWithSwitch() {
+        composeRule.setContent {
+            ArihnaTheme {
+                CustomAlarmEditorDialog(
+                    initialRule = customRule().copy(
+                        ringtoneUri = "content://alarm/42",
+                        ringtoneTitle = "Morning Flower",
+                    ),
+                    onDismiss = {},
+                    onSave = { _, _, _, _, _, _, _ -> },
+                )
+            }
+        }
+
+        DayOfWeek.entries.forEach { day ->
+            composeRule.onNodeWithTag("alarm-day-${day.name.lowercase()}").assertIsDisplayed()
+        }
+        assertTextAbsent("Lun")
+        assertTextAbsent("Mar")
+        assertTextAbsent("Mer")
+        assertTextAbsent("Gio")
+        assertTextAbsent("Ven")
+        assertTextAbsent("Sab")
+        assertTextAbsent("Dom")
+
+        composeRule.onNodeWithTag("alarm-ringtone-row").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("alarm-sound-switch").assertIsDisplayed()
+        composeRule.onNodeWithText("Morning Flower").assertIsDisplayed()
+        assertTextAbsent("Cambia suoneria")
+        assertTextAbsent("Silenzioso")
+        assertTextAbsent("Adhan")
     }
 
     private fun customRule() = AlarmRule(

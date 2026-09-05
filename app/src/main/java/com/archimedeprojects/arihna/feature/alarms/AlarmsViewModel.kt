@@ -105,8 +105,8 @@ class AlarmsViewModel(
                         localTime = localTime.withSecond(0).withNano(0),
                         weekdays = weekdays,
                     ),
-                    ringtoneUri = if (soundProfile == AlarmSoundProfile.SYSTEM_DEFAULT) ringtoneUri else null,
-                    ringtoneTitle = if (soundProfile == AlarmSoundProfile.SYSTEM_DEFAULT) ringtoneTitle else null,
+                    ringtoneUri = ringtoneUri,
+                    ringtoneTitle = ringtoneTitle,
                 ),
             )
             if (existing != null) {
@@ -154,7 +154,7 @@ class AlarmsViewModel(
                 ),
             )
             scheduler.cancel(rule.alarmId)
-            message.value = "Suono aggiornato"
+            message.value = null
         }
     }
 

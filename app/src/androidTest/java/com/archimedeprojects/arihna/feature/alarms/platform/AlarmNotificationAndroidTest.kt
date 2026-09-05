@@ -1,5 +1,6 @@
 package com.archimedeprojects.arihna.feature.alarms.platform
 
+import android.app.Notification
 import android.app.NotificationManager
 import android.content.Context
 import android.media.RingtoneManager
@@ -21,7 +22,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class AlarmNotificationAndroidTest {
     @Test
-    fun api28CreatesHighImportanceSilentChannelsAndBuildsFullScreenAlarmNotification() {
+    fun api28CreatesHighImportanceSilentChannelsAndBuildsActionableFullScreenAlarmNotification() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         AlarmRingingNotificationFactory.ensureChannels(context)
@@ -37,15 +38,22 @@ class AlarmNotificationAndroidTest {
 
         val payload = AlarmRingingPayload(
             alarmId = "instrumented-notification",
-            title = "Fajr",
-            soundProfile = AlarmSoundProfile.ADHAN,
-            isPrayer = true,
+            ruleRevision = 1L,
+            title = "Sveglia test",
+            soundProfile = AlarmSoundProfile.SYSTEM_DEFAULT,
+            isPrayer = false,
             occurrenceToken = "instrumented",
         )
         val notification = AlarmRingingNotificationFactory.build(context, payload)
         assertNotNull(notification.fullScreenIntent)
         assertNotNull(notification.contentIntent)
-        assertEquals(1, notification.actions.size)
+        assertEquals(Notification.CATEGORY_ALARM, notification.category)
+        assertTrue(notification.flags and Notification.FLAG_ONGOING_EVENT != 0)
+        assertEquals(2, notification.actions.size)
+        assertEquals("Interrompi", notification.actions[0].title.toString())
+        assertEquals("Rinvia", notification.actions[1].title.toString())
+        assertNotNull(notification.actions[0].actionIntent)
+        assertNotNull(notification.actions[1].actionIntent)
     }
 
     @Test
@@ -79,7 +87,10 @@ class AlarmNotificationAndroidTest {
     fun ringtonePickerIsRestrictedToAlarmTonesAndNeverUsesSilentAsPlatformChoice() {
         val intent = AlarmRingtonePicker.createIntent("content://alarm/current")
         assertEquals(RingtoneManager.ACTION_RINGTONE_PICKER, intent.action)
-        assertEquals(RingtoneManager.TYPE_ALARM, intent.getIntExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, -1))
+        assertEquals(
+            RingtoneManager.TYPE_ALARM,
+            intent.getIntExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, -1),
+        )
         assertTrue(intent.getBooleanExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, false))
         assertEquals(false, intent.getBooleanExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, true))
     }

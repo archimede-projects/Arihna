@@ -6,10 +6,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -17,17 +17,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -127,17 +126,32 @@ fun AlarmsScreen(
         item {
             Button(
                 onClick = onNew,
-                modifier = Modifier.fillMaxWidth().height(58.dp).testTag("alarm-new"),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(58.dp)
+                    .testTag("alarm-new"),
                 shape = RoundedCornerShape(20.dp),
             ) {
-                Text("＋  Nuova sveglia", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(
+                    "＋  Nuova sveglia",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                )
             }
         }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text("Le tue sveglie", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
                 Text(
-                    if (customRules.isEmpty()) "Nessuna sveglia personale" else "${customRules.size} ${if (customRules.size == 1) "sveglia" else "sveglie"}",
+                    "Le tue sveglie",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                )
+                Text(
+                    if (customRules.isEmpty()) {
+                        "Nessuna sveglia personale"
+                    } else {
+                        "${customRules.size} ${if (customRules.size == 1) "sveglia" else "sveglie"}"
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -151,12 +165,14 @@ fun AlarmsScreen(
                 onDelete = { onDelete(rule) },
             )
         }
-        state.message?.let { message ->
+        state.message?.takeUnless { it == "Suono aggiornato" }?.let { message ->
             item {
                 Surface(
                     shape = RoundedCornerShape(16.dp),
                     color = ArihnaGold.copy(alpha = 0.14f),
-                    modifier = Modifier.fillMaxWidth().testTag("alarms-message"),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("alarms-message"),
                 ) {
                     Text(message, modifier = Modifier.padding(14.dp))
                 }
@@ -168,24 +184,57 @@ fun AlarmsScreen(
 @Composable
 private fun PersonalAlarmHero() {
     Surface(
-        shape = RoundedCornerShape(26.dp),
+        shape = RoundedCornerShape(28.dp),
         modifier = Modifier.fillMaxWidth(),
         color = Color.Transparent,
+        shadowElevation = 4.dp,
     ) {
         Column(
             modifier = Modifier
                 .background(
                     Brush.horizontalGradient(
-                        listOf(ArihnaGreen, Color(0xFF0B5A41), Color(0xFF7A6323)),
+                        listOf(
+                            Color(0xFF075B3D),
+                            ArihnaGreen,
+                            Color(0xFF8A6D1F),
+                        ),
                     ),
                 )
-                .padding(horizontal = 20.dp, vertical = 22.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp),
+                .padding(horizontal = 22.dp, vertical = 22.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
         ) {
-            Text("Sveglie", color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.ExtraBold)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = ArihnaGold.copy(alpha = 0.20f),
+                ) {
+                    Text(
+                        "♪",
+                        color = ArihnaGold,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                    )
+                }
+                Text(
+                    "ARIHNA • SVEGLIE PERSONALI",
+                    color = ArihnaGold,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                )
+            }
+            Text(
+                "Sveglie",
+                color = Color.White,
+                fontSize = 36.sp,
+                fontWeight = FontWeight.ExtraBold,
+            )
             Text(
                 "Le tue sveglie personali, facili da creare e modificare.",
-                color = Color.White.copy(alpha = 0.84f),
+                color = Color.White.copy(alpha = 0.86f),
                 style = MaterialTheme.typography.bodyLarge,
             )
         }
@@ -201,15 +250,20 @@ private fun CustomAlarmCard(
 ) {
     val definition = rule.definition as AlarmDefinition.Custom
     Card(
-        modifier = Modifier.fillMaxWidth().testTag("alarm-custom-row-${rule.alarmId}"),
-        shape = RoundedCornerShape(22.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("alarm-custom-row-${rule.alarmId}"),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (rule.enabled) ArihnaGreen.copy(alpha = 0.23f)
-            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+            containerColor = if (rule.enabled) {
+                ArihnaGreen.copy(alpha = 0.25f)
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.52f)
+            },
         ),
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Row(
@@ -220,10 +274,14 @@ private fun CustomAlarmCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         definition.localTime.format(TIME_FORMATTER),
-                        style = MaterialTheme.typography.headlineMedium,
+                        style = MaterialTheme.typography.headlineLarge,
                         fontWeight = FontWeight.ExtraBold,
                     )
-                    Text(definition.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        definition.label,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
                 }
                 Switch(
                     checked = rule.enabled,
@@ -231,22 +289,39 @@ private fun CustomAlarmCard(
                     modifier = Modifier.testTag("alarm-custom-switch-${rule.alarmId}"),
                 )
             }
-            Text(
-                recurrenceLabel(definition.weekdays),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Text(
-                soundLabel(rule),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.28f),
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text(
+                        recurrenceLabel(definition.weekdays),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        soundLabel(rule),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(
                     onClick = onEdit,
-                    modifier = Modifier.weight(1f).testTag("alarm-edit-${rule.alarmId}"),
-                ) { Text("Modifica") }
-                TextButton(onClick = onDelete, modifier = Modifier.testTag("alarm-delete-${rule.alarmId}")) {
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("alarm-edit-${rule.alarmId}"),
+                ) {
+                    Text("Modifica")
+                }
+                TextButton(
+                    onClick = onDelete,
+                    modifier = Modifier.testTag("alarm-delete-${rule.alarmId}"),
+                ) {
                     Text("Elimina")
                 }
             }
@@ -255,7 +330,7 @@ private fun CustomAlarmCard(
 }
 
 @Composable
-private fun CustomAlarmEditorDialog(
+internal fun CustomAlarmEditorDialog(
     initialRule: AlarmRule?,
     onDismiss: () -> Unit,
     onSave: (
@@ -264,76 +339,129 @@ private fun CustomAlarmEditorDialog(
 ) {
     val context = LocalContext.current
     val initialDefinition = initialRule?.definition as? AlarmDefinition.Custom
-    var label by remember(initialRule?.alarmId) { mutableStateOf(initialDefinition?.label.orEmpty()) }
+    var label by remember(initialRule?.alarmId) {
+        mutableStateOf(initialDefinition?.label.orEmpty())
+    }
     var time by remember(initialRule?.alarmId) {
-        mutableStateOf(initialDefinition?.localTime ?: LocalTime.now().plusMinutes(1).withSecond(0).withNano(0))
+        mutableStateOf(
+            initialDefinition?.localTime
+                ?: LocalTime.now().plusMinutes(1).withSecond(0).withNano(0),
+        )
     }
-    var weekdays by remember(initialRule?.alarmId) { mutableStateOf(initialDefinition?.weekdays ?: emptySet()) }
-    var soundProfile by remember(initialRule?.alarmId) {
-        mutableStateOf(initialRule?.soundProfile ?: AlarmSoundProfile.SYSTEM_DEFAULT)
+    var weekdays by remember(initialRule?.alarmId) {
+        mutableStateOf(initialDefinition?.weekdays ?: emptySet())
     }
-    var ringtoneUri by remember(initialRule?.alarmId) { mutableStateOf(initialRule?.ringtoneUri) }
-    var ringtoneTitle by remember(initialRule?.alarmId) { mutableStateOf(initialRule?.ringtoneTitle) }
+    var soundEnabled by remember(initialRule?.alarmId) {
+        mutableStateOf(initialRule?.soundProfile != AlarmSoundProfile.SILENT)
+    }
+    var ringtoneUri by remember(initialRule?.alarmId) {
+        mutableStateOf(initialRule?.ringtoneUri)
+    }
+    var ringtoneTitle by remember(initialRule?.alarmId) {
+        mutableStateOf(initialRule?.ringtoneTitle)
+    }
 
-    val ringtoneLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+    val ringtoneLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) {
             AlarmRingtonePicker.pickedUri(result.data)?.let { uri ->
                 ringtoneUri = uri.toString()
                 ringtoneTitle = AlarmRingtonePicker.title(context, uri) ?: "Suoneria telefono"
-                soundProfile = AlarmSoundProfile.SYSTEM_DEFAULT
+                soundEnabled = true
             }
         }
     }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (initialRule == null) "Nuova sveglia" else "Modifica sveglia") },
+        title = {
+            Text(
+                if (initialRule == null) "Nuova sveglia" else "Modifica sveglia",
+                fontWeight = FontWeight.Bold,
+            )
+        },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                Button(
-                    onClick = {
-                        TimePickerDialog(
-                            context,
-                            { _, hour, minute -> time = LocalTime.of(hour, minute) },
-                            time.hour,
-                            time.minute,
-                            true,
-                        ).show()
-                    },
-                    modifier = Modifier.fillMaxWidth().height(64.dp).testTag("alarm-editor-time"),
-                    shape = RoundedCornerShape(18.dp),
+                Surface(
+                    shape = RoundedCornerShape(22.dp),
+                    color = ArihnaGold.copy(alpha = 0.16f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            TimePickerDialog(
+                                context,
+                                { _, hour, minute -> time = LocalTime.of(hour, minute) },
+                                time.hour,
+                                time.minute,
+                                true,
+                            ).show()
+                        }
+                        .testTag("alarm-editor-time"),
                 ) {
-                    Text(time.format(TIME_FORMATTER), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Column(
+                        modifier = Modifier.padding(vertical = 18.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            time.format(TIME_FORMATTER),
+                            fontSize = 34.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = ArihnaGold,
+                        )
+                        Text(
+                            "Tocca per cambiare ora",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
-                Text(
-                    "Tocca l'orario per scegliere ore e minuti dall'orologio.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
                 OutlinedTextField(
                     value = label,
                     onValueChange = { label = it },
                     label = { Text("Nome") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth().testTag("alarm-editor-label"),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("alarm-editor-label"),
                 )
-                Text("Ripeti", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text(
+                    "Ripeti",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
                     DayOfWeek.entries.forEach { day ->
-                        FilterChip(
-                            selected = day in weekdays,
-                            onClick = {
-                                weekdays = if (day in weekdays) weekdays - day else weekdays + day
+                        val selected = day in weekdays
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (selected) {
+                                ArihnaGold.copy(alpha = 0.24f)
+                            } else {
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
                             },
-                            label = { Text(dayShort(day)) },
-                            modifier = Modifier.weight(1f),
-                        )
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(40.dp)
+                                .clickable {
+                                    weekdays = if (selected) weekdays - day else weekdays + day
+                                }
+                                .testTag("alarm-day-${day.name.lowercase()}"),
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    dayInitial(day),
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = if (selected) ArihnaGold else MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+                        }
                     }
                 }
                 Text(
@@ -341,100 +469,119 @@ private fun CustomAlarmEditorDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Text("Suono", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                SoundChoiceRow(
-                    title = "Adhan",
-                    subtitle = "Adhan offline incluso in Arihna",
-                    selected = soundProfile == AlarmSoundProfile.ADHAN,
-                    tag = "alarm-sound-adhan",
-                    onClick = {
-                        soundProfile = AlarmSoundProfile.ADHAN
-                        ringtoneUri = null
-                        ringtoneTitle = null
+                Text(
+                    "Suono",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = if (soundEnabled) {
+                        ArihnaGold.copy(alpha = 0.14f)
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.52f)
                     },
-                )
-                SoundChoiceRow(
-                    title = "Suoneria telefono",
-                    subtitle = ringtoneTitle ?: "Predefinita del telefono",
-                    selected = soundProfile == AlarmSoundProfile.SYSTEM_DEFAULT,
-                    tag = "alarm-sound-system",
-                    onClick = { soundProfile = AlarmSoundProfile.SYSTEM_DEFAULT },
-                )
-                if (soundProfile == AlarmSoundProfile.SYSTEM_DEFAULT) {
-                    OutlinedButton(
-                        onClick = { ringtoneLauncher.launch(AlarmRingtonePicker.createIntent(ringtoneUri)) },
-                        modifier = Modifier.fillMaxWidth().testTag("alarm-ringtone-change"),
-                    ) { Text("Cambia suoneria") }
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    ringtoneLauncher.launch(
+                                        AlarmRingtonePicker.createIntent(ringtoneUri),
+                                    )
+                                }
+                                .testTag("alarm-ringtone-row"),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = ArihnaGold.copy(alpha = 0.18f),
+                            ) {
+                                Text(
+                                    "♪",
+                                    color = ArihnaGold,
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                )
+                            }
+                            Column {
+                                Text("Suoneria telefono", fontWeight = FontWeight.Bold)
+                                Text(
+                                    ringtoneTitle ?: "Predefinita del telefono",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        Switch(
+                            checked = soundEnabled,
+                            onCheckedChange = { soundEnabled = it },
+                            modifier = Modifier.testTag("alarm-sound-switch"),
+                        )
+                    }
                 }
-                SoundChoiceRow(
-                    title = "Silenzioso",
-                    subtitle = "Notifica e schermata senza audio",
-                    selected = soundProfile == AlarmSoundProfile.SILENT,
-                    tag = "alarm-sound-silent",
-                    onClick = {
-                        soundProfile = AlarmSoundProfile.SILENT
-                        ringtoneUri = null
-                        ringtoneTitle = null
-                    },
-                )
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    onSave(initialRule, label, time, weekdays, soundProfile, ringtoneUri, ringtoneTitle)
+                    onSave(
+                        initialRule,
+                        label,
+                        time,
+                        weekdays,
+                        if (soundEnabled) {
+                            AlarmSoundProfile.SYSTEM_DEFAULT
+                        } else {
+                            AlarmSoundProfile.SILENT
+                        },
+                        ringtoneUri,
+                        ringtoneTitle,
+                    )
                 },
                 enabled = label.isNotBlank(),
                 modifier = Modifier.testTag("alarm-editor-save"),
-            ) { Text("Salva sveglia") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Annulla") } },
-    )
-}
-
-@Composable
-private fun SoundChoiceRow(
-    title: String,
-    subtitle: String,
-    selected: Boolean,
-    tag: String,
-    onClick: () -> Unit,
-) {
-    Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = if (selected) ArihnaGold.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).testTag(tag),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            RadioButton(selected = selected, onClick = onClick)
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, fontWeight = FontWeight.Bold)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            ) {
+                Text("Salva sveglia")
             }
-        }
-    }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Annulla")
+            }
+        },
+    )
 }
 
 private fun soundLabel(rule: AlarmRule): String = when (rule.soundProfile) {
     AlarmSoundProfile.ADHAN -> "Adhan"
     AlarmSoundProfile.SYSTEM_DEFAULT -> rule.ringtoneTitle ?: "Suoneria telefono"
-    AlarmSoundProfile.SILENT -> "Silenzioso"
+    AlarmSoundProfile.SILENT -> "Suono disattivato"
 }
 
 private fun recurrenceLabel(days: Set<DayOfWeek>): String =
-    if (days.isEmpty()) "Singola" else days.sortedBy { it.value }.joinToString(separator = " • ", transform = ::dayShort)
+    if (days.isEmpty()) {
+        "Singola"
+    } else {
+        days.sortedBy { it.value }.joinToString(separator = " • ", transform = ::dayInitial)
+    }
 
-private fun dayShort(day: DayOfWeek): String = when (day) {
-    DayOfWeek.MONDAY -> "Lun"
-    DayOfWeek.TUESDAY -> "Mar"
-    DayOfWeek.WEDNESDAY -> "Mer"
-    DayOfWeek.THURSDAY -> "Gio"
-    DayOfWeek.FRIDAY -> "Ven"
-    DayOfWeek.SATURDAY -> "Sab"
-    DayOfWeek.SUNDAY -> "Dom"
+private fun dayInitial(day: DayOfWeek): String = when (day) {
+    DayOfWeek.MONDAY -> "L"
+    DayOfWeek.TUESDAY -> "M"
+    DayOfWeek.WEDNESDAY -> "M"
+    DayOfWeek.THURSDAY -> "G"
+    DayOfWeek.FRIDAY -> "V"
+    DayOfWeek.SATURDAY -> "S"
+    DayOfWeek.SUNDAY -> "D"
 }
 
 private val TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm", Locale.ITALIAN)

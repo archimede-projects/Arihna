@@ -26,6 +26,7 @@ import com.archimedeprojects.arihna.feature.alarms.domain.AlarmSoundProfile
 
 internal data class AlarmRingingPayload(
     val alarmId: String,
+    val ruleRevision: Long,
     val title: String,
     val soundProfile: AlarmSoundProfile,
     val isPrayer: Boolean,
@@ -39,6 +40,7 @@ internal fun createAlarmRingingPayload(
     occurrence: AlarmOccurrence,
 ): AlarmRingingPayload = AlarmRingingPayload(
     alarmId = rule.alarmId,
+    ruleRevision = occurrence.ruleRevision,
     title = when (val definition = rule.definition) {
         is AlarmDefinition.PrayerLinked -> definition.prayer.displayName()
         is AlarmDefinition.Custom -> definition.label
@@ -52,6 +54,7 @@ internal fun createAlarmRingingPayload(
 
 internal object AlarmRingingIntentContract {
     const val EXTRA_ALARM_ID = "arihna.ringing.alarm_id"
+    const val EXTRA_RULE_REVISION = "arihna.ringing.rule_revision"
     const val EXTRA_TITLE = "arihna.ringing.title"
     const val EXTRA_SOUND_PROFILE = "arihna.ringing.sound_profile"
     const val EXTRA_IS_PRAYER = "arihna.ringing.is_prayer"
@@ -61,6 +64,7 @@ internal object AlarmRingingIntentContract {
 
     fun put(intent: Intent, payload: AlarmRingingPayload): Intent = intent.apply {
         putExtra(EXTRA_ALARM_ID, payload.alarmId)
+        putExtra(EXTRA_RULE_REVISION, payload.ruleRevision)
         putExtra(EXTRA_TITLE, payload.title)
         putExtra(EXTRA_SOUND_PROFILE, payload.soundProfile.name)
         putExtra(EXTRA_IS_PRAYER, payload.isPrayer)
@@ -72,6 +76,8 @@ internal object AlarmRingingIntentContract {
     fun decode(intent: Intent?): AlarmRingingPayload? {
         intent ?: return null
         val alarmId = intent.getStringExtra(EXTRA_ALARM_ID)?.takeIf { it.isNotBlank() } ?: return null
+        val ruleRevision = intent.getLongExtra(EXTRA_RULE_REVISION, Long.MIN_VALUE)
+        if (ruleRevision <= 0L) return null
         val title = intent.getStringExtra(EXTRA_TITLE)?.takeIf { it.isNotBlank() } ?: return null
         val sound = runCatching {
             AlarmSoundProfile.valueOf(intent.getStringExtra(EXTRA_SOUND_PROFILE).orEmpty())
@@ -79,6 +85,7 @@ internal object AlarmRingingIntentContract {
         val token = intent.getStringExtra(EXTRA_OCCURRENCE_TOKEN)?.takeIf { it.isNotBlank() } ?: return null
         return AlarmRingingPayload(
             alarmId = alarmId,
+            ruleRevision = ruleRevision,
             title = title,
             soundProfile = sound,
             isPrayer = intent.getBooleanExtra(EXTRA_IS_PRAYER, false),
@@ -129,7 +136,9 @@ internal object AlarmRingingNotificationFactory {
         val channel = if (payload.isPrayer) CHANNEL_PRAYER else CHANNEL_CUSTOM
         val activityIntent = AlarmRingingIntentContract.put(
             Intent(context, AlarmRingingActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP
                 data = Uri.Builder()
                     .scheme("arihna")
                     .authority("ringing")
@@ -151,24 +160,34 @@ internal object AlarmRingingNotificationFactory {
             AlarmRingingService.stopIntent(context, payload.alarmId),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+        val snoozePendingIntent = PendingIntent.getService(
+            context,
+            requestCode(payload.alarmId, 3),
+            AlarmRingingService.snoozeIntent(context, payload),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
         val subtitle = when (payload.soundProfile) {
-            AlarmSoundProfile.ADHAN -> "Adhan • tocca Stop per interrompere"
-            AlarmSoundProfile.SYSTEM_DEFAULT -> payload.ringtoneTitle
-                ?.let { "$it • tocca Stop per interrompere" }
-                ?: "Sveglia in corso • tocca Stop per interrompere"
-            AlarmSoundProfile.SILENT -> "Sveglia silenziosa • tocca Stop per chiudere"
+            AlarmSoundProfile.ADHAN -> "Adhan in corso"
+            AlarmSoundProfile.SYSTEM_DEFAULT -> payload.ringtoneTitle ?: "Sveglia in corso"
+            AlarmSoundProfile.SILENT -> "Sveglia in corso"
         }
         val builder = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_notification_arihna)
             .setContentTitle(payload.title)
             .setContentText(subtitle)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(subtitle))
+            .setTicker("${payload.title} • Sveglia")
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
             .setAutoCancel(false)
+            .setOnlyAlertOnce(false)
+            .setShowWhen(true)
+            .setWhen(System.currentTimeMillis())
             .setContentIntent(activityPendingIntent)
-            .addAction(0, "Stop", stopPendingIntent)
+            .addAction(0, "Interrompi", stopPendingIntent)
+            .addAction(0, "Rinvia", snoozePendingIntent)
         if (fullScreenAccess.isGranted()) {
             builder.setFullScreenIntent(activityPendingIntent, true)
         }
@@ -194,6 +213,14 @@ class AlarmRingingService : Service() {
         if (intent?.action == ACTION_STOP) {
             val requestedAlarmId = intent.getStringExtra(AlarmRingingIntentContract.EXTRA_ALARM_ID)
             if (requestedAlarmId == null || requestedAlarmId == activeAlarmId) {
+                stopRinging()
+            }
+            return START_NOT_STICKY
+        }
+
+        if (intent?.action == ACTION_SNOOZE) {
+            val payload = AlarmRingingIntentContract.decode(intent)
+            if (payload != null && AlarmSnoozeScheduler(this).schedule(payload)) {
                 stopRinging()
             }
             return START_NOT_STICKY
@@ -256,8 +283,13 @@ class AlarmRingingService : Service() {
         }
 
         val candidates = buildList<Uri> {
-            selectedRingtoneUri?.let { raw -> runCatching { Uri.parse(raw) }.getOrNull()?.let(::add) }
-            RingtoneManager.getActualDefaultRingtoneUri(this@AlarmRingingService, RingtoneManager.TYPE_ALARM)?.let(::add)
+            selectedRingtoneUri?.let { raw ->
+                runCatching { Uri.parse(raw) }.getOrNull()?.let(::add)
+            }
+            RingtoneManager.getActualDefaultRingtoneUri(
+                this@AlarmRingingService,
+                RingtoneManager.TYPE_ALARM,
+            )?.let(::add)
             add(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM))
         }.distinct()
         for (uri in candidates) {
@@ -317,15 +349,17 @@ class AlarmRingingService : Service() {
     companion object {
         private const val ACTION_RING = "com.archimedeprojects.arihna.action.RING_ALARM"
         private const val ACTION_STOP = "com.archimedeprojects.arihna.action.STOP_ALARM"
+        private const val ACTION_SNOOZE = "com.archimedeprojects.arihna.action.SNOOZE_ALARM"
         private const val MAX_RINGING_MILLIS = 10 * 60 * 1000L
 
-        fun ringIntent(context: Context, rule: AlarmRule, occurrence: AlarmOccurrence): Intent {
-            val payload = createAlarmRingingPayload(rule, occurrence)
-            return AlarmRingingIntentContract.put(
+        fun ringIntent(context: Context, rule: AlarmRule, occurrence: AlarmOccurrence): Intent =
+            ringPayloadIntent(context, createAlarmRingingPayload(rule, occurrence))
+
+        internal fun ringPayloadIntent(context: Context, payload: AlarmRingingPayload): Intent =
+            AlarmRingingIntentContract.put(
                 Intent(context, AlarmRingingService::class.java).setAction(ACTION_RING),
                 payload,
             )
-        }
 
         fun stopIntent(context: Context, alarmId: String): Intent =
             Intent(context, AlarmRingingService::class.java).apply {
@@ -338,6 +372,19 @@ class AlarmRingingService : Service() {
                     .build()
             }
 
+        internal fun snoozeIntent(context: Context, payload: AlarmRingingPayload): Intent =
+            AlarmRingingIntentContract.put(
+                Intent(context, AlarmRingingService::class.java).apply {
+                    action = ACTION_SNOOZE
+                    data = Uri.Builder()
+                        .scheme("arihna")
+                        .authority("ringing-snooze-action")
+                        .appendPath(payload.alarmId)
+                        .appendPath(payload.occurrenceToken)
+                        .build()
+                },
+                payload,
+            )
     }
 }
 
