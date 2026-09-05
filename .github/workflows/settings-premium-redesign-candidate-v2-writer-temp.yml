@@ -1,0 +1,46 @@
+name: Settings premium redesign candidate v2 writer temp
+
+on:
+  push:
+    branches:
+      - settings-premium-redesign-candidate-v2-writer-20260906
+
+permissions:
+  contents: write
+
+jobs:
+  write-candidate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create corrected direct-child candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          SPEC_SHA=4e9e05bf82332c0a8fb3ad9744265350ea6baa79
+          FAILED_SHA=fc7c411ed3370e6598c25579d98900d049a0d790
+          CANDIDATE_BRANCH=settings-premium-redesign-candidate-v2
+          UI=app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
+          TEST1=app/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreenAndroidTest.kt
+          TEST2=app/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/AlarmSettingsOverlayVolumeAndroidTest.kt
+          git fetch origin main settings-premium-redesign-spec settings-premium-redesign-candidate --force
+          test "$(git rev-parse origin/main)" = "$SPEC_SHA"
+          test "$(git rev-parse origin/settings-premium-redesign-spec)" = "$SPEC_SHA"
+          test "$(git rev-parse origin/settings-premium-redesign-candidate)" = "$FAILED_SHA"
+          git checkout --detach "$SPEC_SHA"
+          git show "$FAILED_SHA:$UI" | sed '/^import androidx\.compose\.foundation\.layout\.weight$/d' > "$UI"
+          git show "$FAILED_SHA:$TEST1" > "$TEST1"
+          git show "$FAILED_SHA:$TEST2" > "$TEST2"
+          ! grep -Fq 'import androidx.compose.foundation.layout.weight' "$UI"
+          grep -Fq 'modifier = Modifier.weight(1f)' "$UI"
+          EXPECTED=$'app/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/AlarmSettingsOverlayVolumeAndroidTest.kt\napp/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreenAndroidTest.kt\napp/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt'
+          test "$(git diff --name-only | sort)" = "$EXPECTED"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$UI" "$TEST1" "$TEST2"
+          git commit -m "feat(settings): redesign general settings UI"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          git push origin "HEAD:refs/heads/$CANDIDATE_BRANCH"
+          echo "CANDIDATE_SHA=$(git rev-parse HEAD)"
