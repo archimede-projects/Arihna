@@ -109,7 +109,9 @@ jobs:
           path.write_text(text.replace(marker, block + marker, 1))
           PY
           git diff --check -- app/build.gradle.kts
-          test "$(git diff --name-only | sort)" = $'app/build.gradle.kts\napp/src/main/assets/geonames/cities.db'
+          test "$(git diff --name-only)" = "app/build.gradle.kts"
+          test -f app/src/main/assets/geonames/cities.db
+          echo '7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb  app/src/main/assets/geonames/cities.db' | sha256sum -c -
 
       - name: Build exact STEP 5 runtime for S25 validation
         run: ./gradlew assembleDebug --stacktrace
