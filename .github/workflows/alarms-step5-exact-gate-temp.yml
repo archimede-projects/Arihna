@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 50
     env:
-      RUNTIME_SHA: 36264d87a2affe893191fb2caf489663783acfe2
+      RUNTIME_SHA: 310413e886e9d7d54ea6f86c3fc7849360069c49
       SPEC_SHA: 864514bad53e4d7e3cbeaa2efaf486efcb3d99c1
       PREV_SHA: 82ca7754494bb537b9b69695193c92b4f4f1fe48
     steps:
