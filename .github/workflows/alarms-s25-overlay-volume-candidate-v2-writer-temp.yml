@@ -1,0 +1,49 @@
+name: Alarms S25 Overlay Volume Candidate V2 Writer Temp
+
+on:
+  push:
+    branches:
+      - alarms-s25-overlay-volume-candidate-v2-writer-temp
+
+permissions:
+  contents: write
+
+jobs:
+  rewrite-candidate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact candidate v1
+        uses: actions/checkout@v4
+        with:
+          ref: 06eacd1499fce58d7191f8595191c7683d8be893
+          fetch-depth: 0
+
+      - name: Verify lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "06eacd1499fce58d7191f8595191c7683d8be893"
+          test "$(git rev-parse HEAD^)" = "587d088bd6b5178a1608ab5d66ae7c8ee90c9f79"
+
+      - name: Remove invalid Compose test import only
+        shell: bash
+        run: |
+          set -euo pipefail
+          file=app/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/AlarmSettingsOverlayVolumeAndroidTest.kt
+          test "$(grep -Fc 'import androidx.compose.ui.test.onNode' "$file")" = "1"
+          sed -i '/^import androidx\.compose\.ui\.test\.onNode$/d' "$file"
+          git diff --check
+          test "$(git diff --name-only)" = "$file"
+          ! grep -Fq 'import androidx.compose.ui.test.onNode' "$file"
+
+      - name: Amend as one direct-child candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/AlarmSettingsOverlayVolumeAndroidTest.kt
+          git commit --amend --no-edit
+          test "$(git rev-parse HEAD^)" = "587d088bd6b5178a1608ab5d66ae7c8ee90c9f79"
+          git diff --exit-code 06eacd1499fce58d7191f8595191c7683d8be893 HEAD -- . ':(exclude)app/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/AlarmSettingsOverlayVolumeAndroidTest.kt' || exit 1
+          git push origin HEAD:refs/heads/alarms-s25-overlay-volume-candidate-v2
