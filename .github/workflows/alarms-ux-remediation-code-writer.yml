@@ -38,7 +38,6 @@ jobs:
           python /tmp/alarms_ux_tests.py
           python /tmp/alarms_ux_reorder_settings.py
           python -c "from pathlib import Path; p=Path('app/src/main/java/com/archimedeprojects/arihna/feature/alarms/AlarmsPlaceholderScreen.kt'); t=p.read_text(encoding='utf-8'); bad='days.sortedBy { it.value }.joinToString(\" • \")(::dayShort)'; good='days.sortedBy { it.value }.joinToString(separator = \" • \", transform = ::dayShort)'; assert bad in t; p.write_text(t.replace(bad, good, 1), encoding='utf-8')"
-          find app/src -type f \( -name '*.kt' -o -name '*.xml' \) -print0 | xargs -0 sed -i -e '$a\'
           test -z "$(git diff --name-only | grep -Ev '^(app/src/(main|test|androidTest)/)' || true)"
           ! git diff | grep -F 'Posticipa 5 min'
           ! git diff | grep -F 'REQUEST_IGNORE_BATTERY_OPTIMIZATIONS'
