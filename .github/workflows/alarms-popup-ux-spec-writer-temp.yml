@@ -1,0 +1,41 @@
+name: Alarms popup UX spec writer temp
+
+on:
+  push:
+    branches:
+      - alarms-popup-ux-writer-temp
+    paths:
+      - .github/workflows/alarms-popup-ux-spec-writer-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  write-spec:
+    runs-on: ubuntu-24.04
+    env:
+      BASE_RUNTIME_SHA: e5799896c7c266cca2f15a1d2b16f68a139ec3a0
+      SPEC_BRANCH: alarms-popup-ux-spec
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create clean spec-first commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .github/alarms-popup-ux-spec.py /tmp/spec.py
+          git fetch origin main --force
+          test "$(git rev-parse origin/main)" = "$BASE_RUNTIME_SHA"
+          git checkout --detach "$BASE_RUNTIME_SHA"
+          python3 /tmp/spec.py
+          test "$(git diff --name-only)" = "PROJECT_SPEC.md"
+          grep -Fq 'Galaxy S25 alarm popup/editor polish — APPROVED 2026-09-05' PROJECT_SPEC.md
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add PROJECT_SPEC.md
+          git commit -m 'docs(alarms): authorize popup and editor polish'
+          SPEC_SHA="$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD^)" = "$BASE_RUNTIME_SHA"
+          git push origin "HEAD:refs/heads/$SPEC_BRANCH"
+          echo "SPEC_SHA=$SPEC_SHA"
