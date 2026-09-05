@@ -51,30 +51,25 @@ jobs:
           PY
           ADHAN_SHA="$(sha256sum app/src/main/res/raw/adhan_cc0.ogg | awk '{print $1}')"
           ADHAN_SIZE="$(stat -c '%s' app/src/main/res/raw/adhan_cc0.ogg)"
-          export ADHAN_SHA ADHAN_SIZE
-          python3 - <<'PY'
-          from pathlib import Path
-          import os
-          sha = os.environ['ADHAN_SHA']
-          size = os.environ['ADHAN_SIZE']
-          Path('docs/audio/ADHAN.md').write_text(f'''# Bundled Adhan audio
-
-Arihna bundles `app/src/main/res/raw/adhan_cc0.ogg` for offline Prayer-linked alarm playback.
-
-- Source: Wikimedia Commons — `Muslim calling to prayer.ogg`
-- Source URL: https://commons.wikimedia.org/wiki/File:Muslim_calling_to_prayer.ogg
-- Author: Aishatu98
-- Source date: 2026-07-15
-- License: CC0 1.0 Universal Public Domain Dedication
-- Bundled bytes: {size}
-- Bundled SHA-256: `{sha}`
-- Runtime use: complete local recording, `AudioAttributes.USAGE_ALARM`; no textual religious quotation is derived from this asset.
-''')
-          PY
+          {
+            printf '%s\n' '# Bundled Adhan audio'
+            printf '\n'
+            printf '%s\n' 'Arihna bundles `app/src/main/res/raw/adhan_cc0.ogg` for offline Prayer-linked alarm playback.'
+            printf '\n'
+            printf '%s\n' '- Source: Wikimedia Commons — `Muslim calling to prayer.ogg`'
+            printf '%s\n' '- Source URL: https://commons.wikimedia.org/wiki/File:Muslim_calling_to_prayer.ogg'
+            printf '%s\n' '- Author: Aishatu98'
+            printf '%s\n' '- Source date: 2026-07-15'
+            printf '%s\n' '- License: CC0 1.0 Universal Public Domain Dedication'
+            printf -- '- Bundled bytes: %s\n' "$ADHAN_SIZE"
+            printf -- '- Bundled SHA-256: `%s`\n' "$ADHAN_SHA"
+            printf '%s\n' '- Runtime use: complete local recording, `AudioAttributes.USAGE_ALARM`; no textual religious quotation is derived from this asset.'
+          } > docs/audio/ADHAN.md
 
           git diff --check
           test -f app/src/main/res/raw/adhan_cc0.ogg
-          grep -Fq '3b350bc210d657727578ed977e32323c06b63c2088c3ebcea9fc9afb7d487702' docs/audio/ADHAN.md
+          test "$ADHAN_SHA" = '3b350bc210d657727578ed977e32323c06b63c2088c3ebcea9fc9afb7d487702'
+          grep -Fq "$ADHAN_SHA" docs/audio/ADHAN.md
           grep -Fq 'android.permission.USE_FULL_SCREEN_INTENT' app/src/main/AndroidManifest.xml
           grep -Fq 'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK' app/src/main/AndroidManifest.xml
           grep -Fq 'foregroundServiceType="mediaPlayback"' app/src/main/AndroidManifest.xml
