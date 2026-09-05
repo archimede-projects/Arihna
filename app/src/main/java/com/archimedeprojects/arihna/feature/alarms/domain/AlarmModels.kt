@@ -41,6 +41,8 @@ data class AlarmRule(
     val enabled: Boolean,
     val soundProfile: AlarmSoundProfile,
     val definition: AlarmDefinition,
+    val ringtoneUri: String? = null,
+    val ringtoneTitle: String? = null,
 ) {
     init {
         require(alarmId.isNotBlank()) { "alarmId must not be blank" }
@@ -56,6 +58,8 @@ data class AlarmRuleDraft(
     val enabled: Boolean,
     val soundProfile: AlarmSoundProfile,
     val definition: AlarmDefinition,
+    val ringtoneUri: String? = null,
+    val ringtoneTitle: String? = null,
 ) {
     init {
         require(alarmId.isNotBlank()) { "alarmId must not be blank" }

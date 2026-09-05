@@ -21,6 +21,8 @@
             android:excludeFromRecents="true"
             android:exported="false"
             android:launchMode="singleTop"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
             android:theme="@style/Theme.Arihna" />
 
         <service
@@ -39,6 +41,10 @@
 
         <receiver
             android:name=".feature.alarms.platform.AlarmOccurrenceReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".feature.alarms.platform.AlarmDiagnosticReceiver"
             android:exported="false" />
 
         <receiver

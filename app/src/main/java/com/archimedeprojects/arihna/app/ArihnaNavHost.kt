@@ -21,10 +21,11 @@ import com.archimedeprojects.arihna.core.location.platform.AndroidLocationEnviro
 import com.archimedeprojects.arihna.core.location.platform.AndroidLocationPermissionStateResolver
 import com.archimedeprojects.arihna.feature.alarms.AlarmsRoute
 import com.archimedeprojects.arihna.feature.alarms.AlarmsViewModel
+import com.archimedeprojects.arihna.feature.alarms.platform.AlarmDiagnosticTestScheduler
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmFullScreenAccess
 import com.archimedeprojects.arihna.feature.alarms.platform.ExactAlarmAccessIntentFactory
 import com.archimedeprojects.arihna.feature.home.HomePrayerScheduleRoute
-import com.archimedeprojects.arihna.feature.prayers.PrayerTimesPlaceholderScreen
+import com.archimedeprojects.arihna.feature.prayers.PrayerTimesRoute
 import com.archimedeprojects.arihna.feature.prayerschedule.presentation.PrayerScheduleViewModel
 import com.archimedeprojects.arihna.feature.qibla.QiblaRoute
 import com.archimedeprojects.arihna.feature.qibla.domain.QiblaRepository
@@ -53,6 +54,7 @@ fun ArihnaNavHost(
     alarmsViewModel: AlarmsViewModel,
     exactAlarmAccessIntentFactory: ExactAlarmAccessIntentFactory,
     alarmFullScreenAccess: AlarmFullScreenAccess,
+    alarmDiagnosticTestScheduler: AlarmDiagnosticTestScheduler,
     qiblaRepository: QiblaRepository,
     locationEnvironment: AndroidLocationEnvironment,
     locationPermissionStateResolver: AndroidLocationPermissionStateResolver,
@@ -120,7 +122,13 @@ fun ArihnaNavHost(
                     },
                 )
             }
-            composable(Destination.Prayers.route) { PrayerTimesPlaceholderScreen(innerPadding) }
+            composable(Destination.Prayers.route) {
+                PrayerTimesRoute(
+                    contentPadding = innerPadding,
+                    prayerScheduleViewModel = prayerScheduleViewModel,
+                    alarmsViewModel = alarmsViewModel,
+                )
+            }
             composable(Destination.Qibla.route) { qiblaBackStackEntry ->
                 val lifecycleBoundQiblaStates = remember(qiblaRepository, qiblaBackStackEntry) {
                     qiblaRepository.observeQibla().flowWithLifecycle(
@@ -143,8 +151,6 @@ fun ArihnaNavHost(
                 AlarmsRoute(
                     contentPadding = innerPadding,
                     viewModel = alarmsViewModel,
-                    exactAlarmAccessIntentFactory = exactAlarmAccessIntentFactory,
-                    fullScreenAccess = alarmFullScreenAccess,
                 )
             }
             composable(Destination.Settings.route) {
@@ -154,6 +160,10 @@ fun ArihnaNavHost(
                     viewModel = locationSettingsViewModel,
                     environment = locationEnvironment,
                     permissionResolver = locationPermissionStateResolver,
+                    alarmsViewModel = alarmsViewModel,
+                    exactAlarmAccessIntentFactory = exactAlarmAccessIntentFactory,
+                    alarmFullScreenAccess = alarmFullScreenAccess,
+                    alarmDiagnosticTestScheduler = alarmDiagnosticTestScheduler,
                 )
             }
         }

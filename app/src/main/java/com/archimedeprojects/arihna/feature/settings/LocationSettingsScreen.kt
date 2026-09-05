@@ -1,6 +1,8 @@
 package com.archimedeprojects.arihna.feature.settings
 
+import android.Manifest
 import android.app.Activity
+import android.os.Build
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -34,8 +36,13 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.archimedeprojects.arihna.core.location.model.CitySearchResult
@@ -43,6 +50,12 @@ import com.archimedeprojects.arihna.core.location.model.LocationPermissionState
 import com.archimedeprojects.arihna.core.location.model.LocationResolutionState
 import com.archimedeprojects.arihna.core.location.platform.AndroidLocationEnvironment
 import com.archimedeprojects.arihna.core.location.platform.AndroidLocationPermissionStateResolver
+import com.archimedeprojects.arihna.feature.alarms.AlarmsViewModel
+import com.archimedeprojects.arihna.feature.alarms.platform.AlarmDiagnosticKind
+import com.archimedeprojects.arihna.feature.alarms.platform.AlarmDiagnosticScheduleResult
+import com.archimedeprojects.arihna.feature.alarms.platform.AlarmDiagnosticTestScheduler
+import com.archimedeprojects.arihna.feature.alarms.platform.AlarmFullScreenAccess
+import com.archimedeprojects.arihna.feature.alarms.platform.ExactAlarmAccessIntentFactory
 
 @Composable
 fun LocationSettingsRoute(
@@ -51,6 +64,10 @@ fun LocationSettingsRoute(
     viewModel: LocationSettingsViewModel,
     environment: AndroidLocationEnvironment,
     permissionResolver: AndroidLocationPermissionStateResolver,
+    alarmsViewModel: AlarmsViewModel,
+    exactAlarmAccessIntentFactory: ExactAlarmAccessIntentFactory,
+    alarmFullScreenAccess: AlarmFullScreenAccess,
+    alarmDiagnosticTestScheduler: AlarmDiagnosticTestScheduler,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -65,6 +82,39 @@ fun LocationSettingsRoute(
             locationServicesEnabled = environment.isLocationServicesEnabled(),
         )
     }
+
+    val alarmsState by alarmsViewModel.uiState.collectAsState()
+    var capabilityRefresh by remember { mutableIntStateOf(0) }
+    var diagnosticMessage by remember { mutableStateOf<String?>(null) }
+    val fullScreenReady = alarmFullScreenAccess.isGranted()
+
+    val notificationLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) {
+        capabilityRefresh += 1
+        alarmsViewModel.refreshCapabilities()
+    }
+    val exactAlarmLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) {
+        capabilityRefresh += 1
+        alarmsViewModel.refreshCapabilities()
+    }
+    val fullScreenLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) {
+        capabilityRefresh += 1
+        alarmsViewModel.refreshCapabilities()
+    }
+
+    fun diagnosticResultMessage(kind: AlarmDiagnosticKind, result: AlarmDiagnosticScheduleResult): String =
+        when (result) {
+            AlarmDiagnosticScheduleResult.SCHEDULED ->
+                if (kind == AlarmDiagnosticKind.ADHAN) "Test Adhan programmato tra 1 minuto" else "Test sveglia programmato tra 1 minuto"
+            AlarmDiagnosticScheduleResult.NEEDS_NOTIFICATION_PERMISSION -> "Consenti prima le notifiche"
+            AlarmDiagnosticScheduleResult.NEEDS_EXACT_ALARM_ACCESS -> "Consenti prima gli allarmi esatti"
+            AlarmDiagnosticScheduleResult.NEEDS_FULL_SCREEN_ACCESS -> "Consenti prima lo schermo intero"
+        }
 
     LocationSettingsScreen(
         contentPadding = contentPadding,
@@ -96,6 +146,46 @@ fun LocationSettingsRoute(
         onOpenLocationSettings = {
             activity.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
         },
+        alarmSettings = AlarmSettingsPresentation(
+            notificationReady = alarmsState.notificationReady,
+            exactReady = alarmsState.exactAlarmReady,
+            fullScreenReady = fullScreenReady,
+            diagnosticMessage = diagnosticMessage,
+        ),
+        onManageNotifications = {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !alarmsState.notificationReady) {
+                notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                activity.startActivity(
+                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                        .putExtra(Settings.EXTRA_APP_PACKAGE, activity.packageName),
+                )
+            }
+        },
+        onManageExactAlarms = {
+            exactAlarmAccessIntentFactory.create()?.let(exactAlarmLauncher::launch)
+                ?: alarmsViewModel.refreshCapabilities()
+        },
+        onManageFullScreen = {
+            alarmFullScreenAccess.createSettingsIntent()?.let(fullScreenLauncher::launch)
+                ?: alarmsViewModel.refreshCapabilities()
+        },
+        onTestAlarm = {
+            diagnosticMessage = diagnosticResultMessage(
+                AlarmDiagnosticKind.SYSTEM_ALARM,
+                alarmDiagnosticTestScheduler.scheduleOneMinute(AlarmDiagnosticKind.SYSTEM_ALARM),
+            )
+        },
+        onTestAdhan = {
+            diagnosticMessage = diagnosticResultMessage(
+                AlarmDiagnosticKind.ADHAN,
+                alarmDiagnosticTestScheduler.scheduleOneMinute(AlarmDiagnosticKind.ADHAN),
+            )
+        },
+        onCancelDiagnostic = {
+            alarmDiagnosticTestScheduler.cancel()
+            diagnosticMessage = "Test in attesa annullato"
+        },
     )
 }
 
@@ -110,6 +200,13 @@ fun LocationSettingsScreen(
     onSelectCity: (Long) -> Unit,
     onOpenAppSettings: () -> Unit,
     onOpenLocationSettings: () -> Unit,
+    alarmSettings: AlarmSettingsPresentation = AlarmSettingsPresentation(),
+    onManageNotifications: () -> Unit = {},
+    onManageExactAlarms: () -> Unit = {},
+    onManageFullScreen: () -> Unit = {},
+    onTestAlarm: () -> Unit = {},
+    onTestAdhan: () -> Unit = {},
+    onCancelDiagnostic: () -> Unit = {},
 ) {
     val presentation = uiState.resolutionState.toPresentation()
 
@@ -123,6 +220,20 @@ fun LocationSettingsScreen(
         ),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = "Impostazioni",
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = "Controlli di sistema e test rapidi per sveglie e Adhan.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
@@ -289,6 +400,23 @@ fun LocationSettingsScreen(
         ) { city ->
             CityResultCard(city = city, onSelectCity = onSelectCity)
         }
+
+        item {
+            AlarmSystemSettingsCard(
+                state = alarmSettings,
+                onManageNotifications = onManageNotifications,
+                onManageExactAlarms = onManageExactAlarms,
+                onManageFullScreen = onManageFullScreen,
+            )
+        }
+        item {
+            AlarmDiagnosticCard(
+                state = alarmSettings,
+                onTestAlarm = onTestAlarm,
+                onTestAdhan = onTestAdhan,
+                onCancelDiagnostic = onCancelDiagnostic,
+            )
+        }
     }
 
     if (uiState.rationaleVisible) {
@@ -360,6 +488,95 @@ private fun CityResultCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
+            }
+        }
+    }
+}
+
+data class AlarmSettingsPresentation(
+    val notificationReady: Boolean = false,
+    val exactReady: Boolean = false,
+    val fullScreenReady: Boolean = false,
+    val diagnosticMessage: String? = null,
+)
+
+@Composable
+private fun AlarmSystemSettingsCard(
+    state: AlarmSettingsPresentation,
+    onManageNotifications: () -> Unit,
+    onManageExactAlarms: () -> Unit,
+    onManageFullScreen: () -> Unit,
+) {
+    Card(modifier = Modifier.fillMaxWidth().testTag("settings-alarm-capabilities")) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Sveglie e notifiche", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(
+                "I permessi di sistema sono gestiti qui, separati dalle sveglie personali.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            AlarmCapabilitySettingRow("Notifiche", state.notificationReady, "Gestisci", onManageNotifications)
+            HorizontalDivider()
+            AlarmCapabilitySettingRow("Allarmi esatti", state.exactReady, "Gestisci", onManageExactAlarms)
+            HorizontalDivider()
+            AlarmCapabilitySettingRow("Schermo intero", state.fullScreenReady, "Apri impostazioni", onManageFullScreen)
+        }
+    }
+}
+
+@Composable
+private fun AlarmCapabilitySettingRow(
+    label: String,
+    ready: Boolean,
+    actionLabel: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(
+                if (ready) "Consentito" else "Da autorizzare",
+                color = if (ready) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+        OutlinedButton(onClick = onClick) { Text(actionLabel) }
+    }
+}
+
+@Composable
+private fun AlarmDiagnosticCard(
+    state: AlarmSettingsPresentation,
+    onTestAlarm: () -> Unit,
+    onTestAdhan: () -> Unit,
+    onCancelDiagnostic: () -> Unit,
+) {
+    Card(modifier = Modifier.fillMaxWidth().testTag("settings-alarm-tests")) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Test hardware", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(
+                "Esegue un test reale tra 1 minuto usando lo stesso percorso di sveglie, notifica e schermo intero.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Button(
+                onClick = onTestAlarm,
+                modifier = Modifier.fillMaxWidth().testTag("settings-test-alarm-one-minute"),
+            ) { Text("Test sveglia (1 minuto)") }
+            Button(
+                onClick = onTestAdhan,
+                modifier = Modifier.fillMaxWidth().testTag("settings-test-adhan-one-minute"),
+            ) { Text("Test Adhan (1 minuto)") }
+            TextButton(
+                onClick = onCancelDiagnostic,
+                modifier = Modifier.fillMaxWidth().testTag("settings-test-cancel"),
+            ) { Text("Annulla test in corso") }
+            state.diagnosticMessage?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
             }
         }
     }
