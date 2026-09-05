@@ -27,7 +27,10 @@ jobs:
           git fetch origin main --force
           test "$(git rev-parse origin/main)" = "$BASE_RUNTIME_SHA"
           git checkout --detach "$BASE_RUNTIME_SHA"
-          cat >> PROJECT_SPEC.md <<'EOF'
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('PROJECT_SPEC.md')
+          addition = r'''
 
 #### Galaxy S25 overlay action contrast correction — APPROVED 2026-09-05
 
@@ -43,7 +46,9 @@ Approved correction is strictly limited to the unlocked ringing overlay action r
 - Do not change overlay permission handling, `Settings.canDrawOverlays`, `ACTION_MANAGE_OVERLAY_PERMISSION`, `TYPE_APPLICATION_OVERLAY`, locked-device behavior, service lifecycle, safety timeout, notification construction, `RemoteViews` policy, snooze duration, alarm audio, volume control, diagnostic 20-second delay, scheduling, recurrence, Prayer, Location, Qibla, dependencies, SDK levels or applicationId.
 
 Required correction gate: the technical candidate must be the direct child of this spec commit; run unfiltered `testDebugUnitTest` and `assembleDebug`, API28 connected regression with zero skipped tests, and the existing API36 denied/granted exact-alarm, notification, full-screen and overlay matrix. Add focused Android coverage proving the overlay no longer uses `android.widget.Button`, both action labels are present and clickable, and explicit high-contrast foreground/background styling is applied. Frozen GeoNames and the persistent Arihna signing identity remain mandatory. Only after exact-SHA success may the candidate fast-forward non-forced to `main` and be packaged as a new Galaxy S25 prerelease APK.
-EOF
+'''
+          path.write_text(path.read_text() + addition)
+          PY
           git diff --check
           test "$(git diff --name-only)" = "PROJECT_SPEC.md"
           git config user.name "github-actions[bot]"
