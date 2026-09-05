@@ -35,6 +35,13 @@ jobs:
           python /tmp/alarms_ux_domain_platform.py
           python /tmp/alarms_ux_ui.py
           python /tmp/alarms_ux_tests.py
+          python - <<'PY'
+          from pathlib import Path
+          for p in Path('app/src').rglob('*'):
+              if p.is_file() and p.suffix in {'.kt', '.xml'}:
+                  text = p.read_text(encoding='utf-8')
+                  p.write_text(text.rstrip() + '\n', encoding='utf-8')
+          PY
           test -z "$(git diff --name-only | grep -Ev '^(app/src/(main|test|androidTest)/)' || true)"
           ! git diff | grep -F 'Posticipa 5 min'
           ! git diff | grep -F 'REQUEST_IGNORE_BATTERY_OPTIMIZATIONS'
