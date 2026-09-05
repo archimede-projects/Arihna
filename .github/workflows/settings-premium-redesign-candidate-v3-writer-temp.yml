@@ -1,0 +1,62 @@
+name: Settings premium redesign candidate v3 writer temp
+
+on:
+  push:
+    branches:
+      - settings-premium-redesign-candidate-v3-writer-20260906
+
+permissions:
+  contents: write
+
+jobs:
+  write-candidate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create corrected direct-child candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          SPEC_SHA=4e9e05bf82332c0a8fb3ad9744265350ea6baa79
+          V2_SHA=bdc4dbfadff42731a3a3dd765b8ac7e6a7735860
+          CANDIDATE_BRANCH=settings-premium-redesign-candidate-v3
+          UI=app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
+          TEST1=app/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreenAndroidTest.kt
+          TEST2=app/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/AlarmSettingsOverlayVolumeAndroidTest.kt
+          git fetch origin main settings-premium-redesign-spec settings-premium-redesign-candidate-v2 --force
+          test "$(git rev-parse origin/main)" = "$SPEC_SHA"
+          test "$(git rev-parse origin/settings-premium-redesign-spec)" = "$SPEC_SHA"
+          test "$(git rev-parse origin/settings-premium-redesign-candidate-v2)" = "$V2_SHA"
+          git checkout --detach "$SPEC_SHA"
+          git show "$V2_SHA:$UI" > "$UI"
+          git show "$V2_SHA:$TEST1" > "$TEST1"
+          git show "$V2_SHA:$TEST2" > "$TEST2"
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreenAndroidTest.kt')
+          s=p.read_text()
+          s=s.replace('import androidx.compose.ui.test.assertDoesNotExist\n','')
+          s=s.replace('import androidx.compose.ui.test.onNodeWithText\n','import androidx.compose.ui.test.onAllNodesWithText\nimport androidx.compose.ui.test.onNodeWithText\n')
+          s=s.replace('import org.junit.Assert.assertEquals\n','import org.junit.Assert.assertEquals\nimport org.junit.Assert.assertTrue\n')
+          old='''        composeRule.onNodeWithText("Pannello funzionale STEP 6 — la Home definitiva verrà costruita più avanti.")\n            .assertDoesNotExist()\n        composeRule.onNodeWithText("Controlli di sistema e test rapidi per sveglie e Adhan.")\n            .assertDoesNotExist()\n'''
+          new='''        assertTrue(\n            composeRule.onAllNodesWithText("Pannello funzionale STEP 6 — la Home definitiva verrà costruita più avanti.")\n                .fetchSemanticsNodes().isEmpty(),\n        )\n        assertTrue(\n            composeRule.onAllNodesWithText("Controlli di sistema e test rapidi per sveglie e Adhan.")\n                .fetchSemanticsNodes().isEmpty(),\n        )\n'''
+          if old not in s:
+              raise SystemExit('expected assertion block not found')
+          s=s.replace(old,new)
+          p.write_text(s)
+          PY
+          ! grep -Fq 'import androidx.compose.foundation.layout.weight' "$UI"
+          ! grep -Fq 'assertDoesNotExist' "$TEST1"
+          grep -Fq 'onAllNodesWithText' "$TEST1"
+          grep -Fq 'fetchSemanticsNodes().isEmpty()' "$TEST1"
+          EXPECTED=$'app/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/AlarmSettingsOverlayVolumeAndroidTest.kt\napp/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreenAndroidTest.kt\napp/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt'
+          test "$(git diff --name-only | sort)" = "$EXPECTED"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$UI" "$TEST1" "$TEST2"
+          git commit -m "feat(settings): redesign general settings UI"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          git push origin "HEAD:refs/heads/$CANDIDATE_BRANCH"
+          echo "CANDIDATE_SHA=$(git rev-parse HEAD)"
