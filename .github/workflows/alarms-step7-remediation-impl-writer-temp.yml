@@ -38,6 +38,16 @@ jobs:
           set -euo pipefail
           git checkout -B alarms-step7-remediation-candidate "$REMEDIATION_SPEC_SHA"
           python3 /tmp/alarms-step7-remediation-impl-writer.py
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt')
+          text = path.read_text()
+          old = 'is AlarmDefinition.PrayerLinked -> "${definition.prayer.displayName()} • Adhan"'
+          new = 'is AlarmDefinition.PrayerLinked -> definition.prayer.displayName()'
+          if old not in text:
+              raise SystemExit('prayer ringing title marker not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
 
           mkdir -p app/src/main/res/raw docs/audio
           curl --fail --location --retry 4 --retry-delay 2 "$ADHAN_SOURCE" -o app/src/main/res/raw/adhan_cc0.ogg
