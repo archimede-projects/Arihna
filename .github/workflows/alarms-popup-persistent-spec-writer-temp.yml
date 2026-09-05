@@ -2,8 +2,7 @@ name: alarms-popup-persistent-spec-writer-temp
 
 on:
   push:
-    branches:
-      - alarms-popup-persistent-spec-writer-temp
+    branches: [alarms-popup-persistent-spec-writer-temp]
 
 permissions:
   contents: write
@@ -17,34 +16,18 @@ jobs:
           ref: a767eaa1f722a9c62ec3dbf3204791ee5b1f77a4
           fetch-depth: 0
       - name: Append authorized S25 popup remediation spec
-        shell: bash
+        env:
+          SPEC_B64: IyMjIyBHYWxheHkgUzI1IGFsYXJtIGhlYWRzLXVwICsgcmluZ2luZyBjb250cm9scyBjb3JyZWN0aW9uIOKAlCBBUFBST1ZFRCAyMDI2LTA5LTA1CgpQaHlzaWNhbCBHYWxheHkgUzI1IHZhbGlkYXRpb24gb2YgcnVudGltZSBgYTc2N2VhYTFmNzIyYTljNjJlYzNkYmYzMjA0NzkxZWU1YjFmNzdhNGAgcmVtYWlucyAqKkZBSUwqKiBmb3IgdGhlIGFsYXJtIHByZXNlbnRhdGlvbiBwYXRoLiBUaGUgYWxhcm0gc291bmQgaXMgZGVsaXZlcmVkIGFuZCB0aGUgQXJpaG5hIHJpbmdpbmcgYWN0aXZpdHkgaXMgcmVhY2hhYmxlLCBidXQgb24gYW4gdW5sb2NrZWQgZGV2aWNlIHRoZSBmaXJzdCBhbGFybSBzdXJmYWNlIGFwcGVhcnMgYXMgYSBzbWFsbCB0cmFuc2llbnQgaGVhZHMtdXAgbm90aWZpY2F0aW9uIHdpdGhvdXQgdmlzaWJsZSBgSW50ZXJyb21waWAgLyBgUmludmlhYCBjb250cm9scywgYW5kIHRhcHBpbmcgdGhlIG5vdGlmaWNhdGlvbiBvcGVucyB0aGUgQXJpaG5hIGZ1bGwtc2NyZWVuIHJpbmdpbmcgVUkgd2l0aCBvbmx5IGBTdG9wYC4gVGhlIHVzZXIgZXhwbGljaXRseSByZXF1aXJlcyBhIHN1YnN0YW50aWFsbHkgbGFyZ2VyIGFsYXJtIHBvcHVwIHdpdGggZGlyZWN0IHN0b3Avc25vb3plIGNvbnRyb2xzLCBwbHVzIGZhc3RlciBkaWFnbm9zdGljIGl0ZXJhdGlvbi4KCkF1dGhvcml6ZWQgY29ycmVjdGl2ZSBzY29wZSBpcyBzdHJpY3RseSBsaW1pdGVkIHRvOgoKLSBLZWVwIHRoZSBzdGFuZGFyZHMtYmFzZWQgYWxhcm0gbm90aWZpY2F0aW9uIHBhdGg7IGRvICoqbm90KiogcmVxdWVzdCBkcmF3LW92ZXItb3RoZXItYXBwcyAvIGBTWVNURU1fQUxFUlRfV0lORE9XYCBvciBhbnkgdW5yZWxhdGVkIHBlcm1pc3Npb24uCi0gQWx3YXlzIGF0dGFjaCB0aGUgZXhpc3RpbmcgYWxhcm0gZnVsbC1zY3JlZW4gUGVuZGluZ0ludGVudCB0byB0aGUgYWxhcm0gbm90aWZpY2F0aW9uIHZpYSBgc2V0RnVsbFNjcmVlbkludGVudCguLi4pYCwgaW5jbHVkaW5nIHRoZSBBbmRyb2lkIGZhbGxiYWNrIGNhc2Ugd2hlcmUgZnVsbC1zY3JlZW4gc3BlY2lhbCBhY2Nlc3MgaXMgdW5hdmFpbGFibGUuIFRoaXMgaXMgcmVxdWlyZWQgc28gQW5kcm9pZCAxMysgY2FuIHByZXNlbnQgdGhlIGFsYXJtIGhlYWRzLXVwIHRyZWF0bWVudCBhc3NvY2lhdGVkIHdpdGggZnVsbC1zY3JlZW4gaW50ZW50cyBpbnN0ZWFkIG9mIEFyaWhuYSBkb3duZ3JhZGluZyBpdHNlbGYgdG8gYSBub3JtYWwgdHJhbnNpZW50IG5vdGlmaWNhdGlvbi4KLSBQcmVzZXJ2ZSBgQ0FURUdPUllfQUxBUk1gLCBgSU1QT1JUQU5DRV9ISUdIYCwgb25nb2luZy9ub24tYXV0by1jYW5jZWwgYmVoYXZpb3IsIGZvcmVncm91bmQgcmluZ2luZyBzZXJ2aWNlLCBleGFjdC1hbGFybSBwb2xpY3ksIGFuZCB0aGUgcGVyc2lzdGVudCBBcmlobmEgZGVidWcgc2lnbmVyLgotIFRoZSBoZWFkcy11cCAvIG5vdGlmaWNhdGlvbiBzdXJmYWNlIG11c3QgZXhwb3NlIGJvdGggdXNlciBhY3Rpb25zOiAqKkludGVycm9tcGkqKiBhbmQgKipSaW52aWEqKi4gYFJpbnZpYWAgcmVtYWlucyB0aGUgYWxyZWFkeS1hdXRob3JpemVkIDUtbWludXRlIHNub296ZSBiZWhhdmlvci4KLSBUaGUgQXJpaG5hIHJpbmdpbmcgYWN0aXZpdHkgbXVzdCBleHBvc2UgYm90aCAqKkludGVycm9tcGkqKiBhbmQgKipSaW52aWEgNSBtaW4qKjsgbm8gbG9uZ2VyIHNoaXAgYSByaW5naW5nIHNjcmVlbiB3aXRoIG9ubHkgU3RvcC4KLSBUaGUgU2V0dGluZ3MgZGlhZ25vc3RpYyBhY3Rpb24gKipUZXN0IHN2ZWdsaWEqKiBtdXN0IHNjaGVkdWxlIGFmdGVyICoqMjAgc2Vjb25kcyoqIGluc3RlYWQgb2YgNjAgc2Vjb25kcy4gVGhlIHNhbWUgMjAtc2Vjb25kIGRlbGF5IGFwcGxpZXMgdG8gVGVzdCBBZGhhbiBzbyB0aGUgcGFpcmVkIGhhcmR3YXJlIGNoZWNrcyBzdGF5IHN5bW1ldHJpYy4gTm8gcHJvZHVjdGlvbiBhbGFybSB0aW1pbmcgaXMgY2hhbmdlZC4KLSBObyBjaGFuZ2VzIHRvIHByYXllci10aW1lIG1hdGhlbWF0aWNzLCBRaWJsYSwgbG9jYXRpb24sIHByYXllci1yZW1pbmRlciBwbGFjZW1lbnQsIHBlcnNvbmFsLWFsYXJtIGVkaXRvciBzZW1hbnRpY3MsIHNlbGVjdGVkIHJpbmd0b25lIGJlaGF2aW9yLCByZWN1cnJlbmNlLCBwZXJzaXN0ZW5jZSwgb3IgYW55IG90aGVyIHNjcmVlbiBhcmUgYXV0aG9yaXplZCBpbiB0aGlzIHJvdW5kLgotIEJlY2F1c2UgdGhlIGV4YWN0IHZpc3VhbCBsaWZldGltZS9nZW9tZXRyeSBvZiBBbmRyb2lkIGhlYWRzLXVwIFVJIGlzIGNvbnRyb2xsZWQgYnkgU3lzdGVtIFVJIC8gT25lIFVJLCB2YWxpZGF0aW9uIG11c3QgcmVxdWlyZSB0aGUgc3Ryb25nZXN0IHN0YW5kYXJkcy1jb21wbGlhbnQgYWxhcm0gaGVhZHMtdXAgYXZhaWxhYmxlIHRvIGEgdGhpcmQtcGFydHkgYXBwIHdpdGhvdXQgb3ZlcmxheSBwZXJtaXNzaW9uOyBBcmlobmEgbXVzdCBub3QgY2xhaW0gaXQgY2FuIGZvcmNlIFNhbXN1bmcgQ2xvY2sncyBwcml2aWxlZ2VkIHN5c3RlbSBvdmVybGF5IHBpeGVsLWZvci1waXhlbC4KClZhbGlkYXRpb24gZm9yIHRoaXMgY29ycmVjdGlvbiBtdXN0IGNvdmVyIGNvbXBpbGF0aW9uL3VuaXQgcmVncmVzc2lvbiwgQW5kcm9pZCBBUEkyOCBjb25uZWN0ZWQgcmVncmVzc2lvbiB3aXRoIHplcm8gc2tpcHBlZCwgbW9kZXJuIEFQSTM2IG5vdGlmaWNhdGlvbi9mdWxsLXNjcmVlbiBhY3Rpb24gd2lyaW5nLCBhbmQgYSBuZXcgR2FsYXh5IFMyNSBBUEsgdXNpbmcgdGhlIHBlcnNpc3RlbnQgZGVidWcgaWRlbnRpdHkuIFBoeXNpY2FsIGFjY2VwdGFuY2UgcmVtYWlucyBvbiB0aGUgR2FsYXh5IFMyNS4K
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "a767eaa1f722a9c62ec3dbf3204791ee5b1f77a4"
-          cat >> PROJECT_SPEC.md <<'EOF'
-
-#### Galaxy S25 alarm heads-up + ringing controls correction — APPROVED 2026-09-05
-
-Physical Galaxy S25 validation of runtime `a767eaa1f722a9c62ec3dbf3204791ee5b1f77a4` remains **FAIL** for the alarm presentation path. The alarm sound is delivered and the Arihna ringing activity is reachable, but on an unlocked device the first alarm surface appears as a small transient heads-up notification without visible `Interrompi` / `Rinvia` controls, and tapping the notification opens the Arihna full-screen ringing UI with only `Stop`. The user explicitly requires a substantially larger alarm popup with direct stop/snooze controls, plus faster diagnostic iteration.
-
-Authorized corrective scope is strictly limited to:
-
-- Keep the standards-based alarm notification path; do **not** request draw-over-other-apps / `SYSTEM_ALERT_WINDOW` or any unrelated permission.
-- Always attach the existing alarm full-screen PendingIntent to the alarm notification via `setFullScreenIntent(...)`, including the Android fallback case where full-screen special access is unavailable. This is required so Android 13+ can present the alarm heads-up treatment associated with full-screen intents instead of Arihna downgrading itself to a normal transient notification.
-- Preserve `CATEGORY_ALARM`, `IMPORTANCE_HIGH`, ongoing/non-auto-cancel behavior, foreground ringing service, exact-alarm policy, and the persistent Arihna debug signer.
-- The heads-up / notification surface must expose both user actions: **Interrompi** and **Rinvia**. `Rinvia` remains the already-authorized 5-minute snooze behavior.
-- The Arihna ringing activity must expose both **Interrompi** and **Rinvia 5 min**; no longer ship a ringing screen with only Stop.
-- The Settings diagnostic action **Test sveglia** must schedule after **20 seconds** instead of 60 seconds. The same 20-second delay applies to Test Adhan so the paired hardware checks stay symmetric. No production alarm timing is changed.
-- No changes to prayer-time mathematics, Qibla, location, prayer-reminder placement, personal-alarm editor semantics, selected ringtone behavior, recurrence, persistence, or any other screen are authorized in this round.
-- Because the exact visual lifetime/geometry of Android heads-up UI is controlled by System UI / One UI, validation must require the strongest standards-compliant alarm heads-up available to a third-party app without overlay permission; Arihna must not claim it can force Samsung Clock's privileged system overlay pixel-for-pixel.
-
-Validation for this correction must cover compilation/unit regression, Android API28 connected regression with zero skipped, modern API36 notification/full-screen action wiring, and a new Galaxy S25 APK using the persistent debug identity. Physical acceptance remains on the Galaxy S25.
-EOF
+          printf '\n' >> PROJECT_SPEC.md
+          printf '%s' "$SPEC_B64" | base64 --decode >> PROJECT_SPEC.md
           git diff --check -- PROJECT_SPEC.md
           test "$(git diff --name-only)" = "PROJECT_SPEC.md"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -B alarms-popup-persistent-spec
+          git switch -c alarms-popup-persistent-spec
           git add PROJECT_SPEC.md
           git commit -m "docs(alarms): authorize persistent popup remediation"
-          git push --force-with-lease origin HEAD:refs/heads/alarms-popup-persistent-spec
+          git push origin HEAD:refs/heads/alarms-popup-persistent-spec
