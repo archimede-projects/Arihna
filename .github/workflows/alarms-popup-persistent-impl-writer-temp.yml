@@ -44,7 +44,7 @@ jobs:
             app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingActivity.kt \
             app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt \
             app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt \
-            app/src/main/res/layout/notification_alarm_heads_up.xml | sort)
+            app/src/main/res/layout/ | sort)
           ACTUAL=$(printf '%s\n' "${CHANGED[@]}" | sort)
           test "$ACTUAL" = "$EXPECTED"
           grep -Fq '.setFullScreenIntent(activityPendingIntent, true)' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
