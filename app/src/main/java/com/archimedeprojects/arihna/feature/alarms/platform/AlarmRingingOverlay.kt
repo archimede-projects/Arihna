@@ -2,7 +2,6 @@ package com.archimedeprojects.arihna.feature.alarms.platform
 
 import android.app.KeyguardManager
 import android.content.Context
-import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Typeface
@@ -10,7 +9,6 @@ import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
-import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -100,8 +98,8 @@ internal class AlarmRingingOverlay(
             setPadding(dp(22), dp(18), dp(22), dp(18))
             elevation = dp(18).toFloat()
             background = roundedDrawable(
-                fill = Color.rgb(8, 58, 39),
-                stroke = Color.rgb(212, 175, 55),
+                fill = ARIHNA_GREEN,
+                stroke = ARIHNA_GOLD,
                 radiusDp = 28,
                 strokeDp = 2,
             )
@@ -119,7 +117,7 @@ internal class AlarmRingingOverlay(
 
         card.addView(TextView(context).apply {
             text = "SVEGLIA ARIHNA"
-            setTextColor(Color.rgb(212, 175, 55))
+            setTextColor(ARIHNA_GOLD)
             textSize = 12f
             typeface = Typeface.DEFAULT_BOLD
             letterSpacing = 0.12f
@@ -139,7 +137,7 @@ internal class AlarmRingingOverlay(
         }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         headline.addView(TextView(context).apply {
             text = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
-            setTextColor(Color.rgb(250, 250, 246))
+            setTextColor(ARIHNA_LIGHT)
             textSize = 25f
             typeface = Typeface.DEFAULT_BOLD
         })
@@ -161,46 +159,52 @@ internal class AlarmRingingOverlay(
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
-        val stopButton = actionButton(
+        val stopControl = actionControl(
             text = "Interrompi",
+            tagValue = STOP_TAG,
             filled = true,
             onClick = onStop,
         )
-        val snoozeButton = actionButton(
+        val snoozeControl = actionControl(
             text = "Rinvia 5 min",
+            tagValue = SNOOZE_TAG,
             filled = false,
             onClick = onSnooze,
         )
         actions.addView(
-            stopButton,
+            stopControl,
             LinearLayout.LayoutParams(0, dp(58), 1f).apply { rightMargin = dp(7) },
         )
         actions.addView(
-            snoozeButton,
+            snoozeControl,
             LinearLayout.LayoutParams(0, dp(58), 1f).apply { leftMargin = dp(7) },
         )
         card.addView(actions)
         return root
     }
 
-    private fun actionButton(
+    private fun actionControl(
         text: String,
+        tagValue: String,
         filled: Boolean,
         onClick: () -> Unit,
-    ): Button = Button(context).apply {
+    ): TextView = TextView(context).apply {
         this.text = text
-        isAllCaps = false
+        tag = tagValue
+        gravity = Gravity.CENTER
         textSize = 17f
         typeface = Typeface.DEFAULT_BOLD
         minimumHeight = dp(56)
-        setTextColor(if (filled) Color.rgb(8, 58, 39) else Color.rgb(250, 250, 246))
-        backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
+        setPadding(dp(12), 0, dp(12), 0)
+        setTextColor(if (filled) ARIHNA_GREEN else ARIHNA_LIGHT)
         background = roundedDrawable(
-            fill = if (filled) Color.rgb(212, 175, 55) else Color.rgb(12, 73, 48),
-            stroke = Color.rgb(212, 175, 55),
+            fill = if (filled) ARIHNA_GOLD else ARIHNA_GREEN_DARK,
+            stroke = ARIHNA_GOLD,
             radiusDp = 18,
-            strokeDp = if (filled) 0 else 1,
+            strokeDp = if (filled) 0 else 2,
         )
+        isClickable = true
+        isFocusable = true
         contentDescription = text
         setOnClickListener { onClick() }
     }
@@ -219,4 +223,13 @@ internal class AlarmRingingOverlay(
 
     private fun dp(value: Int): Int =
         (value * context.resources.displayMetrics.density).toInt()
+
+    companion object {
+        internal const val STOP_TAG = "arihna-overlay-stop"
+        internal const val SNOOZE_TAG = "arihna-overlay-snooze"
+        internal val ARIHNA_GREEN: Int = Color.rgb(8, 58, 39)
+        internal val ARIHNA_GREEN_DARK: Int = Color.rgb(12, 73, 48)
+        internal val ARIHNA_GOLD: Int = Color.rgb(212, 175, 55)
+        internal val ARIHNA_LIGHT: Int = Color.rgb(250, 250, 246)
+    }
 }

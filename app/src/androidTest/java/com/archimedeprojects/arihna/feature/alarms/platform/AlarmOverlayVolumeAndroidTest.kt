@@ -2,9 +2,13 @@ package com.archimedeprojects.arihna.feature.alarms.platform
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.graphics.drawable.GradientDrawable
 import android.provider.Settings
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
+import android.widget.Button
+import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmSoundProfile
@@ -76,6 +80,55 @@ class AlarmOverlayVolumeAndroidTest {
     }
 
     @Test
+    fun overlayActionsUseThemeIndependentHighContrastTextControls() {
+        val host = FakeWindowHost()
+        var stopClicks = 0
+        var snoozeClicks = 0
+        val overlay = AlarmRingingOverlay(
+            context = context,
+            canDrawOverlays = { true },
+            isDeviceLocked = { false },
+            windowHost = host,
+        )
+
+        assertTrue(
+            overlay.show(
+                payload = payload(),
+                onStop = { stopClicks += 1 },
+                onSnooze = { snoozeClicks += 1 },
+            ),
+        )
+
+        val root = host.lastView ?: error("overlay root missing")
+        assertFalse(containsNativeButton(root))
+
+        val stop = root.findViewWithTag<TextView>(AlarmRingingOverlay.STOP_TAG)
+        val snooze = root.findViewWithTag<TextView>(AlarmRingingOverlay.SNOOZE_TAG)
+        assertNotNull(stop)
+        assertNotNull(snooze)
+        assertEquals("Interrompi", stop.text.toString())
+        assertEquals("Rinvia 5 min", snooze.text.toString())
+        assertTrue(stop.isClickable)
+        assertTrue(snooze.isClickable)
+        assertEquals(AlarmRingingOverlay.ARIHNA_GREEN, stop.currentTextColor)
+        assertEquals(AlarmRingingOverlay.ARIHNA_LIGHT, snooze.currentTextColor)
+        assertEquals(
+            AlarmRingingOverlay.ARIHNA_GOLD,
+            (stop.background as GradientDrawable).color?.defaultColor,
+        )
+        assertEquals(
+            AlarmRingingOverlay.ARIHNA_GREEN_DARK,
+            (snooze.background as GradientDrawable).color?.defaultColor,
+        )
+
+        assertTrue(stop.performClick())
+        assertTrue(snooze.performClick())
+        assertEquals(1, stopClicks)
+        assertEquals(1, snoozeClicks)
+        overlay.hide()
+    }
+
+    @Test
     fun alarmVolumeControllerReadsAndReappliesRealAlarmStream() {
         val controller = AlarmVolumeController(context)
         val before = controller.read()
@@ -103,6 +156,12 @@ class AlarmOverlayVolumeAndroidTest {
         occurrenceToken = "overlay-token",
         ringtoneTitle = "Galaxy Bells",
     )
+
+    private fun containsNativeButton(view: View): Boolean {
+        if (view is Button) return true
+        if (view !is ViewGroup) return false
+        return (0 until view.childCount).any { containsNativeButton(view.getChildAt(it)) }
+    }
 
     private class FakeWindowHost : AlarmOverlayWindowHost {
         var addCount = 0
