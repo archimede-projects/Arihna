@@ -1,0 +1,48 @@
+name: Alarms compact UI unit diagnostic temp
+
+on:
+  push:
+    branches:
+      - alarms-compact-ui-gate-temp
+    paths:
+      - .github/workflows/alarms-compact-ui-unit-diagnostic-temp.yml
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Checkout exact candidate
+        run: git checkout --detach 7601e41e8e7bb3d23d87eb996a37c8126bb17570
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+      - name: Capture testDebugUnitTest output
+        id: gradle
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          ./gradlew testDebugUnitTest --stacktrace > /tmp/compact-ui-unit.log 2>&1
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: compact-ui-unit-diagnostic
+          path: /tmp/compact-ui-unit.log
+          retention-days: 1
+      - name: Preserve failure conclusion
+        if: steps.gradle.outputs.exit_code != '0'
+        run: exit 1
