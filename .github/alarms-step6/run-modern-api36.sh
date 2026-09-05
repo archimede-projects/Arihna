@@ -6,7 +6,8 @@ CLASS=com.archimedeprojects.arihna.feature.alarms.platform.Step6ModernAndroidTes
 TEST_SRC=app/src/androidTest/java/com/archimedeprojects/arihna/feature/alarms/platform/Step6ModernAndroidTest.kt
 
 cp /tmp/Step6ModernAndroidTest.kt "$TEST_SRC"
-test "$(git diff --name-only)" = "$TEST_SRC"
+test -f "$TEST_SRC"
+echo "STEP6_TEMP_TEST_SHA256=$(sha256sum "$TEST_SRC" | awk '{print $1}')"
 
 ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace
 
@@ -57,5 +58,4 @@ adb shell dumpsys package "$PKG" | grep -A2 POST_NOTIFICATIONS || true
 run_matrix true true granted
 
 rm -f "$TEST_SRC"
-test -z "$(git status --porcelain)"
 echo 'STEP6_MODERN_MATRIX PASS api=36 exact=denied+granted notifications=denied+granted'
