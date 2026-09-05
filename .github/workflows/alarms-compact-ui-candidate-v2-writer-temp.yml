@@ -1,0 +1,35 @@
+name: Alarms compact UI candidate v2 writer temp
+
+on:
+  push:
+    branches:
+      - alarms-compact-ui-candidate-v2-writer-20260906
+
+permissions:
+  contents: write
+
+jobs:
+  write-candidate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: alarms-compact-ui-candidate-v2
+          fetch-depth: 0
+      - name: Rebuild candidate directly from spec with compile correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin alarms-compact-ui-candidate --force
+          SRC=app/src/main/java/com/archimedeprojects/arihna/feature/alarms/AlarmsPlaceholderScreen.kt
+          TEST=app/src/androidTest/java/com/archimedeprojects/arihna/feature/alarms/AlarmsScreenAndroidTest.kt
+          git show 7601e41e8e7bb3d23d87eb996a37c8126bb17570:"$SRC" > "$SRC"
+          git show 7601e41e8e7bb3d23d87eb996a37c8126bb17570:"$TEST" > "$TEST"
+          sed -i '/import androidx.compose.foundation.layout.weight/d' "$SRC"
+          ! grep -Fq 'import androidx.compose.foundation.layout.weight' "$SRC"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$SRC" "$TEST"
+          git commit -m "feat(alarms): compact personal alarm UI"
+          test "$(git rev-parse HEAD^)" = "da10cd67cb75cc7e35f4a5706bc3430df611cc42"
+          git push origin HEAD:alarms-compact-ui-candidate-v2
