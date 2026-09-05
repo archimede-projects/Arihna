@@ -16,7 +16,6 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import com.archimedeprojects.arihna.R
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmDefinition
@@ -172,15 +171,6 @@ internal object AlarmRingingNotificationFactory {
             AlarmSoundProfile.SYSTEM_DEFAULT -> payload.ringtoneTitle ?: "Sveglia in corso"
             AlarmSoundProfile.SILENT -> "Sveglia in corso"
         }
-        fun alarmRemoteViews(): RemoteViews = RemoteViews(
-            context.packageName,
-            R.layout.notification_alarm_heads_up,
-        ).apply {
-            setTextViewText(R.id.notification_alarm_title, payload.title)
-            setTextViewText(R.id.notification_alarm_subtitle, subtitle)
-            setOnClickPendingIntent(R.id.notification_alarm_stop, stopPendingIntent)
-            setOnClickPendingIntent(R.id.notification_alarm_snooze, snoozePendingIntent)
-        }
         val builder = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_notification_arihna)
             .setContentTitle(payload.title)
@@ -195,12 +185,12 @@ internal object AlarmRingingNotificationFactory {
             .setShowWhen(true)
             .setWhen(System.currentTimeMillis())
             .setContentIntent(activityPendingIntent)
-            .setCustomHeadsUpContentView(alarmRemoteViews())
-            .setCustomBigContentView(alarmRemoteViews())
-            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
-            .setFullScreenIntent(activityPendingIntent, true)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(subtitle))
             .addAction(0, "Interrompi", stopPendingIntent)
             .addAction(0, "Rinvia", snoozePendingIntent)
+        if (fullScreenAccess.isGranted()) {
+            builder.setFullScreenIntent(activityPendingIntent, true)
+        }
         return builder.build()
     }
 
