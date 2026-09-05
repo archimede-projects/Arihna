@@ -1936,3 +1936,19 @@ Authorized corrective scope is strictly limited to:
 - Because the exact visual lifetime/geometry of Android heads-up UI is controlled by System UI / One UI, validation must require the strongest standards-compliant alarm heads-up available to a third-party app without overlay permission; Arihna must not claim it can force Samsung Clock's privileged system overlay pixel-for-pixel.
 
 Validation for this correction must cover compilation/unit regression, Android API28 connected regression with zero skipped, modern API36 notification/full-screen action wiring, and a new Galaxy S25 APK using the persistent debug identity. Physical acceptance remains on the Galaxy S25.
+
+
+### Galaxy S25 immediate alarm crash remediation — APPROVED 2026-09-05
+
+Physical validation of runtime `9de81ce72ed0c6ee2f22cad26ea8dc05394de9dc` on the primary Samsung Galaxy S25 failed. The real diagnostic alarm reaches its scheduled trigger, produces only a momentary vibration/notification effect, then Arihna terminates and Samsung reports that the application closed because of a bug. A ringing lifetime of effectively milliseconds, no durable heads-up/full-screen alarm surface, and a process crash are all release-blocking failures.
+
+The failure first appears in the runtime that introduced custom `RemoteViews` heads-up/big notification content and changed full-screen intent attachment from the existing `AlarmFullScreenAccess.isGranted()` guard to unconditional attachment. CI proved generic Android API28/API36 behavior but cannot certify Samsung SystemUI/OEM rendering. Without device logcat the exact OEM exception is not claimed as proven; the correction therefore removes only the newly introduced risky notification-rendering changes and restores the previously validated platform-native notification path.
+
+Approved correction:
+
+- Remove custom `RemoteViews` heads-up/big notification content and `DecoratedCustomViewStyle`; use the standard `NotificationCompat` alarm layout with normal `Interrompi` and `Rinvia` actions.
+- Restore conditional full-screen intent attachment: call `setFullScreenIntent(...)` only when `AlarmFullScreenAccess.isGranted()` is true. Android 14+ denied full-screen special access must degrade to the normal high-importance alarm notification instead of forcing the full-screen contract.
+- Preserve the real ringing foreground service, alarm audio, 10-minute safety stop, `Interrompi`, 5-minute `Rinvia`, the full-screen ringing activity controls, exact-alarm/notification permission model, and the 20-second diagnostic delay.
+- Do not clear user data/cache as part of the fix and do not change applicationId, signing identity, prayer/location logic, GeoNames, dependencies, SDK levels, or unrelated UI.
+- Definitive validation must rerun unfiltered JVM + assembleDebug + Android 9/API28 connected tests with zero skipped, plus Android 16/API36 denied/granted exact-alarm, notification and full-screen-access behavior using the platform-native notification path.
+- Only after the corrective candidate is green may it fast-forward to `main` and be packaged with the persistent Arihna debug signer for a new Galaxy S25 physical retest.
