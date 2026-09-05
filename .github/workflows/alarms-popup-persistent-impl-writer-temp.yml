@@ -1,0 +1,92 @@
+name: alarms-popup-persistent-impl-writer-temp
+
+on:
+  push:
+    branches: [alarms-popup-persistent-impl-writer-temp]
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  write-and-smoke:
+    runs-on: ubuntu-latest
+    env:
+      SPEC_SHA: 4e6c1b7c10c6b18b536790fe23b4b9d404b596b6
+      BASE_RUNTIME_SHA: a767eaa1f722a9c62ec3dbf3204791ee5b1f77a4
+      GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Stage patch helper and verify spec lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .github/alarms-popup-persistent/apply.py /tmp/apply.py
+          sed -i 's/if count != 1:/if count < 1:/' /tmp/apply.py
+          git checkout --detach "$SPEC_SHA"
+          test "$(git rev-parse HEAD)" = "$SPEC_SHA"
+          test "$(git rev-parse HEAD^)" = "$BASE_RUNTIME_SHA"
+          test "$(git diff --name-only "$BASE_RUNTIME_SHA" "$SPEC_SHA")" = "PROJECT_SPEC.md"
+          grep -Fq 'Galaxy S25 alarm heads-up + ringing controls correction — APPROVED 2026-09-05' PROJECT_SPEC.md
+      - name: Apply authorized correction and create direct-child candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 /tmp/apply.py
+          git diff --check
+          mapfile -t CHANGED < <(git status --short | sed 's/^...//' | sort)
+          printf '%s\n' "${CHANGED[@]}"
+          EXPECTED=$(printf '%s\n' \
+            app/src/androidTest/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmNotificationAndroidTest.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmDiagnosticTestScheduler.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingActivity.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt \
+            app/src/main/res/layout/notification_alarm_heads_up.xml | sort)
+          ACTUAL=$(printf '%s\n' "${CHANGED[@]}" | sort)
+          test "$ACTUAL" = "$EXPECTED"
+          grep -Fq '.setFullScreenIntent(activityPendingIntent, true)' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
+          grep -Fq 'Text("Interrompi"' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingActivity.kt
+          grep -Fq 'Text("Rinvia 5 min"' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingActivity.kt
+          grep -Fq 'const val TEST_DELAY_MILLIS = 20_000L' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmDiagnosticTestScheduler.kt
+          ! grep -R -Fq 'SYSTEM_ALERT_WINDOW' app/src/main AndroidManifest.xml 2>/dev/null || exit 1
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c alarms-popup-persistent-candidate
+          git add app/src/main app/src/androidTest
+          git commit -m 'fix(alarms): strengthen heads-up and snooze controls'
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          git push origin HEAD:refs/heads/alarms-popup-persistent-candidate
+          echo "CANDIDATE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+      - name: Restore frozen GeoNames runtime asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh run download 33296099459 --repo "$GITHUB_REPOSITORY" --name geonames-step4-runtime-minimal --dir /tmp/geonames
+          DB="$(find /tmp/geonames -type f -name cities.db -print -quit)"
+          test -n "$DB"
+          cp "$DB" app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+      - name: Exact candidate smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          ./gradlew testDebugUnitTest assembleDebug --stacktrace
+          test -f app/build/outputs/apk/debug/app-debug.apk
+          echo "PERSISTENT_POPUP_SMOKE PASS candidate=$CANDIDATE_SHA"
