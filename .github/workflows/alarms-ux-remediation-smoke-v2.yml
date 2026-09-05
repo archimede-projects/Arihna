@@ -1,0 +1,54 @@
+name: Alarms UX remediation smoke v2
+
+on:
+  push:
+    branches:
+      - alarms-ux-remediation-smoke-v2
+    paths:
+      - .github/workflows/alarms-ux-remediation-smoke-v2.yml
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CANDIDATE_SHA: fde4aee3b51941827d2ff39eb029b297a3e42898
+      SPEC_SHA: 218caf289105ffbdf15e000a7242b2eb34f05e5e
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact candidate
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse "$CANDIDATE_SHA^")" = "$SPEC_SHA"
+          git checkout --detach "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+      - name: Restore frozen GeoNames
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh run download 33296099459 --repo "$GITHUB_REPOSITORY" --name geonames-step4-runtime-minimal --dir /tmp/geonames
+          DB="$(find /tmp/geonames -type f -name cities.db -print -quit)"
+          test -n "$DB"
+          cp "$DB" app/src/main/assets/geonames/cities.db
+          echo '7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb  app/src/main/assets/geonames/cities.db' | sha256sum -c -
+      - name: JVM tests
+        run: ./gradlew testDebugUnitTest --stacktrace
+      - name: Assemble
+        run: ./gradlew assembleDebug --stacktrace
