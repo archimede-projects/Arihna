@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
@@ -42,7 +43,7 @@ class LocationSettingsScreenAndroidTest {
             ),
             updateState = { state = it },
             "Posizione non configurata",
-            "Origine: Non configurata",
+            "Non configurata",
         )
         assertState(
             newState = LocationSettingsUiState(
@@ -51,7 +52,7 @@ class LocationSettingsScreenAndroidTest {
             ),
             updateState = { state = it },
             "Risoluzione in corso",
-            "Origine: Device",
+            "Device",
         )
         assertState(
             newState = LocationSettingsUiState(
@@ -62,8 +63,9 @@ class LocationSettingsScreenAndroidTest {
                 activeMode = LocationModeUi.Device,
             ),
             updateState = { state = it },
-            "Posizione dispositivo pronta",
-            "Dati: FRESH",
+            "Ferrara, Italia",
+            "FRESH",
+            "Europe/Rome",
         )
         assertState(
             newState = LocationSettingsUiState(
@@ -74,9 +76,28 @@ class LocationSettingsScreenAndroidTest {
                 activeMode = LocationModeUi.Manual,
             ),
             updateState = { state = it },
-            "Città manuale attiva",
-            "Origine: Manuale",
+            "Makkah, Saudi Arabia",
+            "Manuale",
         )
+    }
+
+    @Test
+    fun premiumSectionsReplaceVerboseTemporaryCopy() {
+        setScreen { LocationSettingsUiState() }
+
+        composeRule.onNodeWithText("Impostazioni").assertIsDisplayed()
+        composeRule.onNodeWithText("Posizione").assertIsDisplayed()
+        composeRule.onNodeWithText("Pannello funzionale STEP 6 — la Home definitiva verrà costruita più avanti.")
+            .assertDoesNotExist()
+        composeRule.onNodeWithText("Controlli di sistema e test rapidi per sveglie e Adhan.")
+            .assertDoesNotExist()
+
+        composeRule.onNode(hasScrollAction())
+            .performScrollToNode(hasText("Sveglie e notifiche"))
+        composeRule.onNodeWithText("Sveglie e notifiche").assertIsDisplayed()
+        composeRule.onNode(hasScrollAction())
+            .performScrollToNode(hasText("Test rapidi"))
+        composeRule.onNodeWithText("Test rapidi").assertIsDisplayed()
     }
 
     @Test

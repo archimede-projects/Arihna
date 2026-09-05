@@ -2,35 +2,40 @@ package com.archimedeprojects.arihna.feature.settings
 
 import android.Manifest
 import android.app.Activity
-import android.os.Build
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -43,6 +48,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -62,6 +68,16 @@ import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeControlle
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeState
 import com.archimedeprojects.arihna.feature.alarms.platform.ExactAlarmAccessIntentFactory
 import kotlin.math.roundToInt
+
+private val SettingsBackground = Color(0xFF091411)
+private val SettingsSurface = Color(0xFF14211D)
+private val SettingsSurfaceRaised = Color(0xFF1A2A25)
+private val SettingsText = Color(0xFFF6F2E8)
+private val SettingsMuted = Color(0xFFAAB8B1)
+private val SettingsAccent = Color(0xFFE0C56D)
+private val SettingsSuccess = Color(0xFF7ED0A3)
+private val SettingsDanger = Color(0xFFFF9188)
+private val SettingsOutline = Color(0xFF31443D)
 
 @Composable
 fun LocationSettingsRoute(
@@ -246,98 +262,72 @@ fun LocationSettingsScreen(
     onCancelDiagnostic: () -> Unit = {},
 ) {
     val presentation = uiState.resolutionState.toPresentation()
+    val ready = uiState.resolutionState is LocationResolutionState.Ready
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(SettingsBackground),
         contentPadding = PaddingValues(
-            start = 20.dp,
-            top = contentPadding.calculateTopPadding() + 20.dp,
-            end = 20.dp,
+            start = 18.dp,
+            top = contentPadding.calculateTopPadding() + 18.dp,
+            end = 18.dp,
             bottom = contentPadding.calculateBottomPadding() + 28.dp,
         ),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    text = "Impostazioni",
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Text(
-                    text = "Controlli di sistema e test rapidi per sveglie e Adhan.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    text = "Posizione",
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Text(
-                    text = "Pannello funzionale STEP 6 — la Home definitiva verrà costruita più avanti.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            Text(
+                text = "Impostazioni",
+                style = MaterialTheme.typography.displaySmall,
+                fontWeight = FontWeight.Bold,
+                color = SettingsText,
+                modifier = Modifier.padding(bottom = 2.dp),
+            )
         }
 
+        item { SettingsSectionTitle("Posizione", "settings-section-location") }
+
         item {
-            Card(modifier = Modifier.fillMaxWidth()) {
+            Card(
+                modifier = Modifier.fillMaxWidth().testTag("settings-location-summary"),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = SettingsSurfaceRaised),
+                border = BorderStroke(1.dp, SettingsOutline),
+            ) {
                 Column(
-                    modifier = Modifier.padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(9.dp),
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = "Stato",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        SourceBadge(uiState.activeMode.label())
-                    }
-
                     Text(
-                        text = presentation.title,
+                        text = presentation.locationName ?: presentation.title,
                         style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        color = SettingsText,
                     )
-                    Text(
-                        text = presentation.message,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-
-                    presentation.locationName?.let {
-                        HorizontalDivider()
+                    if (ready) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            SettingsPill(uiState.activeMode.label(), SettingsAccent)
+                            presentation.freshness?.let {
+                                SettingsPill(
+                                    label = it,
+                                    accent = if (it == "FRESH") SettingsSuccess else SettingsAccent,
+                                )
+                            }
+                        }
+                        presentation.zoneId?.let {
+                            Text(
+                                text = it,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = SettingsMuted,
+                            )
+                        }
+                    } else {
+                        SourceBadge(uiState.activeMode.label())
                         Text(
-                            text = it,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
-                    presentation.zoneId?.let {
-                        Text(
-                            text = "Fuso orario: $it",
+                            text = presentation.message,
                             style = MaterialTheme.typography.bodyMedium,
-                        )
-                    }
-                    presentation.freshness?.let {
-                        Text(
-                            text = "Dati: $it",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = if (it == "FRESH") {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.secondary
-                            },
+                            color = SettingsMuted,
                         )
                     }
 
@@ -346,85 +336,71 @@ fun LocationSettingsScreen(
                             modifier = Modifier.fillMaxWidth(),
                             contentAlignment = Alignment.Center,
                         ) {
-                            CircularProgressIndicator()
+                            CircularProgressIndicator(color = SettingsAccent)
                         }
                     }
 
                     if (presentation.showAppSettingsAction) {
-                        OutlinedButton(onClick = onOpenAppSettings) {
-                            Text("Apri impostazioni app")
-                        }
+                        CompactOutlinedAction("Apri impostazioni app", onOpenAppSettings)
                     }
                     if (presentation.showLocationSettingsAction) {
-                        OutlinedButton(onClick = onOpenLocationSettings) {
-                            Text("Apri impostazioni Posizione")
-                        }
+                        CompactOutlinedAction("Apri impostazioni Posizione", onOpenLocationSettings)
                     }
                 }
             }
         }
 
         item {
-            Card(modifier = Modifier.fillMaxWidth()) {
+            Card(
+                modifier = Modifier.fillMaxWidth().testTag("settings-location-controls"),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = SettingsSurface),
+                border = BorderStroke(1.dp, SettingsOutline),
+            ) {
                 Column(
-                    modifier = Modifier.padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Text(
-                        text = "Posizione del dispositivo",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = "Arihna richiede solo la posizione approssimativa e la usa localmente per calcolare gli orari di preghiera.",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
                     Button(
                         onClick = onUseDevice,
                         modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = SettingsAccent,
+                            contentColor = SettingsBackground,
+                        ),
                     ) {
-                        Text("Usa posizione attuale")
+                        Text("Usa posizione attuale", fontWeight = FontWeight.Bold)
                     }
-                }
-            }
-        }
-
-        item {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text(
-                        text = "Città manuale",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = "La ricerca usa l’archivio GeoNames offline incluso in Arihna. Non serve concedere la posizione.",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
                     OutlinedTextField(
                         value = uiState.searchQuery,
                         onValueChange = onSearchQueryChanged,
                         label = { Text("Cerca città") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = SettingsText,
+                            unfocusedTextColor = SettingsText,
+                            focusedBorderColor = SettingsAccent,
+                            unfocusedBorderColor = SettingsOutline,
+                            focusedLabelColor = SettingsAccent,
+                            unfocusedLabelColor = SettingsMuted,
+                            cursorColor = SettingsAccent,
+                        ),
                     )
                     if (uiState.searchInProgress) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            CircularProgressIndicator()
-                            Text("Ricerca nell’archivio locale…")
+                            CircularProgressIndicator(color = SettingsAccent)
+                            Text("Ricerca locale…", color = SettingsMuted)
                         }
                     }
                     uiState.searchMessage?.let {
                         Text(
                             text = it,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SettingsMuted,
                         )
                     }
                 }
@@ -438,6 +414,7 @@ fun LocationSettingsScreen(
             CityResultCard(city = city, onSelectCity = onSelectCity)
         }
 
+        item { SettingsSectionTitle("Sveglie e notifiche", "settings-section-alarms") }
         item {
             AlarmSystemSettingsCard(
                 state = alarmSettings,
@@ -448,6 +425,8 @@ fun LocationSettingsScreen(
                 onAlarmVolumeChange = onAlarmVolumeChange,
             )
         }
+
+        item { SettingsSectionTitle("Test rapidi", "settings-section-tests") }
         item {
             AlarmDiagnosticCard(
                 state = alarmSettings,
@@ -484,17 +463,48 @@ fun LocationSettingsScreen(
 }
 
 @Composable
-private fun SourceBadge(label: String) {
+private fun SettingsSectionTitle(text: String, tag: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold,
+        color = SettingsAccent,
+        modifier = Modifier
+            .padding(top = 5.dp, start = 2.dp)
+            .testTag(tag),
+    )
+}
+
+@Composable
+private fun SettingsPill(label: String, accent: Color) {
     Surface(
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        color = accent.copy(alpha = 0.12f),
+        contentColor = accent,
         shape = RoundedCornerShape(999.dp),
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.34f)),
     ) {
         Text(
-            text = "Origine: $label",
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-            style = MaterialTheme.typography.labelLarge,
+            text = label,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
         )
+    }
+}
+
+@Composable
+private fun SourceBadge(label: String) {
+    SettingsPill(label = label, accent = SettingsAccent)
+}
+
+@Composable
+private fun CompactOutlinedAction(label: String, onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        border = BorderStroke(1.dp, SettingsOutline),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = SettingsText),
+    ) {
+        Text(label)
     }
 }
 
@@ -507,25 +517,30 @@ private fun CityResultCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onSelectCity(city.id) },
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = SettingsSurface),
+        border = BorderStroke(1.dp, SettingsOutline),
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp),
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
                 text = city.displayName,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
+                color = SettingsText,
             )
             Text(
-                text = "Fuso: ${city.timeZoneId}",
+                text = city.timeZoneId,
                 style = MaterialTheme.typography.bodySmall,
+                color = SettingsMuted,
             )
             if (!city.timeZoneSupported) {
                 Text(
                     text = "Fuso non supportato su questa versione Android: selezionando la città Arihna mostrerà un errore controllato.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
+                    color = SettingsDanger,
                 )
             }
         }
@@ -551,20 +566,19 @@ private fun AlarmSystemSettingsCard(
     onManageOverlay: () -> Unit,
     onAlarmVolumeChange: (Int) -> Unit,
 ) {
-    Card(modifier = Modifier.fillMaxWidth().testTag("settings-alarm-capabilities")) {
-        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Sveglie e notifiche", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Text(
-                "I permessi di sistema sono gestiti qui, separati dalle sveglie personali.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+    Card(
+        modifier = Modifier.fillMaxWidth().testTag("settings-alarm-capabilities"),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = SettingsSurface),
+        border = BorderStroke(1.dp, SettingsOutline),
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             AlarmCapabilitySettingRow("Notifiche", state.notificationReady, "Gestisci", onManageNotifications)
-            HorizontalDivider()
+            HorizontalDivider(color = SettingsOutline)
             AlarmCapabilitySettingRow("Allarmi esatti", state.exactReady, "Gestisci", onManageExactAlarms)
-            HorizontalDivider()
-            AlarmCapabilitySettingRow("Schermo intero", state.fullScreenReady, "Apri impostazioni", onManageFullScreen)
-            HorizontalDivider()
+            HorizontalDivider(color = SettingsOutline)
+            AlarmCapabilitySettingRow("Schermo intero", state.fullScreenReady, "Apri", onManageFullScreen)
+            HorizontalDivider(color = SettingsOutline)
             AlarmCapabilitySettingRow(
                 label = "Popup sveglia",
                 ready = state.overlayReady,
@@ -572,7 +586,7 @@ private fun AlarmSystemSettingsCard(
                 onClick = onManageOverlay,
                 modifier = Modifier.testTag("settings-overlay-access"),
             )
-            HorizontalDivider()
+            HorizontalDivider(color = SettingsOutline)
             AlarmVolumeSetting(
                 state = state,
                 onAlarmVolumeChange = onAlarmVolumeChange,
@@ -590,19 +604,29 @@ private fun AlarmCapabilitySettingRow(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Text(
-                if (ready) "Consentito" else "Da autorizzare",
-                color = if (ready) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium,
-            )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = SettingsText,
+            modifier = Modifier.weight(1f),
+        )
+        SettingsPill(
+            label = if (ready) "Pronto" else "Da autorizzare",
+            accent = if (ready) SettingsSuccess else SettingsDanger,
+        )
+        TextButton(
+            onClick = onClick,
+            colors = ButtonDefaults.textButtonColors(contentColor = SettingsAccent),
+        ) {
+            Text(actionLabel)
         }
-        OutlinedButton(onClick = onClick) { Text(actionLabel) }
     }
 }
 
@@ -614,16 +638,29 @@ private fun AlarmVolumeSetting(
     val volume = state.alarmVolumeState
     val sliderMax = if (volume.max > volume.min) volume.max else volume.min + 1
     Column(
-        modifier = Modifier.fillMaxWidth().testTag("settings-alarm-volume"),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 10.dp, bottom = 4.dp)
+            .testTag("settings-alarm-volume"),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Volume sveglia", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Text("${volume.percent}%", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+            Text(
+                "Volume sveglia",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = SettingsText,
+            )
+            Text(
+                "${volume.percent}%",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = SettingsAccent,
+            )
         }
         Slider(
             value = volume.current.coerceIn(volume.min, volume.max).toFloat(),
@@ -632,14 +669,19 @@ private fun AlarmVolumeSetting(
             steps = (volume.max - volume.min - 1).coerceAtLeast(0),
             enabled = volume.max > volume.min,
             modifier = Modifier.fillMaxWidth().testTag("settings-alarm-volume-slider"),
+            colors = SliderDefaults.colors(
+                thumbColor = SettingsAccent,
+                activeTrackColor = SettingsAccent,
+                inactiveTrackColor = SettingsOutline,
+            ),
         )
         Text(
-            "Modifica il volume globale delle sveglie del telefono.",
+            "Volume globale delle sveglie del telefono",
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = SettingsMuted,
         )
         state.alarmVolumeMessage?.let {
-            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            Text(it, style = MaterialTheme.typography.bodySmall, color = SettingsDanger)
         }
     }
 }
@@ -651,28 +693,34 @@ private fun AlarmDiagnosticCard(
     onTestAdhan: () -> Unit,
     onCancelDiagnostic: () -> Unit,
 ) {
-    Card(modifier = Modifier.fillMaxWidth().testTag("settings-alarm-tests")) {
-        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Test hardware", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Text(
-                "Esegue un test reale tra 20 secondi usando lo stesso percorso di sveglie, notifica e schermo intero.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+    Card(
+        modifier = Modifier.fillMaxWidth().testTag("settings-alarm-tests"),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = SettingsSurfaceRaised),
+        border = BorderStroke(1.dp, SettingsOutline),
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = onTestAlarm,
                 modifier = Modifier.fillMaxWidth().testTag("settings-test-alarm-one-minute"),
-            ) { Text("Test sveglia (20 secondi)") }
-            Button(
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = SettingsAccent,
+                    contentColor = SettingsBackground,
+                ),
+            ) { Text("Test sveglia (20 secondi)", fontWeight = FontWeight.Bold) }
+            OutlinedButton(
                 onClick = onTestAdhan,
                 modifier = Modifier.fillMaxWidth().testTag("settings-test-adhan-one-minute"),
+                border = BorderStroke(1.dp, SettingsAccent.copy(alpha = 0.65f)),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = SettingsText),
             ) { Text("Test Adhan (20 secondi)") }
             TextButton(
                 onClick = onCancelDiagnostic,
                 modifier = Modifier.fillMaxWidth().testTag("settings-test-cancel"),
+                colors = ButtonDefaults.textButtonColors(contentColor = SettingsMuted),
             ) { Text("Annulla test in corso") }
             state.diagnosticMessage?.let {
-                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = SettingsAccent)
             }
         }
     }
