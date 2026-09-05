@@ -17,7 +17,7 @@ jobs:
     env:
       BASE_SHA: 925a3c45193d059122c2b65c09c33e9a22fb6b48
       SPEC_SHA: 587d088bd6b5178a1608ab5d66ae7c8ee90c9f79
-      CANDIDATE_SHA: 06eacd1499fce58d7191f8595191c7683d8be893
+      CANDIDATE_SHA: 79c6e521e234e4b5f06b9b3366400fec1c69a9ab
       GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
       ADHAN_SHA256: 3b350bc210d657727578ed977e32323c06b63c2088c3ebcea9fc9afb7d487702
     steps:
@@ -28,10 +28,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git fetch origin main alarms-s25-overlay-volume-spec alarms-s25-overlay-volume-candidate --force
+          git fetch origin main alarms-s25-overlay-volume-spec alarms-s25-overlay-volume-candidate-v2 --force
           test "$(git rev-parse origin/main)" = "$SPEC_SHA"
           test "$(git rev-parse origin/alarms-s25-overlay-volume-spec)" = "$SPEC_SHA"
-          test "$(git rev-parse origin/alarms-s25-overlay-volume-candidate)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse origin/alarms-s25-overlay-volume-candidate-v2)" = "$CANDIDATE_SHA"
           test "$(git rev-parse "$SPEC_SHA^")" = "$BASE_SHA"
           test "$(git rev-parse "$CANDIDATE_SHA^")" = "$SPEC_SHA"
           test "$(git diff --name-only "$BASE_SHA" "$SPEC_SHA")" = "PROJECT_SPEC.md"
@@ -135,7 +135,7 @@ jobs:
     env:
       BASE_SHA: 925a3c45193d059122c2b65c09c33e9a22fb6b48
       SPEC_SHA: 587d088bd6b5178a1608ab5d66ae7c8ee90c9f79
-      CANDIDATE_SHA: 06eacd1499fce58d7191f8595191c7683d8be893
+      CANDIDATE_SHA: 79c6e521e234e4b5f06b9b3366400fec1c69a9ab
       GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
     steps:
       - uses: actions/checkout@v4
@@ -148,10 +148,10 @@ jobs:
           cp .github/alarms-s25-overlay-volume/OverlayVolumeModernAndroidTest.kt /tmp/OverlayVolumeModernAndroidTest.kt
           cp .github/alarms-s25-overlay-volume/run-modern-api36.sh /tmp/run-modern-api36.sh
           chmod +x /tmp/run-modern-api36.sh
-          git fetch origin main alarms-s25-overlay-volume-spec alarms-s25-overlay-volume-candidate --force
+          git fetch origin main alarms-s25-overlay-volume-spec alarms-s25-overlay-volume-candidate-v2 --force
           test "$(git rev-parse origin/main)" = "$SPEC_SHA"
           test "$(git rev-parse origin/alarms-s25-overlay-volume-spec)" = "$SPEC_SHA"
-          test "$(git rev-parse origin/alarms-s25-overlay-volume-candidate)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse origin/alarms-s25-overlay-volume-candidate-v2)" = "$CANDIDATE_SHA"
           test "$(git rev-parse "$SPEC_SHA^")" = "$BASE_SHA"
           test "$(git rev-parse "$CANDIDATE_SHA^")" = "$SPEC_SHA"
           git checkout --detach "$CANDIDATE_SHA"
