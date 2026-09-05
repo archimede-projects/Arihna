@@ -1,0 +1,849 @@
+name: Alarms S25 Overlay Volume Candidate Writer Temp
+
+on:
+  push:
+    branches:
+      - alarms-s25-overlay-volume-candidate-writer-20260905
+
+permissions:
+  contents: write
+
+jobs:
+  write-candidate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact authorized spec
+        uses: actions/checkout@v4
+        with:
+          ref: 587d088bd6b5178a1608ab5d66ae7c8ee90c9f79
+          fetch-depth: 0
+
+      - name: Verify direct technical parent
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "587d088bd6b5178a1608ab5d66ae7c8ee90c9f79"
+          test "$(git rev-parse HEAD^)" = "925a3c45193d059122c2b65c09c33e9a22fb6b48"
+
+      - name: Add overlay and alarm-volume platform helpers
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmOverlayAccess.kt <<'EOF'
+          package com.archimedeprojects.arihna.feature.alarms.platform
+
+          import android.content.Context
+          import android.content.Intent
+          import android.net.Uri
+          import android.provider.Settings
+
+          class AlarmOverlayAccess(context: Context) {
+              private val appContext = context.applicationContext
+
+              fun isGranted(): Boolean = Settings.canDrawOverlays(appContext)
+
+              fun createSettingsIntent(): Intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
+                  data = Uri.parse("package:${appContext.packageName}")
+                  addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+              }
+          }
+          EOF
+
+          cat > app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmVolumeController.kt <<'EOF'
+          package com.archimedeprojects.arihna.feature.alarms.platform
+
+          import android.content.Context
+          import android.media.AudioManager
+          import kotlin.math.roundToInt
+
+          data class AlarmVolumeState(
+              val current: Int,
+              val min: Int,
+              val max: Int,
+          ) {
+              val percent: Int
+                  get() = if (max <= min) {
+                      100
+                  } else {
+                      (((current - min).toFloat() / (max - min).toFloat()) * 100f)
+                          .roundToInt()
+                          .coerceIn(0, 100)
+                  }
+          }
+
+          sealed interface AlarmVolumeChangeResult {
+              data class Success(val state: AlarmVolumeState) : AlarmVolumeChangeResult
+              data class Failure(val state: AlarmVolumeState, val message: String) : AlarmVolumeChangeResult
+          }
+
+          class AlarmVolumeController(context: Context) {
+              private val audioManager =
+                  context.applicationContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+              fun read(): AlarmVolumeState {
+                  val min = audioManager.getStreamMinVolume(AudioManager.STREAM_ALARM)
+                  val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+                  val current = audioManager.getStreamVolume(AudioManager.STREAM_ALARM).coerceIn(min, max)
+                  return AlarmVolumeState(current = current, min = min, max = max)
+              }
+
+              fun setVolume(requested: Int): AlarmVolumeChangeResult {
+                  val before = read()
+                  if (audioManager.isVolumeFixed) {
+                      return AlarmVolumeChangeResult.Failure(
+                          state = before,
+                          message = "Il dispositivo usa un volume fisso e non consente questa modifica.",
+                      )
+                  }
+                  val target = requested.coerceIn(before.min, before.max)
+                  return try {
+                      audioManager.setStreamVolume(AudioManager.STREAM_ALARM, target, 0)
+                      val after = read()
+                      if (after.current == target) {
+                          AlarmVolumeChangeResult.Success(after)
+                      } else {
+                          AlarmVolumeChangeResult.Failure(
+                              state = after,
+                              message = "Android non ha applicato il volume richiesto.",
+                          )
+                      }
+                  } catch (_: SecurityException) {
+                      AlarmVolumeChangeResult.Failure(
+                          state = read(),
+                          message = "Android ha bloccato la modifica del volume sveglia.",
+                      )
+                  } catch (_: RuntimeException) {
+                      AlarmVolumeChangeResult.Failure(
+                          state = read(),
+                          message = "Impossibile modificare il volume sveglia su questo dispositivo.",
+                      )
+                  }
+              }
+          }
+          EOF
+
+          cat > app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingOverlay.kt <<'EOF'
+          package com.archimedeprojects.arihna.feature.alarms.platform
+
+          import android.app.KeyguardManager
+          import android.content.Context
+          import android.content.res.ColorStateList
+          import android.graphics.Color
+          import android.graphics.PixelFormat
+          import android.graphics.Typeface
+          import android.graphics.drawable.GradientDrawable
+          import android.view.Gravity
+          import android.view.View
+          import android.view.WindowManager
+          import android.widget.Button
+          import android.widget.FrameLayout
+          import android.widget.LinearLayout
+          import android.widget.TextView
+          import java.time.LocalTime
+          import java.time.format.DateTimeFormatter
+
+          internal interface AlarmOverlayWindowHost {
+              fun add(view: View, params: WindowManager.LayoutParams)
+              fun remove(view: View)
+          }
+
+          private class AndroidAlarmOverlayWindowHost(
+              private val windowManager: WindowManager,
+          ) : AlarmOverlayWindowHost {
+              override fun add(view: View, params: WindowManager.LayoutParams) {
+                  windowManager.addView(view, params)
+              }
+
+              override fun remove(view: View) {
+                  windowManager.removeViewImmediate(view)
+              }
+          }
+
+          internal class AlarmRingingOverlay(
+              private val context: Context,
+              private val canDrawOverlays: () -> Boolean = { AlarmOverlayAccess(context).isGranted() },
+              private val isDeviceLocked: () -> Boolean = {
+                  (context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).isKeyguardLocked
+              },
+              private val windowHost: AlarmOverlayWindowHost = AndroidAlarmOverlayWindowHost(
+                  context.getSystemService(Context.WINDOW_SERVICE) as WindowManager,
+              ),
+          ) {
+              private var rootView: View? = null
+
+              internal val isShowing: Boolean
+                  get() = rootView != null
+
+              fun show(
+                  payload: AlarmRingingPayload,
+                  onStop: () -> Unit,
+                  onSnooze: () -> Unit,
+              ): Boolean {
+                  hide()
+                  if (!canDrawOverlays() || isDeviceLocked()) return false
+
+                  val root = buildView(payload, onStop, onSnooze)
+                  val params = WindowManager.LayoutParams(
+                      WindowManager.LayoutParams.MATCH_PARENT,
+                      WindowManager.LayoutParams.WRAP_CONTENT,
+                      WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                      WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                          WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+                      PixelFormat.TRANSLUCENT,
+                  ).apply {
+                      gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                      y = dp(18)
+                  }
+                  return runCatching {
+                      windowHost.add(root, params)
+                      rootView = root
+                      true
+                  }.getOrElse {
+                      rootView = null
+                      false
+                  }
+              }
+
+              fun hide() {
+                  val current = rootView ?: return
+                  rootView = null
+                  runCatching { windowHost.remove(current) }
+              }
+
+              private fun buildView(
+                  payload: AlarmRingingPayload,
+                  onStop: () -> Unit,
+                  onSnooze: () -> Unit,
+              ): View {
+                  val root = FrameLayout(context).apply {
+                      contentDescription = "arihna-alarm-overlay"
+                      setPadding(dp(12), dp(8), dp(12), dp(8))
+                  }
+
+                  val card = LinearLayout(context).apply {
+                      orientation = LinearLayout.VERTICAL
+                      setPadding(dp(22), dp(18), dp(22), dp(18))
+                      elevation = dp(18).toFloat()
+                      background = roundedDrawable(
+                          fill = Color.rgb(8, 58, 39),
+                          stroke = Color.rgb(212, 175, 55),
+                          radiusDp = 28,
+                          strokeDp = 2,
+                      )
+                  }
+                  root.addView(
+                      card,
+                      FrameLayout.LayoutParams(
+                          FrameLayout.LayoutParams.MATCH_PARENT,
+                          FrameLayout.LayoutParams.WRAP_CONTENT,
+                      ).apply {
+                          leftMargin = dp(4)
+                          rightMargin = dp(4)
+                      },
+                  )
+
+                  card.addView(TextView(context).apply {
+                      text = "SVEGLIA ARIHNA"
+                      setTextColor(Color.rgb(212, 175, 55))
+                      textSize = 12f
+                      typeface = Typeface.DEFAULT_BOLD
+                      letterSpacing = 0.12f
+                  })
+
+                  val headline = LinearLayout(context).apply {
+                      orientation = LinearLayout.HORIZONTAL
+                      gravity = Gravity.CENTER_VERTICAL
+                      setPadding(0, dp(8), 0, dp(16))
+                  }
+                  headline.addView(TextView(context).apply {
+                      text = payload.title
+                      setTextColor(Color.WHITE)
+                      textSize = 25f
+                      typeface = Typeface.DEFAULT_BOLD
+                      maxLines = 1
+                  }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+                  headline.addView(TextView(context).apply {
+                      text = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
+                      setTextColor(Color.rgb(250, 250, 246))
+                      textSize = 25f
+                      typeface = Typeface.DEFAULT_BOLD
+                  })
+                  card.addView(headline)
+
+                  card.addView(TextView(context).apply {
+                      text = when (payload.soundProfile) {
+                          com.archimedeprojects.arihna.feature.alarms.domain.AlarmSoundProfile.ADHAN -> "Adhan in corso"
+                          com.archimedeprojects.arihna.feature.alarms.domain.AlarmSoundProfile.SYSTEM_DEFAULT ->
+                              payload.ringtoneTitle ?: "Sveglia in corso"
+                          com.archimedeprojects.arihna.feature.alarms.domain.AlarmSoundProfile.SILENT -> "Sveglia in corso"
+                      }
+                      setTextColor(Color.rgb(225, 235, 229))
+                      textSize = 15f
+                      setPadding(0, 0, 0, dp(18))
+                  })
+
+                  val actions = LinearLayout(context).apply {
+                      orientation = LinearLayout.HORIZONTAL
+                      gravity = Gravity.CENTER
+                  }
+                  val stopButton = actionButton(
+                      text = "Interrompi",
+                      filled = true,
+                      onClick = onStop,
+                  )
+                  val snoozeButton = actionButton(
+                      text = "Rinvia 5 min",
+                      filled = false,
+                      onClick = onSnooze,
+                  )
+                  actions.addView(
+                      stopButton,
+                      LinearLayout.LayoutParams(0, dp(58), 1f).apply { rightMargin = dp(7) },
+                  )
+                  actions.addView(
+                      snoozeButton,
+                      LinearLayout.LayoutParams(0, dp(58), 1f).apply { leftMargin = dp(7) },
+                  )
+                  card.addView(actions)
+                  return root
+              }
+
+              private fun actionButton(
+                  text: String,
+                  filled: Boolean,
+                  onClick: () -> Unit,
+              ): Button = Button(context).apply {
+                  this.text = text
+                  isAllCaps = false
+                  textSize = 17f
+                  typeface = Typeface.DEFAULT_BOLD
+                  minimumHeight = dp(56)
+                  setTextColor(if (filled) Color.rgb(8, 58, 39) else Color.rgb(250, 250, 246))
+                  backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
+                  background = roundedDrawable(
+                      fill = if (filled) Color.rgb(212, 175, 55) else Color.rgb(12, 73, 48),
+                      stroke = Color.rgb(212, 175, 55),
+                      radiusDp = 18,
+                      strokeDp = if (filled) 0 else 1,
+                  )
+                  contentDescription = text
+                  setOnClickListener { onClick() }
+              }
+
+              private fun roundedDrawable(
+                  fill: Int,
+                  stroke: Int,
+                  radiusDp: Int,
+                  strokeDp: Int,
+              ): GradientDrawable = GradientDrawable().apply {
+                  shape = GradientDrawable.RECTANGLE
+                  setColor(fill)
+                  cornerRadius = dp(radiusDp).toFloat()
+                  if (strokeDp > 0) setStroke(dp(strokeDp), stroke)
+              }
+
+              private fun dp(value: Int): Int =
+                  (value * context.resources.displayMetrics.density).toInt()
+          }
+          EOF
+
+      - name: Patch authorized runtime and settings UI
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one match, found {count}: {old[:80]!r}")
+              p.write_text(text.replace(old, new, 1))
+
+          replace_once(
+              "app/src/main/AndroidManifest.xml",
+              '    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />\n',
+              '    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />\n'
+              '    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />\n',
+          )
+
+          service = "app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt"
+          replace_once(
+              service,
+              '    private var activeAlarmId: String? = null\n    private val safetyStop = Runnable { stopRinging() }\n',
+              '    private var activeAlarmId: String? = null\n'
+              '    private val ringingOverlay by lazy { AlarmRingingOverlay(this) }\n'
+              '    private val safetyStop = Runnable { stopRinging() }\n',
+          )
+          replace_once(
+              service,
+              '        startAudio(payload.soundProfile, payload.ringtoneUri)\n        mainHandler.removeCallbacks(safetyStop)\n',
+              '        startAudio(payload.soundProfile, payload.ringtoneUri)\n'
+              '        ringingOverlay.show(\n'
+              '            payload = payload,\n'
+              '            onStop = { stopRinging() },\n'
+              '            onSnooze = {\n'
+              '                if (AlarmSnoozeScheduler(this).schedule(payload)) {\n'
+              '                    stopRinging()\n'
+              '                }\n'
+              '            },\n'
+              '        )\n'
+              '        mainHandler.removeCallbacks(safetyStop)\n',
+          )
+          replace_once(
+              service,
+              '    private fun stopRinging() {\n        mainHandler.removeCallbacks(safetyStop)\n',
+              '    private fun stopRinging() {\n        mainHandler.removeCallbacks(safetyStop)\n        ringingOverlay.hide()\n',
+          )
+          replace_once(
+              service,
+              '    override fun onDestroy() {\n        mainHandler.removeCallbacks(safetyStop)\n',
+              '    override fun onDestroy() {\n        mainHandler.removeCallbacks(safetyStop)\n        ringingOverlay.hide()\n',
+          )
+
+          settings = "app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt"
+          replace_once(
+              settings,
+              'import androidx.compose.material3.OutlinedTextField\n',
+              'import androidx.compose.material3.OutlinedTextField\nimport androidx.compose.material3.Slider\n',
+          )
+          replace_once(
+              settings,
+              'import com.archimedeprojects.arihna.feature.alarms.platform.AlarmFullScreenAccess\n',
+              'import com.archimedeprojects.arihna.feature.alarms.platform.AlarmFullScreenAccess\n'
+              'import com.archimedeprojects.arihna.feature.alarms.platform.AlarmOverlayAccess\n'
+              'import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeChangeResult\n'
+              'import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeController\n'
+              'import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeState\n',
+          )
+          replace_once(
+              settings,
+              'import com.archimedeprojects.arihna.feature.alarms.platform.ExactAlarmAccessIntentFactory\n',
+              'import com.archimedeprojects.arihna.feature.alarms.platform.ExactAlarmAccessIntentFactory\nimport kotlin.math.roundToInt\n',
+          )
+          replace_once(
+              settings,
+              '    val fullScreenReady = alarmFullScreenAccess.isGranted()\n\n    val notificationLauncher = rememberLauncherForActivityResult(\n',
+              '    val fullScreenReady = alarmFullScreenAccess.isGranted()\n'
+              '    val alarmOverlayAccess = remember(activity) { AlarmOverlayAccess(activity) }\n'
+              '    val alarmVolumeController = remember(activity) { AlarmVolumeController(activity) }\n'
+              '    val overlayReady = alarmOverlayAccess.isGranted()\n'
+              '    var alarmVolumeState by remember { mutableStateOf(alarmVolumeController.read()) }\n'
+              '    var alarmVolumeMessage by remember { mutableStateOf<String?>(null) }\n\n'
+              '    val notificationLauncher = rememberLauncherForActivityResult(\n',
+          )
+          replace_once(
+              settings,
+              '    val fullScreenLauncher = rememberLauncherForActivityResult(\n        contract = ActivityResultContracts.StartActivityForResult(),\n    ) {\n        capabilityRefresh += 1\n        alarmsViewModel.refreshCapabilities()\n    }\n\n    fun diagnosticResultMessage',
+              '    val fullScreenLauncher = rememberLauncherForActivityResult(\n        contract = ActivityResultContracts.StartActivityForResult(),\n    ) {\n        capabilityRefresh += 1\n        alarmsViewModel.refreshCapabilities()\n    }\n'
+              '    val overlayLauncher = rememberLauncherForActivityResult(\n'
+              '        contract = ActivityResultContracts.StartActivityForResult(),\n'
+              '    ) {\n'
+              '        capabilityRefresh += 1\n'
+              '        alarmsViewModel.refreshCapabilities()\n'
+              '    }\n\n'
+              '    fun diagnosticResultMessage',
+          )
+          replace_once(
+              settings,
+              '            fullScreenReady = fullScreenReady,\n            diagnosticMessage = diagnosticMessage,\n',
+              '            fullScreenReady = fullScreenReady,\n'
+              '            overlayReady = overlayReady,\n'
+              '            alarmVolumeState = alarmVolumeState,\n'
+              '            alarmVolumeMessage = alarmVolumeMessage,\n'
+              '            diagnosticMessage = diagnosticMessage,\n',
+          )
+          replace_once(
+              settings,
+              '        onManageFullScreen = {\n            alarmFullScreenAccess.createSettingsIntent()?.let(fullScreenLauncher::launch)\n                ?: alarmsViewModel.refreshCapabilities()\n        },\n        onTestAlarm = {\n',
+              '        onManageFullScreen = {\n            alarmFullScreenAccess.createSettingsIntent()?.let(fullScreenLauncher::launch)\n                ?: alarmsViewModel.refreshCapabilities()\n        },\n'
+              '        onManageOverlay = {\n'
+              '            overlayLauncher.launch(alarmOverlayAccess.createSettingsIntent())\n'
+              '        },\n'
+              '        onAlarmVolumeChange = { requested ->\n'
+              '            when (val result = alarmVolumeController.setVolume(requested)) {\n'
+              '                is AlarmVolumeChangeResult.Success -> {\n'
+              '                    alarmVolumeState = result.state\n'
+              '                    alarmVolumeMessage = null\n'
+              '                }\n'
+              '                is AlarmVolumeChangeResult.Failure -> {\n'
+              '                    alarmVolumeState = result.state\n'
+              '                    alarmVolumeMessage = result.message\n'
+              '                }\n'
+              '            }\n'
+              '        },\n'
+              '        onTestAlarm = {\n',
+          )
+          replace_once(
+              settings,
+              '    onManageFullScreen: () -> Unit = {},\n    onTestAlarm: () -> Unit = {},\n',
+              '    onManageFullScreen: () -> Unit = {},\n'
+              '    onManageOverlay: () -> Unit = {},\n'
+              '    onAlarmVolumeChange: (Int) -> Unit = {},\n'
+              '    onTestAlarm: () -> Unit = {},\n',
+          )
+          replace_once(
+              settings,
+              '                onManageFullScreen = onManageFullScreen,\n            )\n',
+              '                onManageFullScreen = onManageFullScreen,\n'
+              '                onManageOverlay = onManageOverlay,\n'
+              '                onAlarmVolumeChange = onAlarmVolumeChange,\n'
+              '            )\n',
+          )
+          replace_once(
+              settings,
+              'data class AlarmSettingsPresentation(\n    val notificationReady: Boolean = false,\n    val exactReady: Boolean = false,\n    val fullScreenReady: Boolean = false,\n    val diagnosticMessage: String? = null,\n)\n',
+              'data class AlarmSettingsPresentation(\n'
+              '    val notificationReady: Boolean = false,\n'
+              '    val exactReady: Boolean = false,\n'
+              '    val fullScreenReady: Boolean = false,\n'
+              '    val overlayReady: Boolean = false,\n'
+              '    val alarmVolumeState: AlarmVolumeState = AlarmVolumeState(current = 0, min = 0, max = 1),\n'
+              '    val alarmVolumeMessage: String? = null,\n'
+              '    val diagnosticMessage: String? = null,\n'
+              ')\n',
+          )
+          old_card = '''@Composable
+          private fun AlarmSystemSettingsCard(
+              state: AlarmSettingsPresentation,
+              onManageNotifications: () -> Unit,
+              onManageExactAlarms: () -> Unit,
+              onManageFullScreen: () -> Unit,
+          ) {
+              Card(modifier = Modifier.fillMaxWidth().testTag("settings-alarm-capabilities")) {
+                  Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                      Text("Sveglie e notifiche", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                      Text(
+                          "I permessi di sistema sono gestiti qui, separati dalle sveglie personali.",
+                          style = MaterialTheme.typography.bodyMedium,
+                          color = MaterialTheme.colorScheme.onSurfaceVariant,
+                      )
+                      AlarmCapabilitySettingRow("Notifiche", state.notificationReady, "Gestisci", onManageNotifications)
+                      HorizontalDivider()
+                      AlarmCapabilitySettingRow("Allarmi esatti", state.exactReady, "Gestisci", onManageExactAlarms)
+                      HorizontalDivider()
+                      AlarmCapabilitySettingRow("Schermo intero", state.fullScreenReady, "Apri impostazioni", onManageFullScreen)
+                  }
+              }
+          }
+          '''
+          new_card = '''@Composable
+          private fun AlarmSystemSettingsCard(
+              state: AlarmSettingsPresentation,
+              onManageNotifications: () -> Unit,
+              onManageExactAlarms: () -> Unit,
+              onManageFullScreen: () -> Unit,
+              onManageOverlay: () -> Unit,
+              onAlarmVolumeChange: (Int) -> Unit,
+          ) {
+              Card(modifier = Modifier.fillMaxWidth().testTag("settings-alarm-capabilities")) {
+                  Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                      Text("Sveglie e notifiche", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                      Text(
+                          "I permessi di sistema sono gestiti qui, separati dalle sveglie personali.",
+                          style = MaterialTheme.typography.bodyMedium,
+                          color = MaterialTheme.colorScheme.onSurfaceVariant,
+                      )
+                      AlarmCapabilitySettingRow("Notifiche", state.notificationReady, "Gestisci", onManageNotifications)
+                      HorizontalDivider()
+                      AlarmCapabilitySettingRow("Allarmi esatti", state.exactReady, "Gestisci", onManageExactAlarms)
+                      HorizontalDivider()
+                      AlarmCapabilitySettingRow("Schermo intero", state.fullScreenReady, "Apri impostazioni", onManageFullScreen)
+                      HorizontalDivider()
+                      AlarmCapabilitySettingRow(
+                          label = "Popup sveglia",
+                          ready = state.overlayReady,
+                          actionLabel = "Gestisci",
+                          onClick = onManageOverlay,
+                          modifier = Modifier.testTag("settings-overlay-access"),
+                      )
+                      HorizontalDivider()
+                      AlarmVolumeSetting(
+                          state = state,
+                          onAlarmVolumeChange = onAlarmVolumeChange,
+                      )
+                  }
+              }
+          }
+          '''
+          replace_once(settings, old_card, new_card)
+          replace_once(
+              settings,
+              'private fun AlarmCapabilitySettingRow(\n    label: String,\n    ready: Boolean,\n    actionLabel: String,\n    onClick: () -> Unit,\n) {\n    Row(\n        modifier = Modifier.fillMaxWidth(),\n',
+              'private fun AlarmCapabilitySettingRow(\n'
+              '    label: String,\n'
+              '    ready: Boolean,\n'
+              '    actionLabel: String,\n'
+              '    onClick: () -> Unit,\n'
+              '    modifier: Modifier = Modifier,\n'
+              ') {\n'
+              '    Row(\n'
+              '        modifier = modifier.fillMaxWidth(),\n',
+          )
+          marker = '@Composable\nprivate fun AlarmDiagnosticCard(\n'
+          if marker not in Path(settings).read_text():
+              raise SystemExit("AlarmDiagnosticCard marker missing")
+          volume_fn = '''@Composable
+          private fun AlarmVolumeSetting(
+              state: AlarmSettingsPresentation,
+              onAlarmVolumeChange: (Int) -> Unit,
+          ) {
+              val volume = state.alarmVolumeState
+              val sliderMax = if (volume.max > volume.min) volume.max else volume.min + 1
+              Column(
+                  modifier = Modifier.fillMaxWidth().testTag("settings-alarm-volume"),
+                  verticalArrangement = Arrangement.spacedBy(8.dp),
+              ) {
+                  Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      horizontalArrangement = Arrangement.SpaceBetween,
+                      verticalAlignment = Alignment.CenterVertically,
+                  ) {
+                      Text("Volume sveglia", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                      Text("${volume.percent}%", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                  }
+                  Slider(
+                      value = volume.current.coerceIn(volume.min, volume.max).toFloat(),
+                      onValueChange = { onAlarmVolumeChange(it.roundToInt()) },
+                      valueRange = volume.min.toFloat()..sliderMax.toFloat(),
+                      steps = (volume.max - volume.min - 1).coerceAtLeast(0),
+                      enabled = volume.max > volume.min,
+                      modifier = Modifier.fillMaxWidth().testTag("settings-alarm-volume-slider"),
+                  )
+                  Text(
+                      "Modifica il volume globale delle sveglie del telefono.",
+                      style = MaterialTheme.typography.bodySmall,
+                      color = MaterialTheme.colorScheme.onSurfaceVariant,
+                  )
+                  state.alarmVolumeMessage?.let {
+                      Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                  }
+              }
+          }
+
+          '''
+          p = Path(settings)
+          p.write_text(p.read_text().replace(marker, volume_fn + marker, 1))
+          PY
+
+      - name: Add focused Android regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > app/src/androidTest/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmOverlayVolumeAndroidTest.kt <<'EOF'
+          package com.archimedeprojects.arihna.feature.alarms.platform
+
+          import android.Manifest
+          import android.content.pm.PackageManager
+          import android.provider.Settings
+          import android.view.View
+          import android.view.WindowManager
+          import androidx.test.core.app.ApplicationProvider
+          import androidx.test.ext.junit.runners.AndroidJUnit4
+          import com.archimedeprojects.arihna.feature.alarms.domain.AlarmSoundProfile
+          import org.junit.Assert.assertEquals
+          import org.junit.Assert.assertFalse
+          import org.junit.Assert.assertNotNull
+          import org.junit.Assert.assertTrue
+          import org.junit.Test
+          import org.junit.runner.RunWith
+
+          @RunWith(AndroidJUnit4::class)
+          class AlarmOverlayVolumeAndroidTest {
+              private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+
+              @Test
+              fun manifestDeclaresOverlaySpecialAccessAndIntentMatchesPlatform() {
+                  val packageInfo = context.packageManager.getPackageInfo(
+                      context.packageName,
+                      PackageManager.GET_PERMISSIONS,
+                  )
+                  assertTrue(packageInfo.requestedPermissions.orEmpty().contains(Manifest.permission.SYSTEM_ALERT_WINDOW))
+
+                  val access = AlarmOverlayAccess(context)
+                  assertEquals(Settings.canDrawOverlays(context), access.isGranted())
+                  val intent = access.createSettingsIntent()
+                  assertEquals(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, intent.action)
+                  assertEquals("package", intent.data?.scheme)
+                  assertEquals(context.packageName, intent.data?.schemeSpecificPart)
+              }
+
+              @Test
+              fun overlayRequiresAuthorizationAndUnlockedStateAndIsRemoved() {
+                  val deniedHost = FakeWindowHost()
+                  val denied = AlarmRingingOverlay(
+                      context = context,
+                      canDrawOverlays = { false },
+                      isDeviceLocked = { false },
+                      windowHost = deniedHost,
+                  )
+                  assertFalse(denied.show(payload(), {}, {}))
+                  assertFalse(denied.isShowing)
+                  assertEquals(0, deniedHost.addCount)
+
+                  val lockedHost = FakeWindowHost()
+                  val locked = AlarmRingingOverlay(
+                      context = context,
+                      canDrawOverlays = { true },
+                      isDeviceLocked = { true },
+                      windowHost = lockedHost,
+                  )
+                  assertFalse(locked.show(payload(), {}, {}))
+                  assertFalse(locked.isShowing)
+                  assertEquals(0, lockedHost.addCount)
+
+                  val allowedHost = FakeWindowHost()
+                  val allowed = AlarmRingingOverlay(
+                      context = context,
+                      canDrawOverlays = { true },
+                      isDeviceLocked = { false },
+                      windowHost = allowedHost,
+                  )
+                  assertTrue(allowed.show(payload(), {}, {}))
+                  assertTrue(allowed.isShowing)
+                  assertEquals(1, allowedHost.addCount)
+                  assertNotNull(allowedHost.lastView)
+                  allowed.hide()
+                  assertFalse(allowed.isShowing)
+                  assertEquals(1, allowedHost.removeCount)
+              }
+
+              @Test
+              fun alarmVolumeControllerReadsAndReappliesRealAlarmStream() {
+                  val controller = AlarmVolumeController(context)
+                  val before = controller.read()
+                  assertTrue(before.current in before.min..before.max)
+                  assertTrue(before.percent in 0..100)
+
+                  when (val result = controller.setVolume(before.current)) {
+                      is AlarmVolumeChangeResult.Success -> {
+                          assertEquals(before.current, result.state.current)
+                          assertTrue(result.state.percent in 0..100)
+                      }
+                      is AlarmVolumeChangeResult.Failure -> {
+                          assertTrue(result.message.isNotBlank())
+                          assertTrue(result.state.current in result.state.min..result.state.max)
+                      }
+                  }
+              }
+
+              private fun payload() = AlarmRingingPayload(
+                  alarmId = "overlay-test",
+                  ruleRevision = 1L,
+                  title = "Test sveglia",
+                  soundProfile = AlarmSoundProfile.SYSTEM_DEFAULT,
+                  isPrayer = false,
+                  occurrenceToken = "overlay-token",
+                  ringtoneTitle = "Galaxy Bells",
+              )
+
+              private class FakeWindowHost : AlarmOverlayWindowHost {
+                  var addCount = 0
+                  var removeCount = 0
+                  var lastView: View? = null
+
+                  override fun add(view: View, params: WindowManager.LayoutParams) {
+                      addCount += 1
+                      lastView = view
+                  }
+
+                  override fun remove(view: View) {
+                      removeCount += 1
+                      if (lastView === view) lastView = null
+                  }
+              }
+          }
+          EOF
+
+          cat > app/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/AlarmSettingsOverlayVolumeAndroidTest.kt <<'EOF'
+          package com.archimedeprojects.arihna.feature.settings
+
+          import androidx.compose.foundation.layout.PaddingValues
+          import androidx.compose.ui.test.assertIsDisplayed
+          import androidx.compose.ui.test.hasScrollAction
+          import androidx.compose.ui.test.hasText
+          import androidx.compose.ui.test.junit4.createComposeRule
+          import androidx.compose.ui.test.onNode
+          import androidx.compose.ui.test.onNodeWithText
+          import androidx.compose.ui.test.performScrollToNode
+          import androidx.compose.ui.unit.dp
+          import com.archimedeprojects.arihna.core.ui.theme.ArihnaTheme
+          import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeState
+          import org.junit.Rule
+          import org.junit.Test
+
+          class AlarmSettingsOverlayVolumeAndroidTest {
+              @get:Rule
+              val composeRule = createComposeRule()
+
+              @Test
+              fun settingsExposeOverlaySpecialAccessAndRealAlarmVolume() {
+                  composeRule.setContent {
+                      ArihnaTheme {
+                          LocationSettingsScreen(
+                              contentPadding = PaddingValues(0.dp),
+                              uiState = LocationSettingsUiState(),
+                              onUseDevice = {},
+                              onDismissRationale = {},
+                              onConfirmRationale = {},
+                              onSearchQueryChanged = {},
+                              onSelectCity = {},
+                              onOpenAppSettings = {},
+                              onOpenLocationSettings = {},
+                              alarmSettings = AlarmSettingsPresentation(
+                                  notificationReady = true,
+                                  exactReady = true,
+                                  fullScreenReady = true,
+                                  overlayReady = false,
+                                  alarmVolumeState = AlarmVolumeState(current = 8, min = 0, max = 15),
+                              ),
+                          )
+                      }
+                  }
+
+                  composeRule.onNode(hasScrollAction())
+                      .performScrollToNode(hasText("Popup sveglia"))
+                  composeRule.onNodeWithText("Popup sveglia").assertIsDisplayed()
+                  composeRule.onNodeWithText("Da autorizzare").assertIsDisplayed()
+                  composeRule.onNodeWithText("Volume sveglia").assertIsDisplayed()
+                  composeRule.onNodeWithText("53%").assertIsDisplayed()
+                  composeRule.onNodeWithText("Modifica il volume globale delle sveglie del telefono.")
+                      .assertIsDisplayed()
+              }
+          }
+          EOF
+
+      - name: Verify exact authorized file scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          git status --short
+          mapfile -t changed < <(git status --short | sed 's/^...//' | sort)
+          expected=(
+            "app/src/androidTest/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmOverlayVolumeAndroidTest.kt"
+            "app/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/AlarmSettingsOverlayVolumeAndroidTest.kt"
+            "app/src/main/AndroidManifest.xml"
+            "app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmOverlayAccess.kt"
+            "app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingOverlay.kt"
+            "app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt"
+            "app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmVolumeController.kt"
+            "app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt"
+          )
+          test "${#changed[@]}" -eq "${#expected[@]}"
+          for i in "${!expected[@]}"; do
+            test "${changed[$i]}" = "${expected[$i]}"
+          done
+
+      - name: Commit one direct-child technical candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main app/src/androidTest
+          git commit -m "fix(alarms): add unlocked overlay and alarm volume control"
+          test "$(git rev-parse HEAD^)" = "587d088bd6b5178a1608ab5d66ae7c8ee90c9f79"
+          git push origin HEAD:refs/heads/alarms-s25-overlay-volume-candidate
