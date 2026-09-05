@@ -1,0 +1,193 @@
+name: Alarms STEP 7 S25 ringing remediation prerelease
+
+on:
+  push:
+    branches:
+      - alarms-step7-remediation-release-temp
+    paths:
+      - .github/workflows/alarms-step7-remediation-release-temp.yml
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  build-verify-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      RUNTIME_SHA: 3c0e73bb82a4a28806039dc4189ddc07090bcfd1
+      REMEDIATION_SPEC_SHA: c0fa43c5b16355c0e4b2748b6b6b85df4bfbb7db
+      PRE_FAIL_MAIN_SHA: 68a05293e47d1bad412e4c857f1a4d481dd490b6
+      VERIFIED_GATE_RUN: '33960708928'
+      VERIFIED_API28_JOB: '101291994284'
+      VERIFIED_API36_JOB: '101291994129'
+      SIGNING_SOURCE_SHA: ce23a7f78695be95c7f8dfd2bcedbe22544da94c
+      DEBUG_CERT_SHA256: 13:97:00:8C:1F:96:2D:BB:D3:6D:D8:A8:EA:02:16:AF:DD:06:E4:B2:B3:E0:8B:C0:F6:D4:B5:43:44:D7:B0:FA
+      DEBUG_KEYSTORE_SHA256: bc9057f26ad6de7efb70a5df06effb1ed259f1d015c3f062d0f757b3f0983b72
+      GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
+      ADHAN_SHA256: 3b350bc210d657727578ed977e32323c06b63c2088c3ebcea9fc9afb7d487702
+      RELEASE_TAG: alarms-s25-ringing-3c0e73bb-20260905
+      APK_NAME: arihna-alarms-ringing-s25.apk
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3c0e73bb82a4a28806039dc4189ddc07090bcfd1
+          fetch-depth: 0
+
+      - name: Verify exact runtime, lineage, main and definitive gates
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RUNTIME_SHA"
+          test "$(git rev-parse HEAD^)" = "$REMEDIATION_SPEC_SHA"
+          test "$(git rev-parse "$REMEDIATION_SPEC_SHA^")" = "$PRE_FAIL_MAIN_SHA"
+          git fetch origin main --force
+          test "$(git rev-parse origin/main)" = "$RUNTIME_SHA"
+          test "$(git diff --name-only "$PRE_FAIL_MAIN_SHA" "$REMEDIATION_SPEC_SHA")" = "PROJECT_SPEC.md"
+          git show "$REMEDIATION_SPEC_SHA:PROJECT_SPEC.md" | grep -Fq 'STEP 7 physical FAIL remediation — APPROVED 2026-09-05'
+          for JOB in "$VERIFIED_API28_JOB" "$VERIFIED_API36_JOB"; do
+            ACTUAL="$(gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$JOB" --jq '[(.id|tostring),(.run_id|tostring),.conclusion] | join(" ")')"
+            test "$ACTUAL" = "$JOB $VERIFIED_GATE_RUN success"
+          done
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release tag already exists: $RELEASE_TAG" >&2
+            exit 1
+          fi
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Restore and verify frozen GeoNames asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh run download 33296099459 --repo "$GITHUB_REPOSITORY" --name geonames-step4-runtime-minimal --dir /tmp/geonames
+          DB="$(find /tmp/geonames -type f -name cities.db -print -quit)"
+          test -n "$DB"
+          cp "$DB" app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+
+      - name: Verify bundled Adhan artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f app/src/main/res/raw/adhan_cc0.ogg
+          test "$(stat -c '%s' app/src/main/res/raw/adhan_cc0.ogg)" = "820174"
+          test "$(sha256sum app/src/main/res/raw/adhan_cc0.ogg | awk '{print $1}')" = "$ADHAN_SHA256"
+          test "$(head -c 4 app/src/main/res/raw/adhan_cc0.ogg)" = "OggS"
+          grep -Fq "$ADHAN_SHA256" docs/audio/ADHAN.md
+          grep -Fq 'CC0 1.0' docs/audio/ADHAN.md
+
+      - name: Restore persistent Arihna debug signing identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin location-step5-device-test
+          mkdir -p "$HOME/.android"
+          git show "$SIGNING_SOURCE_SHA:.github/test-signing/arihna-debug.keystore.b64" | base64 --decode > "$HOME/.android/debug.keystore"
+          ACTUAL_KEYSTORE_SHA="$(sha256sum "$HOME/.android/debug.keystore" | awk '{print $1}')"
+          test "$ACTUAL_KEYSTORE_SHA" = "$DEBUG_KEYSTORE_SHA256"
+          keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | tee /tmp/keytool.txt
+          grep -F "$DEBUG_CERT_SHA256" /tmp/keytool.txt
+          echo "RINGING_KEYSTORE_SHA256=$ACTUAL_KEYSTORE_SHA"
+          echo "RINGING_CERT_SHA256=$DEBUG_CERT_SHA256"
+
+      - name: Apply transient persistent debug signing configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('app/build.gradle.kts')
+          text = path.read_text()
+          marker = '    buildFeatures {\n'
+          block = '''    signingConfigs {\n        getByName("debug") {\n            storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")\n            storePassword = "android"\n            keyAlias = "androiddebugkey"\n            keyPassword = "android"\n        }\n    }\n\n'''
+          if marker not in text:
+              raise SystemExit('buildFeatures marker not found')
+          path.write_text(text.replace(marker, block + marker, 1))
+          PY
+          git diff --check -- app/build.gradle.kts
+          test "$(git diff --name-only)" = "app/build.gradle.kts"
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+
+      - name: Build exact corrective runtime for S25 validation
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Verify APK package, signer, permissions and digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee /tmp/apksigner.txt
+          grep -Fi '1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa' /tmp/apksigner.txt
+          "$AAPT" dump badging "$APK" | tee /tmp/badging.txt
+          grep -F "package: name='com.archimedeprojects.arihna'" /tmp/badging.txt
+          "$AAPT" dump permissions "$APK" | tee /tmp/permissions.txt
+          grep -Fq 'android.permission.USE_FULL_SCREEN_INTENT' /tmp/permissions.txt
+          grep -Fq 'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK' /tmp/permissions.txt
+          cp "$APK" "$APK_NAME"
+          APK_SHA="$(sha256sum "$APK_NAME" | awk '{print $1}')"
+          APK_SIZE="$(stat -c '%s' "$APK_NAME")"
+          echo "$APK_SHA" > /tmp/apk-sha256.txt
+          echo "$APK_SIZE" > /tmp/apk-size.txt
+          echo "RINGING_APK_SHA256=$APK_SHA"
+          echo "RINGING_APK_SIZE=$APK_SIZE"
+          echo "RINGING_APPLICATION_ID=com.archimedeprojects.arihna"
+
+      - name: Publish Galaxy S25 ringing remediation prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK_SHA="$(cat /tmp/apk-sha256.txt)"
+          APK_SIZE="$(cat /tmp/apk-size.txt)"
+          gh release create "$RELEASE_TAG" "$APK_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$RUNTIME_SHA" \
+            --title 'S25 validation — Alarms ringing + Adhan — 3c0e73bb' \
+            --prerelease \
+            --notes "DEVICE VALIDATION BUILD after the Galaxy S25 physical FAIL. Exact corrective runtime $RUNTIME_SHA, direct parent remediation spec $REMEDIATION_SPEC_SHA. Definitive corrective gate run $VERIFIED_GATE_RUN passed: API28 job $VERIFIED_API28_JOB completed 64 connected tests with 0 failures/errors/skips, and API36 job $VERIFIED_API36_JOB passed the modern exact-alarm, notification and full-screen permission matrix. The build includes real alarm-audio playback, full-screen ringing UI, and the bundled offline Adhan artifact SHA-256 $ADHAN_SHA256. Package is com.archimedeprojects.arihna. Persistent Arihna debug certificate SHA-256 is $DEBUG_CERT_SHA256; keystore SHA-256 is $DEBUG_KEYSTORE_SHA256. APK bytes: $APK_SIZE. APK SHA-256: $APK_SHA. Galaxy S25 physical validation is still required; this prerelease does not claim a hardware PASS or milestone closure."
+
+      - name: Verify published tag, prerelease and uploaded APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse "$RELEASE_TAG^{commit}")" = "$RUNTIME_SHA"
+          RELEASE_JSON="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")"
+          test "$(jq -r '.draft' <<<"$RELEASE_JSON")" = "false"
+          test "$(jq -r '.prerelease' <<<"$RELEASE_JSON")" = "true"
+          test "$(jq -r '.tag_name' <<<"$RELEASE_JSON")" = "$RELEASE_TAG"
+          test "$(jq -r '.target_commitish' <<<"$RELEASE_JSON")" = "$RUNTIME_SHA"
+          test "$(jq '.assets | length' <<<"$RELEASE_JSON")" = "1"
+          test "$(jq -r '.assets[0].name' <<<"$RELEASE_JSON")" = "$APK_NAME"
+          test "$(jq -r '.assets[0].state' <<<"$RELEASE_JSON")" = "uploaded"
+          test "$(jq -r '.assets[0].size' <<<"$RELEASE_JSON")" = "$(cat /tmp/apk-size.txt)"
+          echo "RINGING_RELEASE_ID=$(jq -r '.id' <<<"$RELEASE_JSON")"
+          echo "RINGING_RELEASE_TAG=$(jq -r '.tag_name' <<<"$RELEASE_JSON")"
+          echo "RINGING_RELEASE_URL=$(jq -r '.html_url' <<<"$RELEASE_JSON")"
+          echo "RINGING_ASSET_ID=$(jq -r '.assets[0].id' <<<"$RELEASE_JSON")"
+          echo "RINGING_ASSET_STATE=$(jq -r '.assets[0].state' <<<"$RELEASE_JSON")"
+          echo "RINGING_ASSET_SIZE=$(jq -r '.assets[0].size' <<<"$RELEASE_JSON")"
+          echo "RINGING_ASSET_URL=$(jq -r '.assets[0].browser_download_url' <<<"$RELEASE_JSON")"
