@@ -1,0 +1,53 @@
+name: Alarms UX remediation spec writer
+
+on:
+  push:
+    branches:
+      - alarms-ux-remediation-writer
+
+permissions:
+  contents: write
+
+jobs:
+  write-spec:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify base and prepare writer
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED=3c0e73bb82a4a28806039dc4189ddc07090bcfd1
+          git fetch origin main alarms-ux-remediation-spec
+          test "$(git rev-parse origin/main)" = "$EXPECTED"
+          test "$(git rev-parse origin/alarms-ux-remediation-spec)" = "$EXPECTED"
+          cp .github/scripts/alarms_ux_remediation_spec.py /tmp/alarms_ux_remediation_spec.py
+          git checkout -B alarms-ux-remediation-spec origin/alarms-ux-remediation-spec
+      - name: Patch PROJECT_SPEC only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python /tmp/alarms_ux_remediation_spec.py
+          git diff -- PROJECT_SPEC.md
+          test -z "$(git diff --name-only | grep -v '^PROJECT_SPEC.md$' || true)"
+          grep -F '### Alarms STEP 7 — Galaxy S25 UX/full-screen remediation approved 2026-09-05' PROJECT_SPEC.md
+          grep -F 'Posticipa 5 min' PROJECT_SPEC.md
+      - name: Commit clean spec candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add PROJECT_SPEC.md
+          git commit -m 'docs(alarms): approve S25 ux remediation'
+          test "$(git rev-parse HEAD^)" = '3c0e73bb82a4a28806039dc4189ddc07090bcfd1'
+          test "$(git diff-tree --no-commit-id --name-only -r HEAD)" = 'PROJECT_SPEC.md'
+          echo "SPEC_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          git push origin HEAD:alarms-ux-remediation-spec
+      - name: Evidence
+        shell: bash
+        run: |
+          echo "Spec commit: $SPEC_SHA"
+          git show --stat --oneline --decorate HEAD
