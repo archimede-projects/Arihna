@@ -47,7 +47,8 @@ jobs:
           git fetch origin main --force
           test "$(git rev-parse origin/main)" = "$RUNTIME_SHA"
           test "$(git diff --name-only "$PRE_FAIL_MAIN_SHA" "$REMEDIATION_SPEC_SHA")" = "PROJECT_SPEC.md"
-          git show "$REMEDIATION_SPEC_SHA:PROJECT_SPEC.md" | grep -Fq 'STEP 7 physical FAIL remediation — APPROVED 2026-09-05'
+          SPEC_TEXT="$(git show "$REMEDIATION_SPEC_SHA:PROJECT_SPEC.md")"
+          grep -Fq 'STEP 7 physical FAIL remediation — APPROVED 2026-09-05' <<<"$SPEC_TEXT"
           for JOB in "$VERIFIED_API28_JOB" "$VERIFIED_API36_JOB"; do
             ACTUAL="$(gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$JOB" --jq '[(.id|tostring),(.run_id|tostring),.conclusion] | join(" ")')"
             test "$ACTUAL" = "$JOB $VERIFIED_GATE_RUN success"
