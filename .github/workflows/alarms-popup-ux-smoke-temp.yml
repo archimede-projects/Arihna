@@ -1,0 +1,64 @@
+name: Alarms popup UX smoke temp
+
+on:
+  push:
+    branches:
+      - alarms-popup-ux-smoke-temp
+    paths:
+      - .github/workflows/alarms-popup-ux-smoke-temp.yml
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      BASE_RUNTIME_SHA: e5799896c7c266cca2f15a1d2b16f68a139ec3a0
+      SPEC_SHA: 2e1333a91b64af5477622aa77a6da0ef4785303e
+      CANDIDATE_SHA: a767eaa1f722a9c62ec3dbf3204791ee5b1f77a4
+      GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact candidate lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main alarms-popup-ux-spec alarms-popup-ux-candidate --force
+          test "$(git rev-parse origin/main)" = "$BASE_RUNTIME_SHA"
+          test "$(git rev-parse origin/alarms-popup-ux-spec)" = "$SPEC_SHA"
+          test "$(git rev-parse origin/alarms-popup-ux-candidate)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse "$SPEC_SHA^")" = "$BASE_RUNTIME_SHA"
+          test "$(git rev-parse "$CANDIDATE_SHA^")" = "$SPEC_SHA"
+          test "$(git diff --name-only "$BASE_RUNTIME_SHA" "$SPEC_SHA")" = "PROJECT_SPEC.md"
+          git diff --quiet "$SPEC_SHA" "$CANDIDATE_SHA" -- app/build.gradle.kts gradle/libs.versions.toml settings.gradle.kts build.gradle.kts gradle/wrapper/gradle-wrapper.properties
+          git checkout --detach "$CANDIDATE_SHA"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+      - name: Restore frozen GeoNames
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh run download 33296099459 --repo "$GITHUB_REPOSITORY" --name geonames-step4-runtime-minimal --dir /tmp/geonames
+          DB="$(find /tmp/geonames -type f -name cities.db -print -quit)"
+          test -n "$DB"
+          cp "$DB" app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+      - name: Unit regression
+        run: ./gradlew testDebugUnitTest --stacktrace
+      - name: Assemble debug
+        run: ./gradlew assembleDebug --stacktrace
