@@ -48,7 +48,7 @@ class AlarmSettingsOverlayVolumeAndroidTest {
         composeRule.onNodeWithText("Da autorizzare").assertIsDisplayed()
         composeRule.onNodeWithText("Volume sveglia").assertIsDisplayed()
         composeRule.onNodeWithText("53%").assertIsDisplayed()
-        composeRule.onNodeWithText("Modifica il volume globale delle sveglie del telefono.")
+        composeRule.onNodeWithText("Volume globale delle sveglie del telefono")
             .assertIsDisplayed()
     }
 }
