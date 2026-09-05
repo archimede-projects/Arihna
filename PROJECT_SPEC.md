@@ -968,7 +968,7 @@ STEP 2 is **CLOSED**. STEP 3 Android heading/sensor layer remains **NOT STARTED*
 - STEP 7 changes documentation only. Qibla mathematics, heading/sensor algorithms, declination, Location/cache, Prayer, lifecycle, permissions, dependencies, persistence and manifest policy remain unchanged.
 - Qibla STEP 1–7 are CLOSED; the Qibla milestone is CLOSED. No next product milestone is authorized or started by this closure.
 
-### 5.5 Alarms — MILESTONE OPEN / STEP 1 SPEC-FIRST CLOSED
+### 5.5 Alarms — MILESTONE OPEN / STEP 5 CLOSED / STEP 6 AUTHORIZED
 
 The Alarms milestone follows the closed Qibla milestone and must not reopen Prayer calculation, Location acquisition/cache, Qibla mathematics/sensors, or existing persistence policy. STEP 1 is documentation/architecture only: it authorizes no manifest, dependency, Kotlin, UI, receiver, notification-channel or runtime behavior change. The first technical candidate must be a direct child of this spec commit.
 
@@ -1185,14 +1185,34 @@ Required STEP 5 tests: JVM coverage for notification-permission gating, no sched
 
 STEP 6 is not started by this authorization.
 
+#### STEP 5 closure / STEP 6 definitive regression + package authorization — APPROVED 2026-09-05
+
+Alarms STEP 5 functional UI + notification delivery is **CLOSED** on exact technical runtime `310413e886e9d7d54ea6f86c3fc7849360069c49` (`feat(alarms): add functional alarm ui and notification delivery`), built directly above STEP 5 authorization commit `864514bad53e4d7e3cbeaa2efaf486efcb3d99c1`. Definitive exact-SHA gate run `33952510472` / job `101269810089` verified the exact lineage and approved 15-file scope, restored frozen GeoNames, passed the unfiltered JVM regression, passed `assembleDebug`, and completed Android 9/API28 `connectedDebugAndroidTest` with **62/62 tests, 0 failures, 0 errors, 0 skipped**. The gate also reverified `applicationId = com.archimedeprojects.arihna`, COARSE-only Location policy, `POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`, `RECEIVE_BOOT_COMPLETED`, absence of `USE_EXACT_ALARM`, FINE/BACKGROUND Location and battery-optimization exemption, unchanged dependencies, and zero ignored Alarm tests.
+
+STEP 6 is now authorized as **validation + packaging only for the same runtime `310413e886e9d7d54ea6f86c3fc7849360069c49`**. This authorization does not permit new product behavior, UI, alarm semantics, Prayer calculation, Location/cache, Qibla, persistence, dependency or manifest-policy changes. If any required gate reveals a runtime defect, STEP 6 stops and a separately spec-authorized corrective candidate must again be a direct child of its corrective spec commit; packaging must never silently include an unreviewed fix.
+
+Required STEP 6 evidence:
+
+- **Exact-runtime regression:** check out exactly `310413e886e9d7d54ea6f86c3fc7849360069c49`; prove its parent is STEP 5 spec `864514bad53e4d7e3cbeaa2efaf486efcb3d99c1`; restore and verify GeoNames SHA-256 `7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb`; run unfiltered `testDebugUnitTest`, `assembleDebug`, and Android 9/API28 `connectedDebugAndroidTest`; require zero failures/errors/skipped and retain the STEP 5 Alarm test families in the connected result.
+- **Modern exact-alarm gate:** run focused instrumentation on a stable Android 16/API36 emulator. Establish and verify both denied and granted `SCHEDULE_EXACT_ALARM` states using deterministic emulator/system tooling, and assert the corresponding real `AlarmManager.canScheduleExactAlarms()` state. In denied state Arihna must surface the controlled blocked capability and make no exact scheduling call; in granted state the existing exact `PendingIntent` schedule/cancel path must execute without `SecurityException`. No inexact fallback, `USE_EXACT_ALARM`, battery-whitelist exemption, wake lock or foreground service is allowed.
+- **Modern notification gate:** on the same API36 image, explicitly verify `POST_NOTIFICATIONS` denied and granted states. Denied state must produce controlled non-delivery and must not mark a one-shot as delivered; granted state must allow channel-backed notification delivery. Verify both stable Arihna Alarm channel families (`SYSTEM_DEFAULT` and `SILENT`) and that the silent channel has no sound. No bundled audio/media-service path is introduced. The current Android 17 background-audio hardening does not justify adding a playback service because STEP 5 delivery remains NotificationManager/channel-backed rather than app-managed background media playback.
+- **Current-target policy:** keep `compileSdk = 37` and `targetSdk = 37`; review Android 17/API37 behavior changes for regressions relevant to Alarms, but do not change runtime solely to exercise unrelated platform changes. The mandatory modern automated permission/capability matrix for this step remains API36 stable; physical-device behavior is reserved for STEP 7.
+- **APK identity and signing:** package that exact runtime with the persistent Arihna debug signing material already used by Galaxy S25 validation APKs. Verify package/application id exactly `com.archimedeprojects.arihna`; signer certificate SHA-256 exactly `13:97:00:8C:1F:96:2D:BB:D3:6D:D8:A8:EA:02:16:AF:DD:06:E4:B2:B3:E0:8B:C0:F6:D4:B5:43:44:D7:B0:FA`; keystore SHA-256 exactly `bc9057f26ad6de7efb70a5df06effb1ed259f1d015c3f062d0f757b3f0983b72`; record the final APK byte size and SHA-256 after signing.
+- **Prerelease handoff:** publish a GitHub **prerelease**, not a final release, whose tag/release target resolves to exact runtime `310413e886e9d7d54ea6f86c3fc7849360069c49`, with one clearly named installable APK asset for Galaxy S25 validation. Verify release id, tag, target SHA, asset id/state/size and direct asset URL after upload. The APK built for prerelease must be the same signed artifact whose SHA-256 was recorded by the package gate.
+- **Stop point:** STEP 6 ends after all gates are green and the verified prerelease APK/link is available. Do not perform or claim the physical result automatically. STEP 7 begins only with the user's Galaxy S25 installation/reliability validation and explicit Pass/Fail evidence; no documentation-only milestone closure may precede that physical result.
+
+Current Android evidence re-reviewed for STEP 6 on 2026-09-05: Android Developers `Schedule alarms` and Android 14 exact-alarm behavior guidance confirm that fresh installs targeting Android 13+ do not receive `SCHEDULE_EXACT_ALARM` by default, that apps must check `canScheduleExactAlarms()` before exact scheduling, and that user/system revocation cancels future exact alarms; Android Developers `Notification runtime permission` confirms `POST_NOTIFICATIONS` runtime gating on API33+; Android 17/API37 behavior documentation was reviewed because Arihna targets API37, including the new background-audio restrictions, with no authorization to expand STEP 5's channel-backed notification delivery into app-managed background media playback.
+
+STEP 7 is not started by this authorization.
+
 #### Alarms milestone sequence
 
 1. **STEP 1 — spec-first architecture/policy: CLOSED.** No runtime change.
 2. **STEP 2 — domain + persistence: CLOSED.** Exact runtime `7579490c58e354a5423e76d4d8ad4e1f7749dfac`; gate `33888892314` / `101075412204`, API28 53/53, 0 failed, 0 skipped.
 3. **STEP 3 — Android scheduler + capability layer: CLOSED.** Exact runtime `a87835850bd7f7659909504f76ac1012723f028e`; definitive gate rerun `33892642365` / `101087773292`; exact scheduling/capability/receiver layer only, with no user-visible delivery.
 4. **STEP 4 — Prayer-linked reconciliation: CLOSED.** Exact runtime `82ca7754494bb537b9b69695193c92b4f4f1fe48`; gate `33894459758` / `101093710372`; API28 57/57, 0 failed, 0 skipped.
-5. **STEP 5 — functional alarm UI + notification/sound profiles: AUTHORIZED / IN PROGRESS.** Minimal usable Prayer/custom controls, explicit capability actions and validated channel-backed notification delivery only.
-6. **STEP 6 — definitive regression/package gate: NOT STARTED.** Full exact-SHA regression including API28, focused modern-API exact-alarm coverage, identity/signing checks and persistent-debug Galaxy S25 prerelease.
+5. **STEP 5 — functional alarm UI + notification/sound profiles: CLOSED.** Exact runtime `310413e886e9d7d54ea6f86c3fc7849360069c49`; definitive gate `33952510472` / `101269810089`; API28 62/62, 0 failed, 0 skipped.
+6. **STEP 6 — definitive regression/package gate: AUTHORIZED / IN PROGRESS.** Same exact STEP 5 runtime only; API28 + API36 permission/capability matrix, identity/signing checks and persistent-debug Galaxy S25 prerelease.
 7. **STEP 7 — Galaxy S25 reliability validation + documentation-only closure: NOT STARTED.** Hardware validation first; closure commit after explicit physical PASS, with no runtime change.
 
 ### 5.6 Quran
