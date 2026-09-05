@@ -27,6 +27,7 @@ jobs:
           cp .github/scripts/alarms_ux_domain_platform.py /tmp/alarms_ux_domain_platform.py
           cp .github/scripts/alarms_ux_ui.py /tmp/alarms_ux_ui.py
           cp .github/scripts/alarms_ux_tests.py /tmp/alarms_ux_tests.py
+          cp .github/scripts/alarms_ux_reorder_settings.py /tmp/alarms_ux_reorder_settings.py
           git checkout -B alarms-ux-remediation-candidate origin/alarms-ux-remediation-candidate
       - name: Apply authorized remediation only
         shell: bash
@@ -35,73 +36,9 @@ jobs:
           python /tmp/alarms_ux_domain_platform.py
           python /tmp/alarms_ux_ui.py
           python /tmp/alarms_ux_tests.py
-          python - <<'PY'
-          from pathlib import Path
-
-          alarms = Path('app/src/main/java/com/archimedeprojects/arihna/feature/alarms/AlarmsPlaceholderScreen.kt')
-          text = alarms.read_text(encoding='utf-8')
-          bad = 'days.sortedBy { it.value }.joinToString(" • ")(::dayShort)'
-          good = 'days.sortedBy { it.value }.joinToString(separator = " • ", transform = ::dayShort)'
-          if bad not in text:
-              raise SystemExit('expected recurrence transform marker missing')
-          alarms.write_text(text.replace(bad, good, 1), encoding='utf-8')
-
-          settings = Path('app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt')
-          text = settings.read_text(encoding='utf-8')
-          alarm_cards = '''        item {
-            AlarmSystemSettingsCard(
-                state = alarmSettings,
-                onManageNotifications = onManageNotifications,
-                onManageExactAlarms = onManageExactAlarms,
-                onManageFullScreen = onManageFullScreen,
-            )
-        }
-        item {
-            AlarmDiagnosticCard(
-                state = alarmSettings,
-                onTestAlarm = onTestAlarm,
-                onTestAdhan = onTestAdhan,
-                onCancelDiagnostic = onCancelDiagnostic,
-            )
-        }
-'''
-          if text.count(alarm_cards) != 1:
-              raise SystemExit('expected top alarm settings block missing or duplicated')
-          text = text.replace(alarm_cards, '', 1)
-          insertion = '''        items(
-            items = uiState.searchResults,
-            key = { city -> city.id },
-        ) { city ->
-            CityResultCard(city = city, onSelectCity = onSelectCity)
-        }
-'''
-          moved = insertion + '''
-        item {
-            AlarmSystemSettingsCard(
-                state = alarmSettings,
-                onManageNotifications = onManageNotifications,
-                onManageExactAlarms = onManageExactAlarms,
-                onManageFullScreen = onManageFullScreen,
-            )
-        }
-        item {
-            AlarmDiagnosticCard(
-                state = alarmSettings,
-                onTestAlarm = onTestAlarm,
-                onTestAdhan = onTestAdhan,
-                onCancelDiagnostic = onCancelDiagnostic,
-            )
-        }
-'''
-          if text.count(insertion) != 1:
-              raise SystemExit('expected city results insertion marker missing or duplicated')
-          settings.write_text(text.replace(insertion, moved, 1), encoding='utf-8')
-
-          for p in Path('app/src').rglob('*'):
-              if p.is_file() and p.suffix in {'.kt', '.xml'}:
-                  text = p.read_text(encoding='utf-8')
-                  p.write_text(text.rstrip() + '\n', encoding='utf-8')
-          PY
+          python /tmp/alarms_ux_reorder_settings.py
+          python -c "from pathlib import Path; p=Path('app/src/main/java/com/archimedeprojects/arihna/feature/alarms/AlarmsPlaceholderScreen.kt'); t=p.read_text(encoding='utf-8'); bad='days.sortedBy { it.value }.joinToString(\" • \")(::dayShort)'; good='days.sortedBy { it.value }.joinToString(separator = \" • \", transform = ::dayShort)'; assert bad in t; p.write_text(t.replace(bad, good, 1), encoding='utf-8')"
+          find app/src -type f \( -name '*.kt' -o -name '*.xml' \) -print0 | xargs -0 sed -i -e '$a\'
           test -z "$(git diff --name-only | grep -Ev '^(app/src/(main|test|androidTest)/)' || true)"
           ! git diff | grep -F 'Posticipa 5 min'
           ! git diff | grep -F 'REQUEST_IGNORE_BATTERY_OPTIMIZATIONS'
