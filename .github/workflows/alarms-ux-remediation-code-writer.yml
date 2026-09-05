@@ -1,0 +1,63 @@
+name: Alarms UX remediation code writer
+
+on:
+  push:
+    branches:
+      - alarms-ux-remediation-code-writer
+
+permissions:
+  contents: write
+
+jobs:
+  write-candidate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify spec base and prepare scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          SPEC=218caf289105ffbdf15e000a7242b2eb34f05e5e
+          git fetch origin alarms-ux-remediation-spec alarms-ux-remediation-candidate main
+          test "$(git rev-parse origin/alarms-ux-remediation-spec)" = "$SPEC"
+          test "$(git rev-parse origin/alarms-ux-remediation-candidate)" = "$SPEC"
+          test "$(git rev-parse origin/main)" = '3c0e73bb82a4a28806039dc4189ddc07090bcfd1'
+          cp .github/scripts/alarms_ux_domain_platform.py /tmp/alarms_ux_domain_platform.py
+          cp .github/scripts/alarms_ux_ui.py /tmp/alarms_ux_ui.py
+          cp .github/scripts/alarms_ux_tests.py /tmp/alarms_ux_tests.py
+          git checkout -B alarms-ux-remediation-candidate origin/alarms-ux-remediation-candidate
+      - name: Apply authorized remediation only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python /tmp/alarms_ux_domain_platform.py
+          python /tmp/alarms_ux_ui.py
+          python /tmp/alarms_ux_tests.py
+          test -z "$(git diff --name-only | grep -Ev '^(app/src/(main|test|androidTest)/)' || true)"
+          ! git diff | grep -F 'Posticipa 5 min'
+          ! git diff | grep -F 'REQUEST_IGNORE_BATTERY_OPTIMIZATIONS'
+          ! git diff | grep -F 'USE_EXACT_ALARM'
+          ! git diff | grep -F 'ACCESS_FINE_LOCATION'
+          grep -F 'Test sveglia (1 minuto)' app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
+          grep -F 'Test Adhan (1 minuto)' app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
+          grep -F 'ACTION_RINGTONE_PICKER' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingtonePicker.kt
+          grep -F 'canUseFullScreenIntent' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmFullScreenAccess.kt
+          git diff --check
+      - name: Commit direct child of remediation spec
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main app/src/test app/src/androidTest
+          git commit -m 'fix(alarms): improve S25 alarm ux and full-screen'
+          test "$(git rev-parse HEAD^)" = '218caf289105ffbdf15e000a7242b2eb34f05e5e'
+          echo "CANDIDATE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          git push origin HEAD:alarms-ux-remediation-candidate
+      - name: Evidence
+        shell: bash
+        run: |
+          echo "Candidate: $CANDIDATE_SHA"
+          git show --stat --oneline HEAD
