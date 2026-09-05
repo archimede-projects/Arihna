@@ -1,0 +1,35 @@
+name: Settings premium redesign spec writer temp
+
+on:
+  push:
+    branches:
+      - settings-premium-redesign-spec-writer-20260906
+
+permissions:
+  contents: write
+
+jobs:
+  write-spec:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create spec-only direct child
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_SHA=bc9bb0cb6dc910d02c39b84d76988e8dddb4df97
+          SPEC_BRANCH=settings-premium-redesign-spec
+          git fetch origin main --force
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+          git checkout --detach "$BASE_SHA"
+          printf '%s\n' '' '### General Settings premium visual simplification — APPROVED 2026-09-06' '' '- Primary Galaxy S25 feedback: the general `Impostazioni` screen is visually too verbose, weakly grouped and heavy; the current dark green / grey card treatment and broad gold usage do not deliver the requested premium "wow" effect.' '- Scope is strictly the general Settings presentation implemented by `LocationSettingsScreen`; do not alter Home, Prayer, Qibla, Quran, personal-alarm list/editor, navigation destinations, scheduling, location acquisition/persistence semantics, alarm ringing, overlay, lock-screen full-screen behavior, notifications, snooze, Adhan playback or alarm-volume behavior.' '- Preserve every existing capability and action: Device location selection/rationale, manual offline GeoNames city search, controlled Location error states and remediation actions, notification/exact-alarm/full-screen/overlay management, real `STREAM_ALARM` volume control, the two 20-second diagnostic tests and cancellation.' '- Reorganize the screen into three clear compact groups: `Posizione`, `Sveglie e notifiche`, and `Test rapidi`, beneath a single clean `Impostazioni` header. Remove temporary/internal copy such as `Pannello funzionale STEP 6 — la Home definitiva verrà costruita più avanti.` and remove redundant explanatory paragraphs from normal ready states.' '- The Location ready presentation must become a compact summary: location name is primary, source/status/freshness are compact secondary indicators, timezone is secondary. Error and permission/service states must remain explicit and understandable, including their existing recovery actions; do not hide a real failure behind a decorative status.' '- Device-location and manual-city controls remain available but visually compact. The rationale dialog still explains approximate location and local-only use before requesting permission.' '- Alarm capabilities become compact rows with label, concise state and direct management action. `Popup sveglia` and all existing capability semantics remain unchanged.' '- Alarm volume remains the real global Android alarm stream control. Keep an explicit concise warning that the slider changes the phone global alarm volume; no software amplification, DSP, extra audio dependency or DND special access.' '- Diagnostic controls remain `Test sveglia (20 secondi)`, `Test Adhan (20 secondi)` and cancellation, but the long hardware-path explanation is removed from the normal card.' '- Visual direction: use a screen-owned premium derived palette rather than the current heavy green/grey treatment. Keep the official Arihna identity as the source palette, with restrained gold accent instead of large gold text areas; use deep neutral/forest-charcoal surfaces, warm off-white primary text, muted sage secondary text, subtle outlines and accessible success/error states. Do not change the global app theme or the official palette constants for other screens.' '- Layout direction: tighter spacing, smaller card count, stronger hierarchy, rounded compact surfaces and less copy. Normal ready-state content should fit substantially more information above the fold on the Galaxy S25 than the current implementation.' '- Instrumentation must cover the compact section structure, absence of the removed STEP 6 copy, retained Location recovery semantics, retained overlay/volume controls and the new concise global-volume warning. API28 full connected regression must have zero failures/errors/skips; API36 denied/granted exact-alarm, notification, full-screen and overlay matrix remains required.' '- `applicationId = com.archimedeprojects.arihna`, minSdk 28, compileSdk 37, targetSdk 37, frozen GeoNames SHA-256, persistent signer, permissions and all previously frozen platform constraints remain unchanged.' >> PROJECT_SPEC.md
+          test "$(git diff --name-only)" = "PROJECT_SPEC.md"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add PROJECT_SPEC.md
+          git commit -m "docs(settings): authorize premium settings redesign"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          git push origin "HEAD:refs/heads/$SPEC_BRANCH"
+          echo "SPEC_SHA=$(git rev-parse HEAD)"
