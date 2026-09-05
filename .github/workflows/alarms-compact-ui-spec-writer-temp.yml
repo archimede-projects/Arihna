@@ -1,0 +1,66 @@
+name: Alarms compact UI spec writer temp
+
+on:
+  push:
+    branches:
+      - alarms-compact-ui-spec-writer-20260905
+
+permissions:
+  contents: write
+
+jobs:
+  write-spec:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: alarms-compact-ui-spec
+          fetch-depth: 0
+      - name: Append approved compact alarm UI correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat >> PROJECT_SPEC.md <<'EOF'
+
+#### Galaxy S25 personal-alarm compact UI redesign — APPROVED 2026-09-05
+
+Physical Galaxy S25 validation of runtime `c79ec96e38c10eecce185d215e8abd7fd6ad3554` confirms that the unlocked ringing overlay correction is visually and functionally accepted. This new round is a separate **UI/UX-only correction for personal alarms** based on the user's direct comparison with Samsung Clock. The objective is to make personal alarms much more compact and to make editing feel like entering the alarm's own settings instead of managing actions from a large card.
+
+Approved scope is limited to the personal-alarm list and the personal-alarm create/edit surface:
+
+- Replace the current large personal-alarm cards with a compact, Samsung-inspired Arihna list treatment. This is interaction/layout inspiration only; do not copy Samsung assets or proprietary pixels.
+- Each personal-alarm row must keep the alarm time visually dominant, retain the alarm label when present, show only concise recurrence/schedule information, and keep the enabled switch at the right.
+- The complete alarm row is a direct tap target that opens that alarm's create/edit settings surface.
+- Remove the visible `Modifica` and `Elimina` actions from every list row.
+- Remove the ringtone/sound name from every list row. Sound remains editable inside the alarm settings surface.
+- Keep an explicit `Nuova sveglia` entry point, but reduce the overall list chrome and vertical footprint: no oversized informational hero is required in this compact direction.
+- For an existing alarm, destructive deletion is allowed only inside its edit/settings surface, not on the compact list row. A new alarm has no delete action.
+
+The personal-alarm create/edit surface is reorganized for a cleaner premium Arihna presentation:
+
+- Present it as a dedicated full-width/full-screen in-app settings surface rather than the current dense generic `AlertDialog` treatment, without introducing a navigation dependency.
+- Keep the selected time as the main visual anchor and preserve the existing Android time-picker behavior.
+- Keep weekday recurrence selection using the already-approved single-letter day controls.
+- Keep the existing alarm-name value and ringtone picker/sound-enabled behavior; reorganize them into compact grouped rows with substantially less explanatory copy.
+- Keep `Annulla` and `Salva` as immediately available actions. Existing alarms may expose `Elimina sveglia` inside this settings surface.
+- Use the official Arihna Green/Gold palette with restrained derived neutral/emerald tones permitted by §4.2. Avoid the current heavy green-on-green presentation and unnecessary repeated labels; the result should have clearer hierarchy, stronger contrast and more visual polish while remaining legible on the Galaxy S25.
+- Do not add new icons, image assets, dependencies, permissions or decorative content that is not required for this layout correction.
+
+Frozen behavior for this round:
+
+- Do not change custom-alarm recurrence semantics, one-shot auto-disable behavior, exact-alarm scheduling, reconciliation, snooze duration, selected ringtone persistence, sound-profile semantics, ringing service/audio, full-screen ringing, unlocked overlay, notification fallback, alarm-volume control, 20-second diagnostics, Prayer calculation, Prayer reminders, Location, Qibla, GeoNames, SDK levels, applicationId, dependencies or signing identity.
+- Do not redesign the app-wide `Impostazioni` screen in this round. The user's Samsung screenshots in this approval refer to the per-alarm settings/editor experience.
+- Existing non-personal Prayer-linked alarm UI placement remains unchanged.
+
+Required validation:
+
+- Add/update Compose instrumentation proving that a compact personal-alarm row opens editing when the row itself is tapped, the enabled switch remains independently operable, and list rows contain no `Modifica`, `Elimina` or ringtone/sound-name presentation.
+- Verify the editor retains single-letter weekday controls, existing ringtone selection/switch behavior, save/cancel actions, and exposes deletion only for an existing alarm.
+- Run unfiltered `testDebugUnitTest`, `assembleDebug`, Android 9/API28 connected regression with zero skipped tests, and the existing Android 16/API36 denied/granted exact-alarm, notification, full-screen and overlay matrix. Preserve frozen GeoNames SHA-256 and manifest/dependency policy.
+- The technical candidate must be a **direct child of this specification commit**, pass the exact-SHA gate, then fast-forward non-forced to `main` and be packaged with the persistent Arihna debug signer as a new Galaxy S25 prerelease APK. Stop after publishing and verifying the APK for physical UI validation.
+EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add PROJECT_SPEC.md
+          git commit -m "docs(alarms): authorize compact personal alarm UI"
+          git push origin HEAD:alarms-compact-ui-spec
