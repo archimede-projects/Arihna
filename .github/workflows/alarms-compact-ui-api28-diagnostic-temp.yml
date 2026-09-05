@@ -1,0 +1,73 @@
+name: Alarms compact UI API28 diagnostic temp
+
+on:
+  push:
+    branches:
+      - alarms-compact-ui-v2-gate-temp
+    paths:
+      - .github/workflows/alarms-compact-ui-api28-diagnostic-temp.yml
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose-api28:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Checkout exact candidate
+        run: git checkout --detach 1caffe9da372b3e6a96c22c9a253ec6fd35906be
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+      - name: Restore frozen GeoNames
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh run download 33296099459 --repo "$GITHUB_REPOSITORY" --name geonames-step4-runtime-minimal --dir /tmp/geonames
+          DB="$(find /tmp/geonames -type f -name cities.db -print -quit)"
+          cp "$DB" app/src/main/assets/geonames/cities.db
+          echo '7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb  app/src/main/assets/geonames/cities.db' | sha256sum -c -
+      - name: Enable KVM
+        run: if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
+      - name: Run API28 and preserve output
+        id: connected
+        continue-on-error: true
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 28
+          arch: x86_64
+          target: default
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace --info 2>&1 | tee /tmp/api28-connected.log
+      - name: Collect diagnostics
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p /tmp/api28-diag
+          cp /tmp/api28-connected.log /tmp/api28-diag/ 2>/dev/null || true
+          cp -R app/build/outputs/androidTest-results/connected /tmp/api28-diag/results 2>/dev/null || true
+          cp -R app/build/reports/androidTests/connected /tmp/api28-diag/report 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: compact-ui-api28-diagnostic
+          path: /tmp/api28-diag
+          retention-days: 1
+      - name: Preserve connected failure
+        if: steps.connected.outcome != 'success'
+        run: exit 1
