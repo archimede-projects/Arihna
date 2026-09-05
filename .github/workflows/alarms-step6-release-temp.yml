@@ -1,0 +1,176 @@
+name: Alarms STEP 6 S25 prerelease
+
+on:
+  push:
+    branches:
+      - alarms-step6-release-temp
+    paths:
+      - .github/workflows/alarms-step6-release-temp.yml
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  build-verify-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      RUNTIME_SHA: 310413e886e9d7d54ea6f86c3fc7849360069c49
+      STEP5_SPEC_SHA: 864514bad53e4d7e3cbeaa2efaf486efcb3d99c1
+      STEP6_SPEC_SHA: 68a05293e47d1bad412e4c857f1a4d481dd490b6
+      VERIFIED_GATE_RUN: '33954187010'
+      VERIFIED_API28_JOB: '101274379129'
+      VERIFIED_API36_JOB: '101274379151'
+      SIGNING_SOURCE_SHA: ce23a7f78695be95c7f8dfd2bcedbe22544da94c
+      DEBUG_CERT_SHA256: 13:97:00:8C:1F:96:2D:BB:D3:6D:D8:A8:EA:02:16:AF:DD:06:E4:B2:B3:E0:8B:C0:F6:D4:B5:43:44:D7:B0:FA
+      DEBUG_KEYSTORE_SHA256: bc9057f26ad6de7efb70a5df06effb1ed259f1d015c3f062d0f757b3f0983b72
+      RELEASE_TAG: alarms-s25-310413e8-20260905
+      APK_NAME: arihna-alarms-step6-s25.apk
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 310413e886e9d7d54ea6f86c3fc7849360069c49
+          fetch-depth: 0
+
+      - name: Verify exact runtime, spec lineage, main and definitive gates
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RUNTIME_SHA"
+          test "$(git rev-parse HEAD^)" = "$STEP5_SPEC_SHA"
+          git fetch origin main --force
+          test "$(git rev-parse origin/main)" = "$STEP6_SPEC_SHA"
+          test "$(git rev-parse "$STEP6_SPEC_SHA^")" = "$RUNTIME_SHA"
+          test "$(git diff --name-only "$RUNTIME_SHA" "$STEP6_SPEC_SHA")" = "PROJECT_SPEC.md"
+          git show "$STEP6_SPEC_SHA:PROJECT_SPEC.md" | grep -Fq 'STEP 6 definitive regression + package authorization — APPROVED 2026-09-05'
+          for JOB in "$VERIFIED_API28_JOB" "$VERIFIED_API36_JOB"; do
+            ACTUAL="$(gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$JOB" --jq '[(.id|tostring),(.run_id|tostring),.conclusion] | join(" ")')"
+            test "$ACTUAL" = "$JOB $VERIFIED_GATE_RUN success"
+          done
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release tag already exists: $RELEASE_TAG" >&2
+            exit 1
+          fi
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Restore and verify frozen GeoNames asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh run download 33296099459 --repo "$GITHUB_REPOSITORY" --name geonames-step4-runtime-minimal --dir /tmp/geonames
+          DB="$(find /tmp/geonames -type f -name cities.db -print -quit)"
+          test -n "$DB"
+          cp "$DB" app/src/main/assets/geonames/cities.db
+          echo '7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb  app/src/main/assets/geonames/cities.db' | sha256sum -c -
+
+      - name: Restore persistent Arihna debug signing identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin location-step5-device-test
+          mkdir -p "$HOME/.android"
+          git show "$SIGNING_SOURCE_SHA:.github/test-signing/arihna-debug.keystore.b64" | base64 --decode > "$HOME/.android/debug.keystore"
+          ACTUAL_KEYSTORE_SHA="$(sha256sum "$HOME/.android/debug.keystore" | awk '{print $1}')"
+          test "$ACTUAL_KEYSTORE_SHA" = "$DEBUG_KEYSTORE_SHA256"
+          keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | tee /tmp/keytool.txt
+          grep -F "$DEBUG_CERT_SHA256" /tmp/keytool.txt
+          echo "STEP6_KEYSTORE_SHA256=$ACTUAL_KEYSTORE_SHA"
+          echo "STEP6_CERT_SHA256=$DEBUG_CERT_SHA256"
+
+      - name: Apply transient persistent debug signing configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('app/build.gradle.kts')
+          text = path.read_text()
+          marker = '    buildFeatures {\n'
+          block = '''    signingConfigs {\n        getByName("debug") {\n            storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")\n            storePassword = "android"\n            keyAlias = "androiddebugkey"\n            keyPassword = "android"\n        }\n    }\n\n'''
+          if marker not in text:
+              raise SystemExit('buildFeatures marker not found')
+          path.write_text(text.replace(marker, block + marker, 1))
+          PY
+          git diff --check -- app/build.gradle.kts
+          test "$(git diff --name-only | sort)" = $'app/build.gradle.kts\napp/src/main/assets/geonames/cities.db'
+
+      - name: Build exact STEP 5 runtime for S25 validation
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Verify APK package, signer and digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee /tmp/apksigner.txt
+          grep -Fi '1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa' /tmp/apksigner.txt
+          "$AAPT" dump badging "$APK" | tee /tmp/badging.txt
+          grep -F "package: name='com.archimedeprojects.arihna'" /tmp/badging.txt
+          cp "$APK" "$APK_NAME"
+          APK_SHA="$(sha256sum "$APK_NAME" | awk '{print $1}')"
+          APK_SIZE="$(stat -c '%s' "$APK_NAME")"
+          echo "$APK_SHA" > /tmp/apk-sha256.txt
+          echo "$APK_SIZE" > /tmp/apk-size.txt
+          echo "STEP6_APK_SHA256=$APK_SHA"
+          echo "STEP6_APK_SIZE=$APK_SIZE"
+          echo "STEP6_APPLICATION_ID=com.archimedeprojects.arihna"
+
+      - name: Publish Alarms STEP 6 Galaxy S25 prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK_SHA="$(cat /tmp/apk-sha256.txt)"
+          APK_SIZE="$(cat /tmp/apk-size.txt)"
+          gh release create "$RELEASE_TAG" "$APK_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$RUNTIME_SHA" \
+            --title 'S25 validation — Alarms STEP 6 — 310413e8' \
+            --prerelease \
+            --notes "DEVICE VALIDATION BUILD. Exact Alarms runtime $RUNTIME_SHA, direct parent STEP 5 spec $STEP5_SPEC_SHA, with STEP 6 authorization recorded by docs-only commit $STEP6_SPEC_SHA. Definitive automated STEP 6 gate run $VERIFIED_GATE_RUN passed: API28 job $VERIFIED_API28_JOB completed the full 62/62 connected regression with 0 failures/errors/skips, and API36 job $VERIFIED_API36_JOB passed real denied+granted SCHEDULE_EXACT_ALARM and POST_NOTIFICATIONS matrices. Frozen GeoNames was restored and verified. Package is com.archimedeprojects.arihna. Persistent Arihna debug certificate SHA-256 is $DEBUG_CERT_SHA256; keystore SHA-256 is $DEBUG_KEYSTORE_SHA256. APK bytes: $APK_SIZE. APK SHA-256: $APK_SHA. Galaxy S25 physical STEP 7 validation is still required; this prerelease does not claim a hardware PASS or milestone closure."
+
+      - name: Verify published tag, prerelease and single uploaded asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse "$RELEASE_TAG^{commit}")" = "$RUNTIME_SHA"
+          RELEASE_JSON="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")"
+          test "$(jq -r '.draft' <<<"$RELEASE_JSON")" = "false"
+          test "$(jq -r '.prerelease' <<<"$RELEASE_JSON")" = "true"
+          test "$(jq -r '.tag_name' <<<"$RELEASE_JSON")" = "$RELEASE_TAG"
+          test "$(jq -r '.target_commitish' <<<"$RELEASE_JSON")" = "$RUNTIME_SHA"
+          test "$(jq '.assets | length' <<<"$RELEASE_JSON")" = "1"
+          test "$(jq -r '.assets[0].name' <<<"$RELEASE_JSON")" = "$APK_NAME"
+          test "$(jq -r '.assets[0].state' <<<"$RELEASE_JSON")" = "uploaded"
+          test "$(jq -r '.assets[0].size' <<<"$RELEASE_JSON")" = "$(cat /tmp/apk-size.txt)"
+          echo "STEP6_RELEASE_ID=$(jq -r '.id' <<<"$RELEASE_JSON")"
+          echo "STEP6_RELEASE_TAG=$(jq -r '.tag_name' <<<"$RELEASE_JSON")"
+          echo "STEP6_RELEASE_URL=$(jq -r '.html_url' <<<"$RELEASE_JSON")"
+          echo "STEP6_ASSET_ID=$(jq -r '.assets[0].id' <<<"$RELEASE_JSON")"
+          echo "STEP6_ASSET_STATE=$(jq -r '.assets[0].state' <<<"$RELEASE_JSON")"
+          echo "STEP6_ASSET_SIZE=$(jq -r '.assets[0].size' <<<"$RELEASE_JSON")"
+          echo "STEP6_ASSET_URL=$(jq -r '.assets[0].browser_download_url' <<<"$RELEASE_JSON")"
