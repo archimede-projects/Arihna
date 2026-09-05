@@ -1,0 +1,51 @@
+name: Alarms STEP 7 physical FAIL remediation spec writer
+
+on:
+  push:
+    branches:
+      - alarms-step7-fail-remediation-writer-temp
+    paths:
+      - .github/workflows/alarms-step7-fail-remediation-spec-writer-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  write-spec:
+    runs-on: ubuntu-24.04
+    env:
+      CURRENT_MAIN_SHA: 68a05293e47d1bad412e4c857f1a4d481dd490b6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify physical FAIL remediation starts from current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --force
+          test "$(git rev-parse origin/main)" = "$CURRENT_MAIN_SHA"
+          git merge-base --is-ancestor "$CURRENT_MAIN_SHA" HEAD
+          cp .github/alarms-step7-fail-remediation-spec-writer.py /tmp/alarms-step7-fail-remediation-spec-writer.py
+
+      - name: Create isolated corrective spec commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout -B alarms-step7-remediation-spec origin/main
+          python3 /tmp/alarms-step7-fail-remediation-spec-writer.py
+          test "$(git diff --name-only)" = "PROJECT_SPEC.md"
+          git diff --check
+          grep -Fq 'STEP 7 physical FAIL remediation — APPROVED 2026-09-05' PROJECT_SPEC.md
+          grep -Fq 'PHYSICAL FAIL / CORRECTIVE ROUND AUTHORIZED' PROJECT_SPEC.md
+          grep -Fq 'USE_FULL_SCREEN_INTENT' PROJECT_SPEC.md
+          grep -Fq 'FOREGROUND_SERVICE_MEDIA_PLAYBACK' PROJECT_SPEC.md
+          grep -Fq 'Muslim calling to prayer.ogg' PROJECT_SPEC.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add PROJECT_SPEC.md
+          git commit -m "docs(alarms): record S25 fail and authorize ringing remediation"
+          test "$(git rev-parse HEAD^)" = "$CURRENT_MAIN_SHA"
+          test "$(git diff --name-only HEAD^ HEAD)" = "PROJECT_SPEC.md"
+          git push --force-with-lease origin HEAD:alarms-step7-remediation-spec
