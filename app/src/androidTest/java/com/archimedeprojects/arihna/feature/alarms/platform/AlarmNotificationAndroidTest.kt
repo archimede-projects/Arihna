@@ -2,7 +2,6 @@ package com.archimedeprojects.arihna.feature.alarms.platform
 
 import android.app.NotificationManager
 import android.content.Context
-import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmDefinition
@@ -14,56 +13,60 @@ import java.time.LocalTime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class AlarmNotificationAndroidTest {
     @Test
-    fun api28CreatesSystemAndSilentChannelsAndCanPostValidatedDelivery() {
+    fun api28CreatesSemanticSilentChannelsAndBuildsFullScreenAlarmNotification() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        AlarmRingingNotificationFactory.ensureChannels(context)
+
+        val prayerChannel = manager.getNotificationChannel(AlarmRingingNotificationFactory.CHANNEL_PRAYER)
+        val customChannel = manager.getNotificationChannel(AlarmRingingNotificationFactory.CHANNEL_CUSTOM)
+        assertNotNull(prayerChannel)
+        assertNotNull(customChannel)
+        assertNull(prayerChannel.sound)
+        assertNull(customChannel.sound)
+
+        val payload = AlarmRingingPayload(
+            alarmId = "instrumented-notification",
+            title = "Fajr • Adhan",
+            soundProfile = AlarmSoundProfile.ADHAN,
+            isPrayer = true,
+            occurrenceToken = "instrumented",
+        )
+        val notification = AlarmRingingNotificationFactory.build(context, payload)
+        assertNotNull(notification.fullScreenIntent)
+        assertNotNull(notification.contentIntent)
+        assertEquals(1, notification.actions.size)
+    }
+
+    @Test
+    fun validatedDeliveryHandsOffToRingingStarterExactlyOnce() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        var starts = 0
         val delivery = AndroidAlarmNotificationDelivery(
             context = context,
             permissionReader = AlarmNotificationPermissionReader { true },
+            ringingStarter = AlarmRingingStarter { _, _ -> starts += 1 },
         )
         val rule = AlarmRule(
-            alarmId = "instrumented-notification",
+            alarmId = "instrumented-handoff",
             revision = 1,
             enabled = true,
             soundProfile = AlarmSoundProfile.SYSTEM_DEFAULT,
-            definition = AlarmDefinition.Custom(
-                label = "Test Arihna",
-                localTime = LocalTime.of(12, 0),
-            ),
+            definition = AlarmDefinition.Custom("Test Arihna", LocalTime.NOON),
         )
         val occurrence = AlarmOccurrence(
             alarmId = rule.alarmId,
             ruleRevision = rule.revision,
-            triggerAt = Instant.parse("2026-09-04T12:00:00Z"),
-            occurrenceToken = "instrumented",
+            triggerAt = Instant.parse("2026-09-05T10:00:00Z"),
+            occurrenceToken = "token",
         )
-
-        delivery.ensureChannels()
-        val systemChannel = manager.getNotificationChannel(AndroidAlarmNotificationDelivery.CHANNEL_SYSTEM)
-        val silentChannel = manager.getNotificationChannel(AndroidAlarmNotificationDelivery.CHANNEL_SILENT)
-        assertNotNull(systemChannel)
-        assertNotNull(silentChannel)
-        assertNull(silentChannel.sound)
-
-        val result = delivery.deliver(rule, occurrence)
-        val notificationId = AndroidAlarmNotificationDelivery.notificationId(rule.alarmId)
-        assertEquals(AlarmNotificationDeliveryResult.DELIVERED, result)
-
-        val deadline = SystemClock.uptimeMillis() + 2_000L
-        var posted = manager.activeNotifications.any { it.id == notificationId }
-        while (!posted && SystemClock.uptimeMillis() < deadline) {
-            SystemClock.sleep(50L)
-            posted = manager.activeNotifications.any { it.id == notificationId }
-        }
-        assertTrue(posted)
-
-        manager.cancel(notificationId)
+        assertEquals(AlarmNotificationDeliveryResult.DELIVERED, delivery.deliver(rule, occurrence))
+        assertEquals(1, starts)
     }
 }

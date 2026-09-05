@@ -48,6 +48,25 @@ class AlarmRulePreferencesCodecTest {
     }
 
     @Test
+    fun adhanProfileRoundTripsWithoutChangingVersionAndOldProfilesStillDecode() {
+        val adhan = AlarmRule(
+            alarmId = "prayer-adhan",
+            revision = 4,
+            enabled = true,
+            soundProfile = AlarmSoundProfile.ADHAN,
+            definition = AlarmDefinition.PrayerLinked(AlarmPrayer.MAGHRIB),
+        )
+        val encoded = AlarmRulePreferencesCodec.encode(listOf(adhan))
+        assertTrue(encoded.startsWith("ARIHNA_ALARMS_V1\n"))
+        assertEquals(listOf(adhan), AlarmRulePreferencesCodec.decode(encoded))
+
+        val oldSystem = "ARIHNA_ALARMS_V1\nP|cHJheWVyLWZhanI|1|1|SYSTEM_DEFAULT|FAJR|0"
+        val oldSilent = "ARIHNA_ALARMS_V1\nP|cHJheWVyLWlzaGE|2|0|SILENT|ISHA|0"
+        assertEquals(AlarmSoundProfile.SYSTEM_DEFAULT, AlarmRulePreferencesCodec.decode(oldSystem).single().soundProfile)
+        assertEquals(AlarmSoundProfile.SILENT, AlarmRulePreferencesCodec.decode(oldSilent).single().soundProfile)
+    }
+
+    @Test
     fun collectionEncodingIsDeterministicRegardlessOfInputOrder() {
         val first = prayer("z", AlarmPrayer.ISHA)
         val second = prayer("a", AlarmPrayer.DHUHR)

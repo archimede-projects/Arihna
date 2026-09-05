@@ -21,6 +21,7 @@ import com.archimedeprojects.arihna.core.location.platform.AndroidLocationEnviro
 import com.archimedeprojects.arihna.core.location.platform.AndroidLocationPermissionStateResolver
 import com.archimedeprojects.arihna.feature.alarms.AlarmsRoute
 import com.archimedeprojects.arihna.feature.alarms.AlarmsViewModel
+import com.archimedeprojects.arihna.feature.alarms.platform.AlarmFullScreenAccess
 import com.archimedeprojects.arihna.feature.alarms.platform.ExactAlarmAccessIntentFactory
 import com.archimedeprojects.arihna.feature.home.HomePrayerScheduleRoute
 import com.archimedeprojects.arihna.feature.prayers.PrayerTimesPlaceholderScreen
@@ -51,6 +52,7 @@ fun ArihnaNavHost(
     prayerScheduleViewModel: PrayerScheduleViewModel,
     alarmsViewModel: AlarmsViewModel,
     exactAlarmAccessIntentFactory: ExactAlarmAccessIntentFactory,
+    alarmFullScreenAccess: AlarmFullScreenAccess,
     qiblaRepository: QiblaRepository,
     locationEnvironment: AndroidLocationEnvironment,
     locationPermissionStateResolver: AndroidLocationPermissionStateResolver,
@@ -142,6 +144,7 @@ fun ArihnaNavHost(
                     contentPadding = innerPadding,
                     viewModel = alarmsViewModel,
                     exactAlarmAccessIntentFactory = exactAlarmAccessIntentFactory,
+                    fullScreenAccess = alarmFullScreenAccess,
                 )
             }
             composable(Destination.Settings.route) {

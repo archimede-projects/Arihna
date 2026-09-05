@@ -26,15 +26,15 @@ class AlarmsScreenAndroidTest {
 
     @Test
     fun missingCapabilitiesAreExplicitAndNeverFabricatedAsReady() {
-        setScreen(AlarmsUiState(exactAlarmReady = false, notificationReady = false))
+        setScreen(AlarmsUiState(exactAlarmReady = false, notificationReady = false), fullScreenReady = false)
 
         composeRule.onNodeWithTag("alarm-capabilities").assertIsDisplayed()
-        composeRule.onNodeWithText("Notifiche: autorizzazione richiesta").assertIsDisplayed()
-        composeRule.onNodeWithText("Allarmi esatti: accesso richiesto").assertIsDisplayed()
+        composeRule.onNodeWithText("Notifiche").assertIsDisplayed()
+        composeRule.onNodeWithText("Allarmi esatti").assertIsDisplayed()
         composeRule.onNodeWithTag("alarm-notification-permission-action").assertIsDisplayed()
         composeRule.onNodeWithTag("alarm-exact-access-action").performScrollTo().assertIsDisplayed()
-        assertTextAbsent("Notifiche: pronte")
-        assertTextAbsent("Allarmi esatti: pronti")
+        composeRule.onNodeWithTag("alarm-fullscreen-access-action").performScrollTo().assertIsDisplayed()
+        assertTextAbsent("Schermo intero: pronto")
     }
 
     @Test
@@ -48,6 +48,27 @@ class AlarmsScreenAndroidTest {
     }
 
     @Test
+    fun prayerSoundButtonOpensExplicitPickerAndSelectsAdhan() {
+        val rule = AlarmRule(
+            alarmId = "prayer-dhuhr",
+            revision = 2,
+            enabled = true,
+            soundProfile = AlarmSoundProfile.SYSTEM_DEFAULT,
+            definition = AlarmDefinition.PrayerLinked(AlarmPrayer.DHUHR),
+        )
+        var selected: AlarmSoundProfile? = null
+        setScreen(
+            state = AlarmsUiState(rules = listOf(rule), exactAlarmReady = true, notificationReady = true),
+            onSoundSelected = { _, profile -> selected = profile },
+        )
+
+        composeRule.onNodeWithTag("alarm-prayer-dhuhr-sound").performScrollTo().performClick()
+        composeRule.onNodeWithTag("alarm-sound-picker").assertIsDisplayed()
+        composeRule.onNodeWithTag("alarm-sound-option-adhan").performClick()
+        composeRule.runOnIdle { assertEquals(AlarmSoundProfile.ADHAN, selected) }
+    }
+
+    @Test
     fun customCreatorSendsLabelAndLocalTimeTextWithoutInventingSuccess() {
         var captured: Pair<String, String>? = null
         setScreen(
@@ -55,18 +76,9 @@ class AlarmsScreenAndroidTest {
             onCreateCustom = { label, time -> captured = label to time },
         )
 
-        composeRule.onNodeWithTag("alarm-custom-label")
-            .performScrollTo()
-            .assertIsDisplayed()
-            .performTextInput("Farmaco")
-        composeRule.onNodeWithTag("alarm-custom-time")
-            .performScrollTo()
-            .assertIsDisplayed()
-            .performTextInput("07:30")
-        composeRule.onNodeWithTag("alarm-custom-add")
-            .performScrollTo()
-            .assertIsDisplayed()
-            .performClick()
+        composeRule.onNodeWithTag("alarm-custom-label").performScrollTo().assertIsDisplayed().performTextInput("Farmaco")
+        composeRule.onNodeWithTag("alarm-custom-time").performScrollTo().assertIsDisplayed().performTextInput("07:30")
+        composeRule.onNodeWithTag("alarm-custom-add").performScrollTo().assertIsDisplayed().performClick()
 
         composeRule.runOnIdle { assertEquals("Farmaco" to "07:30", captured) }
         assertTextAbsent("Sveglia salvata")
@@ -100,20 +112,24 @@ class AlarmsScreenAndroidTest {
 
     private fun setScreen(
         state: AlarmsUiState,
+        fullScreenReady: Boolean = true,
         onCreateCustom: (String, String) -> Unit = { _, _ -> },
+        onSoundSelected: (AlarmRule, AlarmSoundProfile) -> Unit = { _, _ -> },
     ) {
         composeRule.setContent {
             ArihnaTheme {
                 AlarmsScreen(
                     contentPadding = PaddingValues(0.dp),
                     state = state,
+                    fullScreenReady = fullScreenReady,
                     onRequestNotificationPermission = {},
                     onRequestExactAlarmAccess = {},
+                    onRequestFullScreenAccess = {},
                     onPrayerEnabled = { _, _ -> },
                     onCreateCustom = onCreateCustom,
                     onToggleRule = {},
                     onDeleteRule = {},
-                    onToggleSound = {},
+                    onSoundSelected = onSoundSelected,
                 )
             }
         }
