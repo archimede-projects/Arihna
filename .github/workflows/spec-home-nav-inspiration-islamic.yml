@@ -1,0 +1,89 @@
+name: Spec — Home navigation, daily content, Islamic visual identity
+
+on:
+  push:
+    branches:
+      - spec-home-feedback-driver
+
+permissions:
+  contents: write
+
+jobs:
+  create-spec-commit:
+    runs-on: ubuntu-latest
+    env:
+      BASE_SHA: f61133c0dcab8b1f1e7255967b81c280f064e3f9
+      SPEC_BRANCH: spec-home-nav-inspiration-islamic-20260906
+    steps:
+      - name: Checkout repository history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify baseline and create spec-only commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+          git checkout -B "$SPEC_BRANCH" "$BASE_SHA"
+          cat >> PROJECT_SPEC.md <<'EOF'
+
+## 2026-09-06 — Galaxy S25 Home feedback: navigation, daily content and Islamic visual identity — APPROVED
+
+Physical Galaxy S25 validation of prerelease `ui-s25-wow-fused-f61133c0-20260906` identified three Home UX corrections that are now approved and must be implemented together in the next technical candidate. This decision supersedes the affected Home/navigation presentation behavior only; all frozen package/SDK, prayer, location, alarm, GeoNames, Adhan and signing constraints remain unchanged unless explicitly stated below.
+
+### Bottom navigation — mandatory top-level destination behavior
+
+- The six bottom-bar items remain top-level destinations: Home, Orari, Qibla, Corano, Sveglie, Impostazioni.
+- Tapping **Home from any other top-level destination must immediately show Home**. The user must never need Android system Back to return from Qibla, Sveglie or Impostazioni/Posizione to Home.
+- The same rule applies symmetrically to every bottom-bar item: tapping an item must make that destination current even after entering it through a Home quick action.
+- Home quick actions may navigate to Qibla, Sveglie and Posizione/Impostazioni, but those screens must remain in the same top-level navigation model rather than creating a state that prevents bottom-bar navigation.
+- Bottom-bar selection must always reflect the actually visible top-level destination.
+- Navigation must avoid duplicate destination stacking and preserve the intended state-restoration behavior where practical.
+- Android system Back remains supported for normal history semantics, but it is never a required workaround for bottom-bar navigation.
+- Automated Compose/instrumentation coverage must reproduce the reported flow: Home -> Qibla quick action -> Home bottom item; Home -> Sveglie quick action -> Home bottom item; Home -> Posizione quick action -> Home bottom item, asserting that Home becomes visible without system Back.
+
+### Daily positive content — interactive detail and sharing
+
+- The Home inspiration card becomes a clearly interactive **Contenuto del giorno** surface.
+- Daily content may be a Qur'an verse, an authentic/approved hadith, or another explicitly sourced positive Islamic reflection. The displayed item must include a visible source/reference; unsourced invented religious quotations are not allowed.
+- Tapping the Home card must open a dedicated detail surface (screen or modal presentation) with the complete text, source/reference and a clear **Condividi** action.
+- Sharing must use the Android platform share sheet (`ACTION_SEND`, `text/plain` or equivalent Compose/platform bridge) and include the content plus its source/reference. No social SDK, account or tracking dependency is authorized.
+- The detail surface must be dismissible/back-navigable and must not break the top-level bottom navigation.
+- The initial implementation may use a small curated in-app set of reviewed positive entries; it must be deterministic/testable and must not require network access.
+- Automated coverage must verify card click opens the detail content and that the share action constructs an Android share intent with both text and source/reference.
+
+### Home visual identity — richer but restrained Islamic atmosphere
+
+- The approved dark emerald / warm gold premium palette remains the visual baseline, but the Home background must no longer read as a plain dark gradient.
+- Add a subtle Islamic visual layer using vector/Canvas/Compose primitives only: e.g. low-contrast geometric star lattice, mashrabiya-inspired geometry, mihrab/arch silhouettes, crescent-inspired radial accents, or a restrained combination.
+- The decorative layer must be recognizably Islamic in character while remaining subordinate to prayer data: low opacity, no busy wallpaper effect, no reduction in text contrast, and no interference with touch targets.
+- Prefer procedural/vector drawing over raster wallpaper so density, APK size and dark-theme rendering remain controlled. No copyrighted third-party decorative asset is authorized by this decision.
+- Introduce slightly more depth/ceremony through layered emerald surfaces, restrained gold highlights and subtle tonal variation; avoid neon, glossy casino-like gold, excessive shadows, or ornamental clutter.
+- The hero prayer card and daily-content card should feel integrated with the decorative system rather than floating on a featureless background.
+- Accessibility/readability remains mandatory: prayer names, times, countdown, location and actions keep high contrast and legibility on Galaxy S25-class displays.
+- Compose tests must at minimum expose stable semantics/test tags for the Islamic background/decorative layer and the interactive daily-content card/detail.
+
+### Acceptance and promotion gate for this correction
+
+The implementation must remain SPEC-FIRST. This documentation commit is the parent specification for the next technical candidate. A candidate is eligible for promotion only if it is a **direct child of this exact spec commit**. If a candidate fails, any replacement candidate must again be a direct child of this same spec commit, never a child of the failed candidate.
+
+The exact candidate SHA must pass the complete regression gate already required by the promoted S25 build, including host unit tests, debug AndroidTest compilation/build, Android 9/API28 full instrumentation with zero failures/errors/skips, Android 16/API36 modern location-permission matrix, frozen GeoNames/Adhan hash checks, package/SDK/permission policy and Fused location wiring checks. The gate must additionally exercise the Home quick-action -> bottom-Home navigation regression and the daily-content interaction/share contract. Only a green exact-SHA gate may be fast-forwarded to `main` without force, followed by an APK signed with the frozen persistent Arihna debug signer, a GitHub prerelease, and physical Galaxy S25 validation.
+
+EOF
+          git config user.name "Arihna Spec Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add PROJECT_SPEC.md
+          test "$(git diff --cached --name-only)" = "PROJECT_SPEC.md"
+          git commit -m "spec(home): navigation, daily content and Islamic visual identity"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          git push origin "$SPEC_BRANCH"
+          echo "SPEC_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Report exact spec SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "SPEC_SHA=$SPEC_SHA"
+          git show --stat --oneline "$SPEC_SHA"
