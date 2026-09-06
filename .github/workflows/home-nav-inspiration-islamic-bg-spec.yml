@@ -1,0 +1,60 @@
+name: Home nav inspiration Islamic background spec
+
+on:
+  push:
+    branches:
+      - home-nav-inspiration-islamic-bg-spec-driver
+
+permissions:
+  contents: write
+
+jobs:
+  update-project-spec:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout spec branch
+        uses: actions/checkout@v4
+        with:
+          ref: home-nav-inspiration-islamic-bg-spec
+          fetch-depth: 0
+
+      - name: Insert approved requirement before implementation
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("PROJECT_SPEC.md")
+          text = path.read_text()
+          marker = "## 17. Change log\n\n"
+          if marker not in text:
+              raise SystemExit("Change log marker not found")
+
+          entry = '''### 2026-09-06 — Galaxy S25 Home navigation, daily inspiration and Islamic visual identity correction APPROVED\n\nPhysical validation of prerelease `ui-s25-wow-fused-f61133c0-20260906` on the primary Samsung Galaxy S25 found a top-level navigation defect and two Home product-quality gaps. The validated runtime baseline is commit `f61133c0dcab8b1f1e7255967b81c280f064e3f9`; this specification update must precede all corresponding implementation changes.\n\n**Top-level navigation correction.** The six bottom navigation destinations are true top-level destinations. From any screen reached either from the bottom bar or from Home quick actions, tapping **Home** must return to the existing Home destination immediately without requiring the Android system Back button. The same top-level navigation contract applies when switching among Orari, Qibla, Corano, Sveglie and Impostazioni: one tap selects the requested destination, duplicate copies are not accumulated, and state restoration must not make the selected tab unreachable. Dedicated regression coverage must exercise at minimum Home → Qibla → Home, Home → Sveglie → Home and Home → Posizione/Impostazioni → Home through visible UI controls.\n\n**Daily inspiration interaction and religious-content discipline.** Replace the passive Home inspiration card with a tappable **Ispirazione del giorno** experience. The compact Home card shows a positive Quran verse or authentic hadith excerpt together with an explicit source/reference. Tapping the card opens a readable detail surface without navigating away from Home; the detail exposes a clear **Condividi** action using the Android system share sheet (`ACTION_SEND`, `text/plain`). Shared text must contain the displayed content and its source/reference. Daily content must come only from a small Arihna-owned curated set whose references are explicit and reviewable; Arihna must never fabricate a Quran attribution, hadith attribution or authenticity claim. Selection may rotate deterministically by local civil date and must remain stable for that date. Closing the detail returns to the unchanged Home state.\n\n**Islamic visual identity correction.** The Home background must no longer read as a plain dark gradient. Preserve the approved premium dark-green/gold palette, hierarchy and legibility, but add a recognizably Islamic visual layer using subtle geometric/mashrabiya-inspired line work and/or architectural arch geometry rendered decoratively behind content. The ornament must remain low-contrast, non-textual and non-sacred: no Quranic text, divine names, generated Arabic calligraphy or decorative religious quotations in the background. It must not interfere with taps, accessibility semantics, prayer-time readability, scrolling or performance. The result should feel warmer, richer and more distinctly Islamic while remaining sober rather than busy or kitsch.\n\n**Scope and gate.** Do not change prayer calculations, alarm scheduling, Fused location acquisition, GeoNames data, permission policy, package identity or frozen SDK values for this correction. Implementation must be one clean technical candidate whose direct parent is this spec commit. Before promotion, the exact candidate SHA must pass host unit regression, debug build, Android 9/API28 full instrumentation with zero failures/errors/skips, the modern location-permission matrix already required by the promoted baseline, frozen GeoNames/Adhan integrity checks, and the new navigation/inspiration UI regression. Only a green exact-SHA candidate may fast-forward `main`; the resulting APK must use the frozen persistent signer and be published as a GitHub prerelease for a new physical Galaxy S25 validation.\n\n'''
+
+          if "Galaxy S25 Home navigation, daily inspiration and Islamic visual identity correction APPROVED" in text:
+              raise SystemExit("Spec entry already present")
+
+          path.write_text(text.replace(marker, marker + entry, 1))
+          PY
+
+      - name: Validate spec-only diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          test "$(git diff --name-only)" = "PROJECT_SPEC.md"
+          grep -F "Home → Qibla → Home" PROJECT_SPEC.md
+          grep -F "Ispirazione del giorno" PROJECT_SPEC.md
+          grep -F "mashrabiya-inspired" PROJECT_SPEC.md
+          grep -F "ACTION_SEND" PROJECT_SPEC.md
+
+      - name: Commit specification
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add PROJECT_SPEC.md
+          git commit -m "docs(spec): approve home navigation inspiration and Islamic backdrop"
+          git push origin HEAD:home-nav-inspiration-islamic-bg-spec
