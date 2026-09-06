@@ -11,7 +11,7 @@ import com.archimedeprojects.arihna.core.location.domain.LocationCoordinator
 import com.archimedeprojects.arihna.core.location.model.LocationPermissionState
 import com.archimedeprojects.arihna.core.location.platform.AndroidLocationEnvironment
 import com.archimedeprojects.arihna.core.location.platform.AndroidLocationPermissionStateResolver
-import com.archimedeprojects.arihna.core.location.platform.LocationManagerDeviceLocationDataSource
+import com.archimedeprojects.arihna.core.location.platform.GoogleFusedDeviceLocationDataSource
 import com.archimedeprojects.arihna.core.prayer.calculation.AdhanPrayerTimeCalculator
 import com.archimedeprojects.arihna.core.qibla.calculation.GreatCircleQiblaBearingCalculator
 import com.archimedeprojects.arihna.core.qibla.calculation.QiblaBearingCalculator
@@ -48,7 +48,7 @@ class AppContainer(context: Context) {
     private val alarmClock: Clock = Clock.systemUTC()
 
     val cityRepository: CityRepository by lazy { SQLiteCityRepository(appContext) }
-    val deviceLocationDataSource: DeviceLocationDataSource by lazy { LocationManagerDeviceLocationDataSource(appContext) }
+    val deviceLocationDataSource: DeviceLocationDataSource by lazy { GoogleFusedDeviceLocationDataSource(appContext) }
     val locationPreferencesRepository: LocationPreferencesRepository by lazy {
         PreferencesDataStoreLocationPreferencesRepository(appContext.locationPreferencesDataStore)
     }
