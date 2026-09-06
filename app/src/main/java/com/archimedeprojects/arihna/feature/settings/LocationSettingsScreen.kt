@@ -8,7 +8,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,8 +16,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -26,7 +23,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -46,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.archimedeprojects.arihna.core.location.model.CitySearchResult
 import com.archimedeprojects.arihna.core.location.model.LocationPermissionState
@@ -63,14 +62,14 @@ import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeState
 import com.archimedeprojects.arihna.feature.alarms.platform.ExactAlarmAccessIntentFactory
 import kotlin.math.roundToInt
 
-private val SettingsBackground = Color(0xFF07100D)
-private val SettingsSurface = Color(0xFF101C18)
-private val SettingsSurfaceRaised = Color(0xFF16251F)
-private val SettingsText = Color(0xFFF8F5ED)
-private val SettingsMuted = Color(0xFF9EAEA7)
-private val SettingsAccent = Color(0xFFD8BC5A)
+private val SettingsBackground = Color(0xFF06100D)
+private val SettingsSurface = Color(0xFF0D1A16)
+private val SettingsSurfaceRaised = Color(0xFF13241D)
+private val SettingsText = Color(0xFFF8F5EC)
+private val SettingsMuted = Color(0xFF9DAEA5)
+private val SettingsAccent = Color(0xFFD6B957)
 private val SettingsDanger = Color(0xFFFF9188)
-private val SettingsOutline = Color(0xFF283A33)
+private val SettingsOutline = Color(0xFF294038)
 
 @Suppress("UNUSED_PARAMETER")
 @Composable
@@ -203,152 +202,52 @@ fun LocationSettingsScreen(
     val presentation = uiState.resolutionState.toPresentation()
     val ready = uiState.resolutionState is LocationResolutionState.Ready
 
-    LazyColumn(
+    Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(SettingsBackground),
-        contentPadding = PaddingValues(
-            start = 20.dp,
-            top = contentPadding.calculateTopPadding() + 14.dp,
-            end = 20.dp,
-            bottom = contentPadding.calculateBottomPadding() + 24.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-        userScrollEnabled = false,
+            .background(SettingsBackground)
+            .padding(
+                start = 18.dp,
+                top = contentPadding.calculateTopPadding() + 8.dp,
+                end = 18.dp,
+                bottom = contentPadding.calculateBottomPadding() + 6.dp,
+            )
+            .testTag("settings-root"),
+        verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
-        item {
-            Text(
-                text = "Impostazioni",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
-                color = SettingsText,
-                modifier = Modifier.padding(bottom = 4.dp),
-            )
-        }
+        Text(
+            text = "Impostazioni",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            color = SettingsText,
+            modifier = Modifier.padding(bottom = 1.dp),
+        )
 
-        item { SettingsSectionTitle("Posizione", "settings-section-location") }
+        SettingsSectionTitle("Posizione", "settings-section-location")
+        LocationControlCard(
+            uiState = uiState,
+            presentation = presentation,
+            ready = ready,
+            onUseDevice = onUseDevice,
+            onSearchQueryChanged = onSearchQueryChanged,
+            onSelectCity = onSelectCity,
+            onOpenAppSettings = onOpenAppSettings,
+            onOpenLocationSettings = onOpenLocationSettings,
+        )
 
-        item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("settings-location-summary"),
-                shape = RoundedCornerShape(26.dp),
-                colors = CardDefaults.cardColors(containerColor = SettingsSurfaceRaised),
-                border = BorderStroke(1.dp, SettingsOutline),
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Text(
-                        text = presentation.locationName ?: presentation.title,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = SettingsText,
-                    )
-                    presentation.zoneId?.let {
-                        Text(
-                            text = it,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = SettingsMuted,
-                        )
-                    }
-                    if (!ready) {
-                        Text(
-                            text = presentation.message,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = SettingsMuted,
-                        )
-                    }
-                    if (uiState.resolutionState is LocationResolutionState.Resolving) {
-                        Box(
-                            modifier = Modifier.fillMaxWidth(),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            CircularProgressIndicator(color = SettingsAccent)
-                        }
-                    }
-                    if (presentation.showAppSettingsAction) {
-                        CompactOutlinedAction("Apri impostazioni app", onOpenAppSettings)
-                    }
-                    if (presentation.showLocationSettingsAction) {
-                        CompactOutlinedAction("Apri impostazioni Posizione", onOpenLocationSettings)
-                    }
+        SettingsSectionTitle("Sveglia", "settings-section-alarms")
+        AlarmVolumeCard(
+            state = alarmSettings,
+            onAlarmVolumeChange = onAlarmVolumeChange,
+        )
 
-                    HorizontalDivider(color = SettingsOutline.copy(alpha = 0.72f))
-
-                    OutlinedTextField(
-                        value = uiState.searchQuery,
-                        onValueChange = onSearchQueryChanged,
-                        label = { Text("Cerca città") },
-                        singleLine = true,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("settings-location-search"),
-                        trailingIcon = {
-                            TextButton(
-                                onClick = onUseDevice,
-                                modifier = Modifier.testTag("settings-use-current-location"),
-                                colors = ButtonDefaults.textButtonColors(contentColor = SettingsAccent),
-                            ) {
-                                Text("Attuale", fontWeight = FontWeight.Bold)
-                            }
-                        },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = SettingsText,
-                            unfocusedTextColor = SettingsText,
-                            focusedBorderColor = SettingsAccent.copy(alpha = 0.78f),
-                            unfocusedBorderColor = SettingsOutline,
-                            focusedLabelColor = SettingsAccent,
-                            unfocusedLabelColor = SettingsMuted,
-                            cursorColor = SettingsAccent,
-                        ),
-                    )
-                    if (uiState.searchInProgress) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            CircularProgressIndicator(color = SettingsAccent)
-                            Text("Ricerca locale…", color = SettingsMuted)
-                        }
-                    }
-                    uiState.searchMessage?.let {
-                        Text(
-                            text = it,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = SettingsMuted,
-                        )
-                    }
-                }
-            }
-        }
-
-        items(
-            items = uiState.searchResults,
-            key = { city -> city.id },
-        ) { city ->
-            CityResultCard(city = city, onSelectCity = onSelectCity)
-        }
-
-        item { SettingsSectionTitle("Sveglia", "settings-section-alarms") }
-        item {
-            AlarmVolumeCard(
-                state = alarmSettings,
-                onAlarmVolumeChange = onAlarmVolumeChange,
-            )
-        }
-
-        item { SettingsSectionTitle("Test rapidi", "settings-section-tests") }
-        item {
-            AlarmDiagnosticCard(
-                state = alarmSettings,
-                onTestAlarm = onTestAlarm,
-                onTestAdhan = onTestAdhan,
-                onCancelDiagnostic = onCancelDiagnostic,
-            )
-        }
+        SettingsSectionTitle("Test rapidi", "settings-section-tests")
+        AlarmDiagnosticCard(
+            state = alarmSettings,
+            onTestAlarm = onTestAlarm,
+            onTestAdhan = onTestAdhan,
+            onCancelDiagnostic = onCancelDiagnostic,
+        )
     }
 
     if (uiState.rationaleVisible) {
@@ -363,16 +262,136 @@ fun LocationSettingsScreen(
                 )
             },
             confirmButton = {
-                TextButton(onClick = onConfirmRationale) {
-                    Text("Continua")
-                }
+                TextButton(onClick = onConfirmRationale) { Text("Continua") }
             },
             dismissButton = {
-                TextButton(onClick = onDismissRationale) {
-                    Text("Annulla")
-                }
+                TextButton(onClick = onDismissRationale) { Text("Annulla") }
             },
         )
+    }
+}
+
+@Composable
+private fun LocationControlCard(
+    uiState: LocationSettingsUiState,
+    presentation: LocationSettingsPresentation,
+    ready: Boolean,
+    onUseDevice: () -> Unit,
+    onSearchQueryChanged: (String) -> Unit,
+    onSelectCity: (Long) -> Unit,
+    onOpenAppSettings: () -> Unit,
+    onOpenLocationSettings: () -> Unit,
+) {
+    var searchMenuVisible by remember(uiState.searchQuery, uiState.searchResults) {
+        mutableStateOf(uiState.searchResults.isNotEmpty())
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("settings-location-summary"),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = SettingsSurfaceRaised),
+        border = BorderStroke(1.dp, SettingsOutline),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 13.dp, vertical = 11.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            Text(
+                text = presentation.locationName ?: presentation.title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = SettingsText,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            presentation.zoneId?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SettingsMuted,
+                )
+            }
+            if (!ready) {
+                Text(
+                    text = presentation.message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SettingsMuted,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (uiState.resolutionState is LocationResolutionState.Resolving) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    CircularProgressIndicator(color = SettingsAccent)
+                    Text("Ricerca posizione…", style = MaterialTheme.typography.bodySmall, color = SettingsMuted)
+                }
+            }
+            if (presentation.showAppSettingsAction) {
+                CompactOutlinedAction("Apri impostazioni app", onOpenAppSettings)
+            }
+            if (presentation.showLocationSettingsAction) {
+                CompactOutlinedAction("Apri impostazioni Posizione", onOpenLocationSettings)
+            }
+
+            Box(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = uiState.searchQuery,
+                    onValueChange = {
+                        searchMenuVisible = true
+                        onSearchQueryChanged(it)
+                    },
+                    label = { Text("Cerca città") },
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("settings-location-search"),
+                    trailingIcon = {
+                        TextButton(
+                            onClick = onUseDevice,
+                            modifier = Modifier.testTag("settings-use-current-location"),
+                            colors = ButtonDefaults.textButtonColors(contentColor = SettingsAccent),
+                        ) {
+                            Text("Attuale", fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = SettingsText,
+                        unfocusedTextColor = SettingsText,
+                        focusedBorderColor = SettingsAccent.copy(alpha = 0.76f),
+                        unfocusedBorderColor = SettingsOutline,
+                        focusedLabelColor = SettingsAccent,
+                        unfocusedLabelColor = SettingsMuted,
+                        cursorColor = SettingsAccent,
+                    ),
+                )
+                DropdownMenu(
+                    expanded = searchMenuVisible && uiState.searchResults.isNotEmpty(),
+                    onDismissRequest = { searchMenuVisible = false },
+                    containerColor = SettingsSurfaceRaised,
+                ) {
+                    uiState.searchResults.forEach { city ->
+                        DropdownMenuItem(
+                            text = { CityResultContent(city) },
+                            onClick = {
+                                searchMenuVisible = false
+                                onSelectCity(city.id)
+                            },
+                        )
+                    }
+                }
+            }
+            if (uiState.searchInProgress) {
+                Text("Ricerca locale…", style = MaterialTheme.typography.bodySmall, color = SettingsMuted)
+            }
+            uiState.searchMessage?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = SettingsMuted)
+            }
+        }
     }
 }
 
@@ -380,11 +399,11 @@ fun LocationSettingsScreen(
 private fun SettingsSectionTitle(text: String, tag: String) {
     Text(
         text = text,
-        style = MaterialTheme.typography.titleMedium,
+        style = MaterialTheme.typography.labelLarge,
         fontWeight = FontWeight.Bold,
         color = SettingsAccent,
         modifier = Modifier
-            .padding(top = 6.dp, start = 2.dp, bottom = 2.dp)
+            .padding(top = 2.dp, start = 2.dp)
             .testTag(tag),
     )
 }
@@ -395,46 +414,28 @@ private fun CompactOutlinedAction(label: String, onClick: () -> Unit) {
         onClick = onClick,
         border = BorderStroke(1.dp, SettingsOutline),
         colors = ButtonDefaults.outlinedButtonColors(contentColor = SettingsText),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
     ) {
-        Text(label)
+        Text(label, style = MaterialTheme.typography.labelLarge)
     }
 }
 
 @Composable
-private fun CityResultCard(
-    city: CitySearchResult,
-    onSelectCity: (Long) -> Unit,
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onSelectCity(city.id) },
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = SettingsSurface),
-        border = BorderStroke(1.dp, SettingsOutline),
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
+private fun CityResultContent(city: CitySearchResult) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            text = city.displayName,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = SettingsText,
+        )
+        Text(city.timeZoneId, style = MaterialTheme.typography.bodySmall, color = SettingsMuted)
+        if (!city.timeZoneSupported) {
             Text(
-                text = city.displayName,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = SettingsText,
-            )
-            Text(
-                text = city.timeZoneId,
+                text = "Fuso non supportato su questa versione Android: selezionando la città Arihna mostrerà un errore controllato.",
                 style = MaterialTheme.typography.bodySmall,
-                color = SettingsMuted,
+                color = SettingsDanger,
             )
-            if (!city.timeZoneSupported) {
-                Text(
-                    text = "Fuso non supportato su questa versione Android: selezionando la città Arihna mostrerà un errore controllato.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = SettingsDanger,
-                )
-            }
         }
     }
 }
@@ -458,14 +459,11 @@ private fun AlarmVolumeCard(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("settings-alarm-volume-card"),
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = SettingsSurface),
         border = BorderStroke(1.dp, SettingsOutline),
     ) {
-        AlarmVolumeSetting(
-            state = state,
-            onAlarmVolumeChange = onAlarmVolumeChange,
-        )
+        AlarmVolumeSetting(state, onAlarmVolumeChange)
     }
 }
 
@@ -479,9 +477,9 @@ private fun AlarmVolumeSetting(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 14.dp)
+            .padding(horizontal = 13.dp, vertical = 9.dp)
             .testTag("settings-alarm-volume"),
-        verticalArrangement = Arrangement.spacedBy(5.dp),
+        verticalArrangement = Arrangement.spacedBy(1.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -538,52 +536,70 @@ private fun AlarmDiagnosticCard(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("settings-alarm-tests"),
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = SettingsSurfaceRaised),
         border = BorderStroke(1.dp, SettingsOutline),
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(7.dp),
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 7.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Button(
-                onClick = onTestAlarm,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("settings-test-alarm-one-minute"),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = SettingsAccent,
-                    contentColor = SettingsBackground,
-                ),
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
             ) {
-                Text("Test sveglia (10 secondi)", fontWeight = FontWeight.Bold)
-            }
-            OutlinedButton(
-                onClick = onTestAdhan,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("settings-test-adhan-one-minute"),
-                border = BorderStroke(1.dp, SettingsAccent.copy(alpha = 0.58f)),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = SettingsText),
-            ) {
-                Text("Test Adhan (10 secondi)")
-            }
-            TextButton(
-                onClick = onCancelDiagnostic,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("settings-test-cancel"),
-                colors = ButtonDefaults.textButtonColors(contentColor = SettingsMuted),
-            ) {
-                Text("Annulla test")
+                Button(
+                    onClick = onTestAlarm,
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("settings-test-alarm-one-minute"),
+                    contentPadding = PaddingValues(horizontal = 7.dp, vertical = 5.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = SettingsAccent,
+                        contentColor = SettingsBackground,
+                    ),
+                ) {
+                    Text(
+                        "Test sveglia (10 secondi)",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                OutlinedButton(
+                    onClick = onTestAdhan,
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("settings-test-adhan-one-minute"),
+                    contentPadding = PaddingValues(horizontal = 7.dp, vertical = 5.dp),
+                    border = BorderStroke(1.dp, SettingsAccent.copy(alpha = 0.58f)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SettingsText),
+                ) {
+                    Text("Test Adhan (10 secondi)", style = MaterialTheme.typography.labelMedium)
+                }
             }
             state.diagnosticMessage?.let {
-                Text(
-                    it,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = SettingsAccent,
-                    modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 2.dp),
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SettingsAccent,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    TextButton(
+                        onClick = onCancelDiagnostic,
+                        modifier = Modifier.testTag("settings-test-cancel"),
+                        colors = ButtonDefaults.textButtonColors(contentColor = SettingsMuted),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    ) {
+                        Text("Annulla", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
             }
         }
     }
