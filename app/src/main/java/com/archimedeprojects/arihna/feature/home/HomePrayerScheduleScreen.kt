@@ -11,30 +11,37 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Alarm
+import androidx.compose.material.icons.rounded.Explore
+import androidx.compose.material.icons.rounded.LocationOn
+import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.archimedeprojects.arihna.core.location.model.LocationFreshness
-import com.archimedeprojects.arihna.core.prayer.model.PrayerCalculationMethod
+import androidx.compose.ui.unit.sp
 import com.archimedeprojects.arihna.feature.prayerschedule.domain.PrayerName
-import com.archimedeprojects.arihna.feature.prayerschedule.presentation.PrayerScheduleLocationSourceUi
 import com.archimedeprojects.arihna.feature.prayerschedule.presentation.PrayerScheduleUiState
 import com.archimedeprojects.arihna.feature.prayerschedule.presentation.PrayerScheduleViewModel
 import java.time.DayOfWeek
@@ -46,20 +53,24 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 
-private val HomeBackground = Color(0xFF06100D)
-private val HomeSurface = Color(0xFF0D1A16)
-private val HomeSurfaceRaised = Color(0xFF13241D)
-private val HomeHero = Color(0xFF193229)
-private val HomeText = Color(0xFFF8F5EC)
-private val HomeMuted = Color(0xFF9DAEA5)
-private val HomeAccent = Color(0xFFD6B957)
-private val HomeOutline = Color(0xFF294038)
+private val HomeBackgroundTop = Color(0xFF030B08)
+private val HomeBackgroundBottom = Color(0xFF071610)
+private val HomeSurface = Color(0xFF0C1A15)
+private val HomeSurfaceRaised = Color(0xFF11251D)
+private val HomeHero = Color(0xFF123327)
+private val HomeHeroDeep = Color(0xFF0B241B)
+private val HomeText = Color(0xFFF7F2E7)
+private val HomeMuted = Color(0xFFA8B4AC)
+private val HomeAccent = Color(0xFFD8B95A)
+private val HomeOutline = Color(0xFF29483B)
 
 @Composable
 fun HomePrayerScheduleRoute(
     contentPadding: PaddingValues,
     viewModel: PrayerScheduleViewModel,
     onOpenLocationSettings: () -> Unit,
+    onOpenQibla: () -> Unit,
+    onOpenAlarms: () -> Unit,
     onRefreshLocation: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -67,6 +78,8 @@ fun HomePrayerScheduleRoute(
         contentPadding = contentPadding,
         uiState = uiState,
         onOpenLocationSettings = onOpenLocationSettings,
+        onOpenQibla = onOpenQibla,
+        onOpenAlarms = onOpenAlarms,
         onRefreshLocation = onRefreshLocation,
     )
 }
@@ -76,39 +89,41 @@ fun HomePrayerScheduleScreen(
     contentPadding: PaddingValues,
     uiState: PrayerScheduleUiState,
     onOpenLocationSettings: () -> Unit,
+    onOpenQibla: () -> Unit = {},
+    onOpenAlarms: () -> Unit = {},
     onRefreshLocation: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(HomeBackground)
+            .background(Brush.verticalGradient(listOf(HomeBackgroundTop, HomeBackgroundBottom)))
             .padding(contentPadding)
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 18.dp, vertical = 12.dp)
+            .padding(horizontal = 18.dp, vertical = 14.dp)
             .testTag("home-prayer-root"),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(13.dp),
     ) {
         when (uiState) {
             PrayerScheduleUiState.Loading -> LoadingContent()
-            is PrayerScheduleUiState.NoLocation -> NoLocationContent(
+            is PrayerScheduleUiState.NoLocation -> NoLocationContent(uiState, onOpenLocationSettings)
+            is PrayerScheduleUiState.CalculationUnavailable -> CalculationUnavailableContent(uiState)
+            is PrayerScheduleUiState.Ready -> ReadyContent(
                 state = uiState,
                 onOpenLocationSettings = onOpenLocationSettings,
+                onOpenQibla = onOpenQibla,
+                onOpenAlarms = onOpenAlarms,
+                onRefreshLocation = onRefreshLocation,
             )
-            is PrayerScheduleUiState.CalculationUnavailable -> CalculationUnavailableContent(uiState)
-            is PrayerScheduleUiState.Ready -> ReadyContent(uiState, onRefreshLocation)
         }
     }
 }
 
 @Composable
 private fun LoadingContent() {
+    BrandHeader()
     StateCard {
         CircularProgressIndicator(color = HomeAccent)
-        Text(
-            text = "Calcolo degli orari in corso…",
-            style = MaterialTheme.typography.bodyLarge,
-            color = HomeText,
-        )
+        Text("Calcolo degli orari in corso…", color = HomeText)
     }
 }
 
@@ -117,23 +132,14 @@ private fun NoLocationContent(
     state: PrayerScheduleUiState.NoLocation,
     onOpenLocationSettings: () -> Unit,
 ) {
-    Text(
-        text = "Home",
-        style = MaterialTheme.typography.headlineMedium,
-        fontWeight = FontWeight.Bold,
-        color = HomeText,
-    )
+    BrandHeader()
     StateCard {
-        Text(
-            text = state.message,
-            style = MaterialTheme.typography.bodyLarge,
-            color = HomeText,
-        )
+        Text(state.message, style = MaterialTheme.typography.bodyLarge, color = HomeText)
         Button(
             onClick = onOpenLocationSettings,
             colors = ButtonDefaults.buttonColors(
                 containerColor = HomeAccent,
-                contentColor = HomeBackground,
+                contentColor = HomeBackgroundTop,
             ),
         ) {
             Text("Configura posizione", fontWeight = FontWeight.Bold)
@@ -143,27 +149,13 @@ private fun NoLocationContent(
 
 @Composable
 private fun CalculationUnavailableContent(state: PrayerScheduleUiState.CalculationUnavailable) {
-    Text(
-        text = "Home",
-        style = MaterialTheme.typography.headlineMedium,
-        fontWeight = FontWeight.Bold,
-        color = HomeText,
-    )
+    BrandHeader()
     StateCard {
+        Text("Orari non disponibili", fontWeight = FontWeight.Bold, color = HomeText)
+        Text(state.message, color = HomeMuted)
         Text(
-            text = "Orari non disponibili",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = HomeText,
-        )
-        Text(
-            text = state.message,
-            style = MaterialTheme.typography.bodyLarge,
-            color = HomeMuted,
-        )
-        Text(
-            text = "Nessun orario viene mostrato finché il calcolo non torna disponibile.",
-            style = MaterialTheme.typography.bodyMedium,
+            "Nessun orario viene mostrato finché il calcolo non torna disponibile.",
+            style = MaterialTheme.typography.bodySmall,
             color = HomeMuted,
         )
     }
@@ -173,12 +165,12 @@ private fun CalculationUnavailableContent(state: PrayerScheduleUiState.Calculati
 private fun StateCard(content: @Composable ColumnScope.() -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = HomeSurfaceRaised),
         border = BorderStroke(1.dp, HomeOutline),
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
             content = content,
         )
@@ -186,91 +178,87 @@ private fun StateCard(content: @Composable ColumnScope.() -> Unit) {
 }
 
 @Composable
+private fun BrandHeader() {
+    Text(
+        text = "ARIHNA",
+        color = HomeAccent,
+        fontWeight = FontWeight.Black,
+        fontSize = 22.sp,
+        letterSpacing = 3.sp,
+    )
+}
+
+@Composable
 private fun ReadyContent(
     state: PrayerScheduleUiState.Ready,
+    onOpenLocationSettings: () -> Unit,
+    onOpenQibla: () -> Unit,
+    onOpenAlarms: () -> Unit,
     onRefreshLocation: () -> Unit,
 ) {
     val zoneId = state.today.zoneId
 
-    HomeHeader(state)
+    HomeHeader(state, onRefreshLocation)
     NextPrayerHero(state, zoneId)
+    TodayPrayerStrip(state, zoneId)
     WeekStrip(state.localDate)
-    TodaySchedule(state, zoneId)
-
-    Text(
-        text = "Metodo: ${methodLabel(state.settings.method)}",
-        style = MaterialTheme.typography.bodySmall,
-        color = HomeMuted,
-        modifier = Modifier.padding(start = 2.dp, end = 2.dp, bottom = 4.dp),
+    InspirationCard()
+    QuickActions(
+        onOpenQibla = onOpenQibla,
+        onOpenAlarms = onOpenAlarms,
+        onOpenLocationSettings = onOpenLocationSettings,
     )
-
-    if (
-        state.location.source == PrayerScheduleLocationSourceUi.DEVICE &&
-        state.locationFreshness == LocationFreshness.CACHED
-    ) {
-        val age = state.locationAge ?: Duration.ZERO
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("home-cached-location"),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = HomeSurface),
-            border = BorderStroke(1.dp, HomeOutline),
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 7.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "Basato su posizione di ${formatLocationAge(age)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = HomeMuted,
-                )
-                TextButton(
-                    onClick = onRefreshLocation,
-                    colors = ButtonDefaults.textButtonColors(contentColor = HomeAccent),
-                ) {
-                    Text("Aggiorna posizione", style = MaterialTheme.typography.labelLarge)
-                }
-            }
-        }
-    }
 }
 
 @Composable
-private fun HomeHeader(state: PrayerScheduleUiState.Ready) {
+private fun HomeHeader(state: PrayerScheduleUiState.Ready, onRefreshLocation: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Bottom,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = "ARIHNA",
+                color = HomeAccent,
+                fontWeight = FontWeight.Black,
+                fontSize = 21.sp,
+                letterSpacing = 3.sp,
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.LocationOn,
+                    contentDescription = null,
+                    tint = HomeMuted,
+                    modifier = Modifier.size(16.dp),
+                )
+                Text(
+                    text = state.location.displayName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = HomeText,
+                    modifier = Modifier.testTag("home-location"),
+                )
+            }
             Text(
                 text = formatDate(state.localDate),
-                style = MaterialTheme.typography.labelLarge,
-                color = HomeAccent,
+                style = MaterialTheme.typography.bodySmall,
+                color = HomeMuted,
                 modifier = Modifier.testTag("home-current-date"),
             )
-            Text(
-                text = state.location.displayName,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = HomeText,
-                modifier = Modifier.testTag("home-location"),
+        }
+        IconButton(
+            onClick = onRefreshLocation,
+            modifier = Modifier.testTag("home-refresh-location"),
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.MyLocation,
+                contentDescription = "Aggiorna posizione",
+                tint = HomeAccent,
             )
         }
-        Text(
-            text = if (state.location.source == PrayerScheduleLocationSourceUi.DEVICE) {
-                "Posizione dispositivo"
-            } else {
-                "Posizione manuale"
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = HomeMuted,
-        )
     }
 }
 
@@ -280,63 +268,128 @@ private fun NextPrayerHero(state: PrayerScheduleUiState.Ready, zoneId: ZoneId) {
         modifier = Modifier
             .fillMaxWidth()
             .testTag("home-next-prayer-hero"),
-        shape = RoundedCornerShape(28.dp),
+        shape = RoundedCornerShape(30.dp),
         colors = CardDefaults.cardColors(containerColor = HomeHero),
-        border = BorderStroke(1.dp, HomeAccent.copy(alpha = 0.34f)),
+        border = BorderStroke(1.dp, HomeAccent.copy(alpha = 0.62f)),
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp),
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Brush.horizontalGradient(listOf(HomeHeroDeep, HomeHero)))
+                .padding(horizontal = 20.dp, vertical = 18.dp),
         ) {
-            Text(
-                text = "Prossima preghiera",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = HomeAccent,
-            )
-            val nextPrayer = state.nextPrayer
-            if (nextPrayer == null) {
+            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                 Text(
-                    text = "Nessuna prossima preghiera disponibile.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = HomeText,
+                    text = "PROSSIMA PREGHIERA",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.3.sp,
+                    color = HomeAccent,
                 )
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Bottom,
-                ) {
-                    Text(
-                        text = prayerLabel(nextPrayer.prayer),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = HomeText,
-                        modifier = Modifier.testTag("home-next-prayer-name"),
-                    )
-                    Text(
-                        text = formatTime(nextPrayer.time, zoneId),
-                        style = MaterialTheme.typography.displayMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = HomeText,
-                        modifier = Modifier.testTag("home-next-prayer-time"),
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .background(HomeAccent.copy(alpha = 0.14f), RoundedCornerShape(14.dp))
-                        .padding(horizontal = 11.dp, vertical = 6.dp)
-                        .testTag("home-next-prayer-countdown"),
-                ) {
-                    Text(
-                        text = "Tra ${formatCountdown(nextPrayer.remaining)}",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = HomeAccent,
-                    )
+                val nextPrayer = state.nextPrayer
+                if (nextPrayer == null) {
+                    Text("Nessuna prossima preghiera disponibile.", color = HomeText)
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Bottom,
+                    ) {
+                        Text(
+                            text = prayerLabel(nextPrayer.prayer),
+                            style = MaterialTheme.typography.headlineLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = HomeText,
+                            modifier = Modifier.testTag("home-next-prayer-name"),
+                        )
+                        Text(
+                            text = formatTime(nextPrayer.time, zoneId),
+                            fontSize = 46.sp,
+                            lineHeight = 48.sp,
+                            fontWeight = FontWeight.Light,
+                            color = HomeText,
+                            modifier = Modifier.testTag("home-next-prayer-time"),
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .background(HomeAccent.copy(alpha = 0.13f), RoundedCornerShape(50))
+                            .padding(horizontal = 13.dp, vertical = 7.dp)
+                            .testTag("home-next-prayer-countdown"),
+                    ) {
+                        Text(
+                            text = "Tra ${formatCountdown(nextPrayer.remaining)}",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = HomeAccent,
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun TodayPrayerStrip(state: PrayerScheduleUiState.Ready, zoneId: ZoneId) {
+    val next = state.nextPrayer?.prayer
+    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Text(
+            text = "OGGI",
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.2.sp,
+            color = HomeMuted,
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("home-today-schedule"),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            PrayerStripTile("Fajr", state.today.times.fajr, zoneId, next == PrayerName.FAJR, Modifier.weight(1f))
+            PrayerStripTile("Alba", state.today.times.sunrise, zoneId, false, Modifier.weight(1f))
+            PrayerStripTile("Dhuhr", state.today.times.dhuhr, zoneId, next == PrayerName.DHUHR, Modifier.weight(1f))
+            PrayerStripTile("Asr", state.today.times.asr, zoneId, next == PrayerName.ASR, Modifier.weight(1f))
+            PrayerStripTile("Maghrib", state.today.times.maghrib, zoneId, next == PrayerName.MAGHRIB, Modifier.weight(1f))
+            PrayerStripTile("Isha", state.today.times.isha, zoneId, next == PrayerName.ISHA, Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun PrayerStripTile(
+    label: String,
+    time: Instant,
+    zoneId: ZoneId,
+    highlighted: Boolean,
+    modifier: Modifier,
+) {
+    Column(
+        modifier = modifier
+            .background(
+                if (highlighted) HomeAccent.copy(alpha = 0.16f) else HomeSurface,
+                RoundedCornerShape(13.dp),
+            )
+            .padding(horizontal = 2.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        Text(
+            text = label,
+            fontSize = 9.sp,
+            lineHeight = 11.sp,
+            color = if (highlighted) HomeAccent else HomeMuted,
+            fontWeight = if (highlighted) FontWeight.Bold else FontWeight.Medium,
+            maxLines = 1,
+        )
+        Text(
+            text = formatTime(time, zoneId),
+            fontSize = 11.sp,
+            lineHeight = 13.sp,
+            color = HomeText,
+            fontWeight = FontWeight.Bold,
+        )
     }
 }
 
@@ -345,11 +398,12 @@ private fun WeekStrip(localDate: LocalDate) {
     val monday = localDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
     val days = (0L..6L).map(monday::plusDays)
 
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
         Text(
-            text = "Questa settimana",
-            style = MaterialTheme.typography.labelLarge,
+            text = "SETTIMANA",
+            style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Bold,
+            letterSpacing = 1.2.sp,
             color = HomeMuted,
         )
         Row(
@@ -365,7 +419,7 @@ private fun WeekStrip(localDate: LocalDate) {
                         .weight(1f)
                         .background(
                             if (isToday) HomeAccent else HomeSurface,
-                            RoundedCornerShape(14.dp),
+                            RoundedCornerShape(15.dp),
                         )
                         .padding(vertical = 7.dp)
                         .then(if (isToday) Modifier.testTag("home-week-today") else Modifier),
@@ -374,15 +428,15 @@ private fun WeekStrip(localDate: LocalDate) {
                 ) {
                     Text(
                         text = dayInitial(day.dayOfWeek),
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
-                        color = if (isToday) HomeBackground else HomeMuted,
+                        color = if (isToday) HomeBackgroundTop else HomeMuted,
                     )
                     Text(
                         text = day.dayOfMonth.toString(),
                         style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (isToday) HomeBackground else HomeText,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isToday) HomeBackgroundTop else HomeText,
                     )
                 }
             }
@@ -391,88 +445,77 @@ private fun WeekStrip(localDate: LocalDate) {
 }
 
 @Composable
-private fun TodaySchedule(state: PrayerScheduleUiState.Ready, zoneId: ZoneId) {
+private fun InspirationCard() {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .testTag("home-today-schedule"),
-        shape = RoundedCornerShape(24.dp),
+            .testTag("home-inspiration"),
+        shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = HomeSurfaceRaised),
-        border = BorderStroke(1.dp, HomeOutline),
+        border = BorderStroke(1.dp, HomeAccent.copy(alpha = 0.34f)),
     ) {
         Column(
-            modifier = Modifier.padding(13.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(horizontal = 17.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp),
         ) {
             Text(
-                text = "Oggi",
-                style = MaterialTheme.typography.titleMedium,
+                "ISPIRAZIONE",
+                style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
+                letterSpacing = 1.2.sp,
                 color = HomeAccent,
             )
-            PrayerPair(
-                firstLabel = "Fajr",
-                firstTime = state.today.times.fajr,
-                secondLabel = "Alba",
-                secondTime = state.today.times.sunrise,
-                zoneId = zoneId,
+            Text(
+                "“Con la difficoltà viene il sollievo.”",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = HomeText,
             )
-            PrayerPair(
-                firstLabel = "Dhuhr",
-                firstTime = state.today.times.dhuhr,
-                secondLabel = "Asr",
-                secondTime = state.today.times.asr,
-                zoneId = zoneId,
-            )
-            PrayerPair(
-                firstLabel = "Maghrib",
-                firstTime = state.today.times.maghrib,
-                secondLabel = "Isha",
-                secondTime = state.today.times.isha,
-                zoneId = zoneId,
-            )
+            Text("Corano 94:5–6", style = MaterialTheme.typography.bodySmall, color = HomeMuted)
         }
     }
 }
 
 @Composable
-private fun PrayerPair(
-    firstLabel: String,
-    firstTime: Instant,
-    secondLabel: String,
-    secondTime: Instant,
-    zoneId: ZoneId,
+private fun QuickActions(
+    onOpenQibla: () -> Unit,
+    onOpenAlarms: () -> Unit,
+    onOpenLocationSettings: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("home-quick-actions"),
+        horizontalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        PrayerTile(firstLabel, firstTime, zoneId, Modifier.weight(1f))
-        PrayerTile(secondLabel, secondTime, zoneId, Modifier.weight(1f))
+        QuickActionButton("Qibla", Icons.Rounded.Explore, onOpenQibla, Modifier.weight(1f))
+        QuickActionButton("Sveglie", Icons.Rounded.Alarm, onOpenAlarms, Modifier.weight(1f))
+        QuickActionButton("Posizione", Icons.Rounded.LocationOn, onOpenLocationSettings, Modifier.weight(1f))
     }
 }
 
 @Composable
-private fun PrayerTile(
+private fun QuickActionButton(
     label: String,
-    time: Instant,
-    zoneId: ZoneId,
-    modifier: Modifier = Modifier,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier,
 ) {
-    Row(
-        modifier = modifier
-            .background(HomeSurface, RoundedCornerShape(14.dp))
-            .padding(horizontal = 11.dp, vertical = 9.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, HomeOutline),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = HomeText),
+        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 10.dp),
     ) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = HomeMuted)
-        Text(
-            formatTime(time, zoneId),
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
-            color = HomeText,
-        )
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Icon(icon, contentDescription = null, tint = HomeAccent, modifier = Modifier.size(19.dp))
+            Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+        }
     }
 }
 
@@ -492,39 +535,6 @@ private fun dayInitial(day: DayOfWeek): String = when (day) {
     DayOfWeek.FRIDAY -> "V"
     DayOfWeek.SATURDAY -> "S"
     DayOfWeek.SUNDAY -> "D"
-}
-
-private fun methodLabel(method: PrayerCalculationMethod): String = when (method) {
-    PrayerCalculationMethod.MUSLIM_WORLD_LEAGUE -> "Muslim World League (MWL)"
-    PrayerCalculationMethod.UMM_AL_QURA -> "Umm al-Qura"
-    PrayerCalculationMethod.ISNA -> "ISNA"
-    PrayerCalculationMethod.EGYPTIAN -> "Egyptian General Authority"
-    PrayerCalculationMethod.KARACHI -> "University of Islamic Sciences, Karachi"
-    PrayerCalculationMethod.DUBAI -> "Dubai"
-    PrayerCalculationMethod.KUWAIT -> "Kuwait"
-    PrayerCalculationMethod.QATAR -> "Qatar"
-    PrayerCalculationMethod.MOONSIGHTING_COMMITTEE -> "Moonsighting Committee"
-    PrayerCalculationMethod.SINGAPORE -> "Singapore"
-    PrayerCalculationMethod.TURKEY -> "Turkey"
-}
-
-private fun formatLocationAge(duration: Duration): String {
-    val totalSeconds = duration.seconds.coerceAtLeast(0L)
-    return when {
-        totalSeconds < 60L -> if (totalSeconds == 1L) "1 secondo fa" else "$totalSeconds secondi fa"
-        totalSeconds < 3_600L -> {
-            val minutes = totalSeconds / 60L
-            if (minutes == 1L) "1 minuto fa" else "$minutes minuti fa"
-        }
-        totalSeconds < 86_400L -> {
-            val hours = totalSeconds / 3_600L
-            if (hours == 1L) "1 ora fa" else "$hours ore fa"
-        }
-        else -> {
-            val days = totalSeconds / 86_400L
-            if (days == 1L) "1 giorno fa" else "$days giorni fa"
-        }
-    }
 }
 
 private fun formatDate(date: LocalDate): String = DATE_FORMATTER.format(date)
