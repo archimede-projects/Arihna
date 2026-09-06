@@ -97,6 +97,7 @@ fun HomePrayerScheduleScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Brush.verticalGradient(listOf(HomeBackgroundTop, HomeBackgroundBottom)))
+            .islamicBackdrop()
             .padding(contentPadding)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 18.dp, vertical = 14.dp)
@@ -202,7 +203,7 @@ private fun ReadyContent(
     NextPrayerHero(state, zoneId)
     TodayPrayerStrip(state, zoneId)
     WeekStrip(state.localDate)
-    InspirationCard()
+    DailyInspirationCard(state.localDate)
     QuickActions(
         onOpenQibla = onOpenQibla,
         onOpenAlarms = onOpenAlarms,
@@ -440,38 +441,6 @@ private fun WeekStrip(localDate: LocalDate) {
                     )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun InspirationCard() {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag("home-inspiration"),
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = HomeSurfaceRaised),
-        border = BorderStroke(1.dp, HomeAccent.copy(alpha = 0.34f)),
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 17.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp),
-        ) {
-            Text(
-                "ISPIRAZIONE",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.2.sp,
-                color = HomeAccent,
-            )
-            Text(
-                "“Con la difficoltà viene il sollievo.”",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = HomeText,
-            )
-            Text("Corano 94:5–6", style = MaterialTheme.typography.bodySmall, color = HomeMuted)
         }
     }
 }

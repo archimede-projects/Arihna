@@ -83,11 +83,10 @@ fun ArihnaNavHost(
                     NavigationBarItem(
                         selected = selected,
                         onClick = {
-                            navController.navigate(destination.route) {
-                                popUpTo(Destination.Home.route) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
+                            navController.navigateTopLevel(
+                                route = destination.route,
+                                homeRoute = Destination.Home.route,
+                            )
                         },
                         icon = {
                             Icon(
@@ -112,13 +111,13 @@ fun ArihnaNavHost(
                     contentPadding = innerPadding,
                     viewModel = prayerScheduleViewModel,
                     onOpenLocationSettings = {
-                        navController.navigate(Destination.Settings.route) { launchSingleTop = true }
+                        navController.navigateTopLevel(Destination.Settings.route, Destination.Home.route)
                     },
                     onOpenQibla = {
-                        navController.navigate(Destination.Qibla.route) { launchSingleTop = true }
+                        navController.navigateTopLevel(Destination.Qibla.route, Destination.Home.route)
                     },
                     onOpenAlarms = {
-                        navController.navigate(Destination.Alarms.route) { launchSingleTop = true }
+                        navController.navigateTopLevel(Destination.Alarms.route, Destination.Home.route)
                     },
                     onRefreshLocation = {
                         val permissionState = locationPermissionStateResolver.resolve(
@@ -134,7 +133,7 @@ fun ArihnaNavHost(
                                 locationServicesEnabled = true,
                             )
                         } else {
-                            navController.navigate(Destination.Settings.route) { launchSingleTop = true }
+                            navController.navigateTopLevel(Destination.Settings.route, Destination.Home.route)
                         }
                     },
                 )
@@ -157,7 +156,7 @@ fun ArihnaNavHost(
                     contentPadding = innerPadding,
                     states = lifecycleBoundQiblaStates,
                     onOpenLocationSettings = {
-                        navController.navigate(Destination.Settings.route) { launchSingleTop = true }
+                        navController.navigateTopLevel(Destination.Settings.route, Destination.Home.route)
                     },
                 )
             }
