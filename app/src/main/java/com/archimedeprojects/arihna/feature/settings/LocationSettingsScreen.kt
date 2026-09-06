@@ -1,10 +1,8 @@
 package com.archimedeprojects.arihna.feature.settings
 
-import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -35,13 +33,11 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -61,23 +57,22 @@ import com.archimedeprojects.arihna.feature.alarms.platform.AlarmDiagnosticKind
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmDiagnosticScheduleResult
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmDiagnosticTestScheduler
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmFullScreenAccess
-import com.archimedeprojects.arihna.feature.alarms.platform.AlarmOverlayAccess
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeChangeResult
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeController
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeState
 import com.archimedeprojects.arihna.feature.alarms.platform.ExactAlarmAccessIntentFactory
 import kotlin.math.roundToInt
 
-private val SettingsBackground = Color(0xFF091411)
-private val SettingsSurface = Color(0xFF14211D)
-private val SettingsSurfaceRaised = Color(0xFF1A2A25)
-private val SettingsText = Color(0xFFF6F2E8)
-private val SettingsMuted = Color(0xFFAAB8B1)
-private val SettingsAccent = Color(0xFFE0C56D)
-private val SettingsSuccess = Color(0xFF7ED0A3)
+private val SettingsBackground = Color(0xFF07100D)
+private val SettingsSurface = Color(0xFF101C18)
+private val SettingsSurfaceRaised = Color(0xFF16251F)
+private val SettingsText = Color(0xFFF8F5ED)
+private val SettingsMuted = Color(0xFF9EAEA7)
+private val SettingsAccent = Color(0xFFD8BC5A)
 private val SettingsDanger = Color(0xFFFF9188)
-private val SettingsOutline = Color(0xFF31443D)
+private val SettingsOutline = Color(0xFF283A33)
 
+@Suppress("UNUSED_PARAMETER")
 @Composable
 fun LocationSettingsRoute(
     contentPadding: PaddingValues,
@@ -104,45 +99,19 @@ fun LocationSettingsRoute(
         )
     }
 
-    val alarmsState by alarmsViewModel.uiState.collectAsState()
-    var capabilityRefresh by remember { mutableIntStateOf(0) }
     var diagnosticMessage by remember { mutableStateOf<String?>(null) }
-    val fullScreenReady = alarmFullScreenAccess.isGranted()
-    val alarmOverlayAccess = remember(activity) { AlarmOverlayAccess(activity) }
     val alarmVolumeController = remember(activity) { AlarmVolumeController(activity) }
-    val overlayReady = alarmOverlayAccess.isGranted()
     var alarmVolumeState by remember { mutableStateOf(alarmVolumeController.read()) }
     var alarmVolumeMessage by remember { mutableStateOf<String?>(null) }
-
-    val notificationLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) {
-        capabilityRefresh += 1
-        alarmsViewModel.refreshCapabilities()
-    }
-    val exactAlarmLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult(),
-    ) {
-        capabilityRefresh += 1
-        alarmsViewModel.refreshCapabilities()
-    }
-    val fullScreenLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult(),
-    ) {
-        capabilityRefresh += 1
-        alarmsViewModel.refreshCapabilities()
-    }
-    val overlayLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult(),
-    ) {
-        capabilityRefresh += 1
-        alarmsViewModel.refreshCapabilities()
-    }
 
     fun diagnosticResultMessage(kind: AlarmDiagnosticKind, result: AlarmDiagnosticScheduleResult): String =
         when (result) {
             AlarmDiagnosticScheduleResult.SCHEDULED ->
-                if (kind == AlarmDiagnosticKind.ADHAN) "Test Adhan programmato tra 20 secondi" else "Test sveglia programmato tra 20 secondi"
+                if (kind == AlarmDiagnosticKind.ADHAN) {
+                    "Test Adhan programmato tra 10 secondi"
+                } else {
+                    "Test sveglia programmato tra 10 secondi"
+                }
             AlarmDiagnosticScheduleResult.NEEDS_NOTIFICATION_PERMISSION -> "Consenti prima le notifiche"
             AlarmDiagnosticScheduleResult.NEEDS_EXACT_ALARM_ACCESS -> "Consenti prima gli allarmi esatti"
             AlarmDiagnosticScheduleResult.NEEDS_FULL_SCREEN_ACCESS -> "Consenti prima lo schermo intero"
@@ -179,35 +148,10 @@ fun LocationSettingsRoute(
             activity.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
         },
         alarmSettings = AlarmSettingsPresentation(
-            notificationReady = alarmsState.notificationReady,
-            exactReady = alarmsState.exactAlarmReady,
-            fullScreenReady = fullScreenReady,
-            overlayReady = overlayReady,
             alarmVolumeState = alarmVolumeState,
             alarmVolumeMessage = alarmVolumeMessage,
             diagnosticMessage = diagnosticMessage,
         ),
-        onManageNotifications = {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !alarmsState.notificationReady) {
-                notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            } else {
-                activity.startActivity(
-                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                        .putExtra(Settings.EXTRA_APP_PACKAGE, activity.packageName),
-                )
-            }
-        },
-        onManageExactAlarms = {
-            exactAlarmAccessIntentFactory.create()?.let(exactAlarmLauncher::launch)
-                ?: alarmsViewModel.refreshCapabilities()
-        },
-        onManageFullScreen = {
-            alarmFullScreenAccess.createSettingsIntent()?.let(fullScreenLauncher::launch)
-                ?: alarmsViewModel.refreshCapabilities()
-        },
-        onManageOverlay = {
-            overlayLauncher.launch(alarmOverlayAccess.createSettingsIntent())
-        },
         onAlarmVolumeChange = { requested ->
             when (val result = alarmVolumeController.setVolume(requested)) {
                 is AlarmVolumeChangeResult.Success -> {
@@ -251,10 +195,6 @@ fun LocationSettingsScreen(
     onOpenAppSettings: () -> Unit,
     onOpenLocationSettings: () -> Unit,
     alarmSettings: AlarmSettingsPresentation = AlarmSettingsPresentation(),
-    onManageNotifications: () -> Unit = {},
-    onManageExactAlarms: () -> Unit = {},
-    onManageFullScreen: () -> Unit = {},
-    onManageOverlay: () -> Unit = {},
     onAlarmVolumeChange: (Int) -> Unit = {},
     onTestAlarm: () -> Unit = {},
     onTestAdhan: () -> Unit = {},
@@ -268,20 +208,20 @@ fun LocationSettingsScreen(
             .fillMaxSize()
             .background(SettingsBackground),
         contentPadding = PaddingValues(
-            start = 18.dp,
-            top = contentPadding.calculateTopPadding() + 18.dp,
-            end = 18.dp,
-            bottom = contentPadding.calculateBottomPadding() + 28.dp,
+            start = 20.dp,
+            top = contentPadding.calculateTopPadding() + 14.dp,
+            end = 20.dp,
+            bottom = contentPadding.calculateBottomPadding() + 24.dp,
         ),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item {
             Text(
                 text = "Impostazioni",
-                style = MaterialTheme.typography.displaySmall,
+                style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold,
                 color = SettingsText,
-                modifier = Modifier.padding(bottom = 2.dp),
+                modifier = Modifier.padding(bottom = 4.dp),
             )
         }
 
@@ -289,14 +229,16 @@ fun LocationSettingsScreen(
 
         item {
             Card(
-                modifier = Modifier.fillMaxWidth().testTag("settings-location-summary"),
-                shape = RoundedCornerShape(24.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("settings-location-summary"),
+                shape = RoundedCornerShape(26.dp),
                 colors = CardDefaults.cardColors(containerColor = SettingsSurfaceRaised),
                 border = BorderStroke(1.dp, SettingsOutline),
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(9.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Text(
                         text = presentation.locationName ?: presentation.title,
@@ -304,32 +246,20 @@ fun LocationSettingsScreen(
                         fontWeight = FontWeight.Bold,
                         color = SettingsText,
                     )
-                    if (ready) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            SettingsPill(uiState.activeMode.label(), SettingsAccent)
-                            presentation.freshness?.let {
-                                SettingsPill(
-                                    label = it,
-                                    accent = if (it == "FRESH") SettingsSuccess else SettingsAccent,
-                                )
-                            }
-                        }
-                        presentation.zoneId?.let {
-                            Text(
-                                text = it,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = SettingsMuted,
-                            )
-                        }
-                    } else {
-                        SourceBadge(uiState.activeMode.label())
+                    presentation.zoneId?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = SettingsMuted,
+                        )
+                    }
+                    if (!ready) {
                         Text(
                             text = presentation.message,
                             style = MaterialTheme.typography.bodyMedium,
                             color = SettingsMuted,
                         )
                     }
-
                     if (uiState.resolutionState is LocationResolutionState.Resolving) {
                         Box(
                             modifier = Modifier.fillMaxWidth(),
@@ -338,48 +268,36 @@ fun LocationSettingsScreen(
                             CircularProgressIndicator(color = SettingsAccent)
                         }
                     }
-
                     if (presentation.showAppSettingsAction) {
                         CompactOutlinedAction("Apri impostazioni app", onOpenAppSettings)
                     }
                     if (presentation.showLocationSettingsAction) {
                         CompactOutlinedAction("Apri impostazioni Posizione", onOpenLocationSettings)
                     }
-                }
-            }
-        }
 
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth().testTag("settings-location-controls"),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = SettingsSurface),
-                border = BorderStroke(1.dp, SettingsOutline),
-            ) {
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Button(
-                        onClick = onUseDevice,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = SettingsAccent,
-                            contentColor = SettingsBackground,
-                        ),
-                    ) {
-                        Text("Usa posizione attuale", fontWeight = FontWeight.Bold)
-                    }
+                    HorizontalDivider(color = SettingsOutline.copy(alpha = 0.72f))
+
                     OutlinedTextField(
                         value = uiState.searchQuery,
                         onValueChange = onSearchQueryChanged,
                         label = { Text("Cerca città") },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("settings-location-search"),
+                        trailingIcon = {
+                            TextButton(
+                                onClick = onUseDevice,
+                                modifier = Modifier.testTag("settings-use-current-location"),
+                                colors = ButtonDefaults.textButtonColors(contentColor = SettingsAccent),
+                            ) {
+                                Text("Attuale", fontWeight = FontWeight.Bold)
+                            }
+                        },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = SettingsText,
                             unfocusedTextColor = SettingsText,
-                            focusedBorderColor = SettingsAccent,
+                            focusedBorderColor = SettingsAccent.copy(alpha = 0.78f),
                             unfocusedBorderColor = SettingsOutline,
                             focusedLabelColor = SettingsAccent,
                             unfocusedLabelColor = SettingsMuted,
@@ -413,14 +331,10 @@ fun LocationSettingsScreen(
             CityResultCard(city = city, onSelectCity = onSelectCity)
         }
 
-        item { SettingsSectionTitle("Sveglie e notifiche", "settings-section-alarms") }
+        item { SettingsSectionTitle("Sveglia", "settings-section-alarms") }
         item {
-            AlarmSystemSettingsCard(
+            AlarmVolumeCard(
                 state = alarmSettings,
-                onManageNotifications = onManageNotifications,
-                onManageExactAlarms = onManageExactAlarms,
-                onManageFullScreen = onManageFullScreen,
-                onManageOverlay = onManageOverlay,
                 onAlarmVolumeChange = onAlarmVolumeChange,
             )
         }
@@ -469,31 +383,9 @@ private fun SettingsSectionTitle(text: String, tag: String) {
         fontWeight = FontWeight.Bold,
         color = SettingsAccent,
         modifier = Modifier
-            .padding(top = 5.dp, start = 2.dp)
+            .padding(top = 6.dp, start = 2.dp, bottom = 2.dp)
             .testTag(tag),
     )
-}
-
-@Composable
-private fun SettingsPill(label: String, accent: Color) {
-    Surface(
-        color = accent.copy(alpha = 0.12f),
-        contentColor = accent,
-        shape = RoundedCornerShape(999.dp),
-        border = BorderStroke(1.dp, accent.copy(alpha = 0.34f)),
-    ) {
-        Text(
-            text = label,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.SemiBold,
-        )
-    }
-}
-
-@Composable
-private fun SourceBadge(label: String) {
-    SettingsPill(label = label, accent = SettingsAccent)
 }
 
 @Composable
@@ -516,7 +408,7 @@ private fun CityResultCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onSelectCity(city.id) },
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = SettingsSurface),
         border = BorderStroke(1.dp, SettingsOutline),
     ) {
@@ -557,75 +449,22 @@ data class AlarmSettingsPresentation(
 )
 
 @Composable
-private fun AlarmSystemSettingsCard(
+private fun AlarmVolumeCard(
     state: AlarmSettingsPresentation,
-    onManageNotifications: () -> Unit,
-    onManageExactAlarms: () -> Unit,
-    onManageFullScreen: () -> Unit,
-    onManageOverlay: () -> Unit,
     onAlarmVolumeChange: (Int) -> Unit,
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth().testTag("settings-alarm-capabilities"),
-        shape = RoundedCornerShape(24.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("settings-alarm-volume-card"),
+        shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = SettingsSurface),
         border = BorderStroke(1.dp, SettingsOutline),
     ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            AlarmCapabilitySettingRow("Notifiche", state.notificationReady, "Gestisci", onManageNotifications)
-            HorizontalDivider(color = SettingsOutline)
-            AlarmCapabilitySettingRow("Allarmi esatti", state.exactReady, "Gestisci", onManageExactAlarms)
-            HorizontalDivider(color = SettingsOutline)
-            AlarmCapabilitySettingRow("Schermo intero", state.fullScreenReady, "Apri", onManageFullScreen)
-            HorizontalDivider(color = SettingsOutline)
-            AlarmCapabilitySettingRow(
-                label = "Popup sveglia",
-                ready = state.overlayReady,
-                actionLabel = "Gestisci",
-                onClick = onManageOverlay,
-                modifier = Modifier.testTag("settings-overlay-access"),
-            )
-            HorizontalDivider(color = SettingsOutline)
-            AlarmVolumeSetting(
-                state = state,
-                onAlarmVolumeChange = onAlarmVolumeChange,
-            )
-        }
-    }
-}
-
-@Composable
-private fun AlarmCapabilitySettingRow(
-    label: String,
-    ready: Boolean,
-    actionLabel: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-            color = SettingsText,
-            modifier = Modifier.weight(1f),
+        AlarmVolumeSetting(
+            state = state,
+            onAlarmVolumeChange = onAlarmVolumeChange,
         )
-        SettingsPill(
-            label = if (ready) "Pronto" else "Da autorizzare",
-            accent = if (ready) SettingsSuccess else SettingsDanger,
-        )
-        TextButton(
-            onClick = onClick,
-            colors = ButtonDefaults.textButtonColors(contentColor = SettingsAccent),
-        ) {
-            Text(actionLabel)
-        }
     }
 }
 
@@ -639,9 +478,9 @@ private fun AlarmVolumeSetting(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 10.dp, bottom = 4.dp)
+            .padding(horizontal = 16.dp, vertical = 14.dp)
             .testTag("settings-alarm-volume"),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -667,7 +506,9 @@ private fun AlarmVolumeSetting(
             valueRange = volume.min.toFloat()..sliderMax.toFloat(),
             steps = (volume.max - volume.min - 1).coerceAtLeast(0),
             enabled = volume.max > volume.min,
-            modifier = Modifier.fillMaxWidth().testTag("settings-alarm-volume-slider"),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("settings-alarm-volume-slider"),
             colors = SliderDefaults.colors(
                 thumbColor = SettingsAccent,
                 activeTrackColor = SettingsAccent,
@@ -693,33 +534,55 @@ private fun AlarmDiagnosticCard(
     onCancelDiagnostic: () -> Unit,
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth().testTag("settings-alarm-tests"),
-        shape = RoundedCornerShape(24.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("settings-alarm-tests"),
+        shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = SettingsSurfaceRaised),
         border = BorderStroke(1.dp, SettingsOutline),
     ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
             Button(
                 onClick = onTestAlarm,
-                modifier = Modifier.fillMaxWidth().testTag("settings-test-alarm-one-minute"),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("settings-test-alarm-one-minute"),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = SettingsAccent,
                     contentColor = SettingsBackground,
                 ),
-            ) { Text("Test sveglia (20 secondi)", fontWeight = FontWeight.Bold) }
+            ) {
+                Text("Test sveglia (10 secondi)", fontWeight = FontWeight.Bold)
+            }
             OutlinedButton(
                 onClick = onTestAdhan,
-                modifier = Modifier.fillMaxWidth().testTag("settings-test-adhan-one-minute"),
-                border = BorderStroke(1.dp, SettingsAccent.copy(alpha = 0.65f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("settings-test-adhan-one-minute"),
+                border = BorderStroke(1.dp, SettingsAccent.copy(alpha = 0.58f)),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = SettingsText),
-            ) { Text("Test Adhan (20 secondi)") }
+            ) {
+                Text("Test Adhan (10 secondi)")
+            }
             TextButton(
                 onClick = onCancelDiagnostic,
-                modifier = Modifier.fillMaxWidth().testTag("settings-test-cancel"),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("settings-test-cancel"),
                 colors = ButtonDefaults.textButtonColors(contentColor = SettingsMuted),
-            ) { Text("Annulla test in corso") }
+            ) {
+                Text("Annulla test")
+            }
             state.diagnosticMessage?.let {
-                Text(it, style = MaterialTheme.typography.bodyMedium, color = SettingsAccent)
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SettingsAccent,
+                    modifier = Modifier.padding(horizontal = 4.dp, bottom = 2.dp),
+                )
             }
         }
     }
