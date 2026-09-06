@@ -18,6 +18,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.archimedeprojects.arihna.core.location.platform.AndroidLocationEnvironment
+import com.archimedeprojects.arihna.core.location.platform.AndroidLocationPermissionStateResolver
 import com.archimedeprojects.arihna.feature.alarms.AlarmsViewModel
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmFullScreenAccess
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmNotificationPermissionReader
@@ -26,8 +28,6 @@ import com.archimedeprojects.arihna.feature.alarms.platform.AlarmPlatformSchedul
 import com.archimedeprojects.arihna.feature.alarms.platform.ExactAlarmAccessIntentFactory
 import com.archimedeprojects.arihna.feature.alarms.platform.ExactAlarmCapability
 import com.archimedeprojects.arihna.feature.settings.LocationSettingsViewModel
-import com.archimedeprojects.arihna.core.location.platform.AndroidLocationEnvironment
-import com.archimedeprojects.arihna.core.location.platform.AndroidLocationPermissionStateResolver
 
 enum class StartupCapability {
     LOCATION,
@@ -81,7 +81,7 @@ fun StartupCapabilityGate(
     }
 
     val locationLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
+        contract = ActivityResultContracts.RequestMultiplePermissions(),
     ) {
         dismissed = dismissed + StartupCapability.LOCATION
         val permissionState = locationPermissionStateResolver.resolve(
@@ -146,7 +146,7 @@ fun StartupCapabilityGate(
         when (next) {
             StartupCapability.LOCATION -> {
                 locationViewModel.markPermissionRequestStarted()
-                locationLauncher.launch(locationPermissionStateResolver.permission)
+                locationLauncher.launch(locationPermissionStateResolver.permissions)
             }
             StartupCapability.NOTIFICATIONS -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
