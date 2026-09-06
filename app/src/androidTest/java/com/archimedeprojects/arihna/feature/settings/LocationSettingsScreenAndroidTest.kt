@@ -95,7 +95,7 @@ class LocationSettingsScreenAndroidTest {
         }
 
         composeRule.onNodeWithText("Impostazioni").assertIsDisplayed()
-        composeRule.onNodeWithText("Posizione").assertIsDisplayed()
+        composeRule.onNodeWithText("POSIZIONE").assertIsDisplayed()
         composeRule.onNodeWithTag("settings-location-search").assertIsDisplayed()
         composeRule.onNodeWithTag("settings-use-current-location").assertIsDisplayed()
         assertTrue(composeRule.onAllNodesWithText("Device").fetchSemanticsNodes().isEmpty())
@@ -104,12 +104,10 @@ class LocationSettingsScreenAndroidTest {
         assertTrue(composeRule.onAllNodesWithText("Allarmi esatti").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Schermo intero").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Popup sveglia").fetchSemanticsNodes().isEmpty())
-
         assertTrue(composeRule.onAllNodes(hasScrollAction()).fetchSemanticsNodes().isEmpty())
-
-        composeRule.onNodeWithText("Sveglia").assertIsDisplayed()
+        composeRule.onNodeWithText("SVEGLIA").assertIsDisplayed()
         composeRule.onNodeWithText("Volume sveglia").assertIsDisplayed()
-        composeRule.onNodeWithText("Test rapidi").assertIsDisplayed()
+        composeRule.onNodeWithText("TEST RAPIDI").assertIsDisplayed()
         composeRule.onNodeWithText("Test sveglia (10 secondi)").assertIsDisplayed()
         composeRule.onNodeWithText("Test Adhan (10 secondi)").assertIsDisplayed()
     }
@@ -117,9 +115,8 @@ class LocationSettingsScreenAndroidTest {
     @Test
     fun premiumSectionsReplaceVerboseTemporaryCopy() {
         setScreen { LocationSettingsUiState() }
-
         composeRule.onNodeWithText("Impostazioni").assertIsDisplayed()
-        composeRule.onNodeWithText("Posizione").assertIsDisplayed()
+        composeRule.onNodeWithText("POSIZIONE").assertIsDisplayed()
         assertTrue(
             composeRule.onAllNodesWithText("Pannello funzionale STEP 6 — la Home definitiva verrà costruita più avanti.")
                 .fetchSemanticsNodes().isEmpty(),
@@ -128,9 +125,8 @@ class LocationSettingsScreenAndroidTest {
             composeRule.onAllNodesWithText("Controlli di sistema e test rapidi per sveglie e Adhan.")
                 .fetchSemanticsNodes().isEmpty(),
         )
-
-        composeRule.onNodeWithText("Sveglia").assertIsDisplayed()
-        composeRule.onNodeWithText("Test rapidi").assertIsDisplayed()
+        composeRule.onNodeWithText("SVEGLIA").assertIsDisplayed()
+        composeRule.onNodeWithText("TEST RAPIDI").assertIsDisplayed()
     }
 
     @Test

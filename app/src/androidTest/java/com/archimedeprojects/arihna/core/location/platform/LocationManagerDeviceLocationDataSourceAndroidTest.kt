@@ -191,7 +191,7 @@ class LocationManagerDeviceLocationDataSourceAndroidTest {
     }
 
     @Test
-    fun manifestAndRuntimePermissionRemainCoarseOnly() {
+    fun manifestAllowsFineAndCoarseWhileScenarioRemainsCoarseOnlyAtRuntime() {
         val requested = targetContext.packageManager
             .getPackageInfo(targetContext.packageName, android.content.pm.PackageManager.GET_PERMISSIONS)
             .requestedPermissions
@@ -199,7 +199,7 @@ class LocationManagerDeviceLocationDataSourceAndroidTest {
             .orEmpty()
 
         assertTrue(Manifest.permission.ACCESS_COARSE_LOCATION in requested)
-        assertFalse(Manifest.permission.ACCESS_FINE_LOCATION in requested)
+        assertTrue(Manifest.permission.ACCESS_FINE_LOCATION in requested)
         assertFalse(Manifest.permission.ACCESS_BACKGROUND_LOCATION in requested)
         assertTrue(AndroidLocationEnvironment(targetContext).isCoarsePermissionGranted())
     }

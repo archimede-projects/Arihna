@@ -2,14 +2,22 @@ package com.archimedeprojects.arihna.app
 
 import android.app.Activity
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Alarm
+import androidx.compose.material.icons.rounded.Explore
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.MenuBook
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.flowWithLifecycle
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -17,6 +25,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.archimedeprojects.arihna.core.location.model.LocationPermissionState
 import com.archimedeprojects.arihna.core.location.platform.AndroidLocationEnvironment
 import com.archimedeprojects.arihna.core.location.platform.AndroidLocationPermissionStateResolver
 import com.archimedeprojects.arihna.feature.alarms.AlarmsRoute
@@ -36,14 +45,14 @@ import com.archimedeprojects.arihna.feature.settings.LocationSettingsViewModel
 private enum class Destination(
     val route: String,
     val label: String,
-    val shortLabel: String,
+    val icon: ImageVector,
 ) {
-    Home("home", "Home", "H"),
-    Prayers("prayers", "Orari", "O"),
-    Qibla("qibla", "Qibla", "Q"),
-    Quran("quran", "Corano", "C"),
-    Alarms("alarms", "Sveglie", "S"),
-    Settings("settings", "Impostazioni", "I"),
+    Home("home", "Home", Icons.Rounded.Home),
+    Prayers("prayers", "Orari", Icons.Rounded.Schedule),
+    Qibla("qibla", "Qibla", Icons.Rounded.Explore),
+    Quran("quran", "Corano", Icons.Rounded.MenuBook),
+    Alarms("alarms", "Sveglie", Icons.Rounded.Alarm),
+    Settings("settings", "Impostazioni", Icons.Rounded.Settings),
 }
 
 @Composable
@@ -80,8 +89,14 @@ fun ArihnaNavHost(
                                 restoreState = true
                             }
                         },
-                        icon = { Text(destination.shortLabel) },
-                        label = { Text(destination.label) },
+                        icon = {
+                            Icon(
+                                imageVector = destination.icon,
+                                contentDescription = destination.label,
+                            )
+                        },
+                        label = null,
+                        alwaysShowLabel = false,
                     )
                 }
             }
@@ -97,9 +112,13 @@ fun ArihnaNavHost(
                     contentPadding = innerPadding,
                     viewModel = prayerScheduleViewModel,
                     onOpenLocationSettings = {
-                        navController.navigate(Destination.Settings.route) {
-                            launchSingleTop = true
-                        }
+                        navController.navigate(Destination.Settings.route) { launchSingleTop = true }
+                    },
+                    onOpenQibla = {
+                        navController.navigate(Destination.Qibla.route) { launchSingleTop = true }
+                    },
+                    onOpenAlarms = {
+                        navController.navigate(Destination.Alarms.route) { launchSingleTop = true }
                     },
                     onRefreshLocation = {
                         val permissionState = locationPermissionStateResolver.resolve(
@@ -107,7 +126,7 @@ fun ArihnaNavHost(
                             hasRequestedBefore = locationSettingsViewModel.hasRequestedPermissionBefore(),
                         )
                         if (
-                            permissionState == com.archimedeprojects.arihna.core.location.model.LocationPermissionState.Granted &&
+                            permissionState == LocationPermissionState.Granted &&
                             locationEnvironment.isLocationServicesEnabled()
                         ) {
                             locationSettingsViewModel.selectDevice(
@@ -115,9 +134,7 @@ fun ArihnaNavHost(
                                 locationServicesEnabled = true,
                             )
                         } else {
-                            navController.navigate(Destination.Settings.route) {
-                                launchSingleTop = true
-                            }
+                            navController.navigate(Destination.Settings.route) { launchSingleTop = true }
                         }
                     },
                 )
@@ -140,18 +157,13 @@ fun ArihnaNavHost(
                     contentPadding = innerPadding,
                     states = lifecycleBoundQiblaStates,
                     onOpenLocationSettings = {
-                        navController.navigate(Destination.Settings.route) {
-                            launchSingleTop = true
-                        }
+                        navController.navigate(Destination.Settings.route) { launchSingleTop = true }
                     },
                 )
             }
             composable(Destination.Quran.route) { QuranPlaceholderScreen(innerPadding) }
             composable(Destination.Alarms.route) {
-                AlarmsRoute(
-                    contentPadding = innerPadding,
-                    viewModel = alarmsViewModel,
-                )
+                AlarmsRoute(contentPadding = innerPadding, viewModel = alarmsViewModel)
             }
             composable(Destination.Settings.route) {
                 LocationSettingsRoute(

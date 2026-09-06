@@ -15,8 +15,14 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Alarm
+import androidx.compose.material.icons.rounded.LocationOn
+import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -25,6 +31,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -41,11 +49,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.PopupProperties
 import com.archimedeprojects.arihna.core.location.model.CitySearchResult
 import com.archimedeprojects.arihna.core.location.model.LocationPermissionState
 import com.archimedeprojects.arihna.core.location.model.LocationResolutionState
@@ -62,14 +73,15 @@ import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeState
 import com.archimedeprojects.arihna.feature.alarms.platform.ExactAlarmAccessIntentFactory
 import kotlin.math.roundToInt
 
-private val SettingsBackground = Color(0xFF06100D)
-private val SettingsSurface = Color(0xFF0D1A16)
-private val SettingsSurfaceRaised = Color(0xFF13241D)
-private val SettingsText = Color(0xFFF8F5EC)
-private val SettingsMuted = Color(0xFF9DAEA5)
-private val SettingsAccent = Color(0xFFD6B957)
+private val SettingsBackgroundTop = Color(0xFF030B08)
+private val SettingsBackgroundBottom = Color(0xFF071610)
+private val SettingsSurface = Color(0xFF0C1A15)
+private val SettingsSurfaceRaised = Color(0xFF11251D)
+private val SettingsText = Color(0xFFF7F2E7)
+private val SettingsMuted = Color(0xFFA8B4AC)
+private val SettingsAccent = Color(0xFFD8B95A)
 private val SettingsDanger = Color(0xFFFF9188)
-private val SettingsOutline = Color(0xFF294038)
+private val SettingsOutline = Color(0xFF29483B)
 
 @Suppress("UNUSED_PARAMETER")
 @Composable
@@ -86,7 +98,7 @@ fun LocationSettingsRoute(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
+        contract = ActivityResultContracts.RequestMultiplePermissions(),
     ) {
         val permissionState = permissionResolver.resolve(
             activity = activity,
@@ -122,7 +134,7 @@ fun LocationSettingsRoute(
         onUseDevice = viewModel::onUseDeviceClick,
         onDismissRationale = viewModel::dismissRationale,
         onConfirmRationale = {
-            if (environment.isCoarsePermissionGranted()) {
+            if (environment.isLocationPermissionGranted()) {
                 viewModel.dismissRationale()
                 viewModel.selectDevice(
                     permissionState = LocationPermissionState.Granted,
@@ -130,7 +142,7 @@ fun LocationSettingsRoute(
                 )
             } else {
                 viewModel.markPermissionRequestStarted()
-                permissionLauncher.launch(permissionResolver.permission)
+                permissionLauncher.launch(permissionResolver.permissions)
             }
         },
         onSearchQueryChanged = viewModel::onSearchQueryChanged,
@@ -205,23 +217,37 @@ fun LocationSettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(SettingsBackground)
+            .background(Brush.verticalGradient(listOf(SettingsBackgroundTop, SettingsBackgroundBottom)))
             .padding(
                 start = 18.dp,
-                top = contentPadding.calculateTopPadding() + 8.dp,
+                top = contentPadding.calculateTopPadding() + 10.dp,
                 end = 18.dp,
                 bottom = contentPadding.calculateBottomPadding() + 6.dp,
             )
             .testTag("settings-root"),
-        verticalArrangement = Arrangement.spacedBy(5.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        Text(
-            text = "Impostazioni",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = SettingsText,
-            modifier = Modifier.padding(bottom = 1.dp),
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                Text(
+                    text = "ARIHNA",
+                    color = SettingsAccent,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 12.sp,
+                    letterSpacing = 2.4.sp,
+                )
+                Text(
+                    text = "Impostazioni",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = SettingsText,
+                )
+            }
+        }
 
         SettingsSectionTitle("Posizione", "settings-section-location")
         LocationControlCard(
@@ -236,10 +262,7 @@ fun LocationSettingsScreen(
         )
 
         SettingsSectionTitle("Sveglia", "settings-section-alarms")
-        AlarmVolumeCard(
-            state = alarmSettings,
-            onAlarmVolumeChange = onAlarmVolumeChange,
-        )
+        AlarmVolumeCard(state = alarmSettings, onAlarmVolumeChange = onAlarmVolumeChange)
 
         SettingsSectionTitle("Test rapidi", "settings-section-tests")
         AlarmDiagnosticCard(
@@ -256,9 +279,8 @@ fun LocationSettingsScreen(
             title = { Text("Perché Arihna chiede la posizione") },
             text = {
                 Text(
-                    "La posizione approssimativa è sufficiente per calcolare gli orari di preghiera. " +
-                        "Resta sul dispositivo e non viene inviata a servizi esterni. " +
-                        "Se preferisci non concederla, puoi sempre scegliere una città manualmente.",
+                    "Arihna usa la posizione fornita da Android e Google Play Services per calcolare gli orari di preghiera. " +
+                        "Puoi consentire la posizione precisa o approssimativa. Se preferisci, puoi sempre scegliere una città manualmente.",
                 )
             },
             confirmButton = {
@@ -290,35 +312,52 @@ private fun LocationControlCard(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("settings-location-summary"),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = SettingsSurfaceRaised),
-        border = BorderStroke(1.dp, SettingsOutline),
+        border = BorderStroke(1.dp, SettingsAccent.copy(alpha = 0.28f)),
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 13.dp, vertical = 11.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Text(
-                text = presentation.locationName ?: presentation.title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = SettingsText,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            presentation.zoneId?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = SettingsMuted,
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(9.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .background(SettingsAccent.copy(alpha = 0.12f), RoundedCornerShape(12.dp))
+                        .padding(7.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.LocationOn,
+                        contentDescription = null,
+                        tint = SettingsAccent,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    Text(
+                        text = presentation.locationName ?: presentation.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = SettingsText,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    presentation.zoneId?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = SettingsMuted)
+                    }
+                }
             }
+
             if (!ready) {
                 Text(
                     text = presentation.message,
                     style = MaterialTheme.typography.bodySmall,
                     color = SettingsMuted,
-                    maxLines = 3,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
@@ -327,7 +366,7 @@ private fun LocationControlCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    CircularProgressIndicator(color = SettingsAccent)
+                    CircularProgressIndicator(color = SettingsAccent, modifier = Modifier.size(18.dp))
                     Text("Ricerca posizione…", style = MaterialTheme.typography.bodySmall, color = SettingsMuted)
                 }
             }
@@ -345,34 +384,42 @@ private fun LocationControlCard(
                         searchMenuVisible = true
                         onSearchQueryChanged(it)
                     },
-                    label = { Text("Cerca città") },
+                    placeholder = { Text("Cerca città", color = SettingsMuted) },
                     singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("settings-location-search"),
                     trailingIcon = {
-                        TextButton(
+                        IconButton(
                             onClick = onUseDevice,
                             modifier = Modifier.testTag("settings-use-current-location"),
-                            colors = ButtonDefaults.textButtonColors(contentColor = SettingsAccent),
                         ) {
-                            Text("Attuale", fontWeight = FontWeight.Bold)
+                            Icon(
+                                imageVector = Icons.Rounded.MyLocation,
+                                contentDescription = "Usa posizione attuale",
+                                tint = SettingsAccent,
+                            )
                         }
                     },
+                    shape = RoundedCornerShape(16.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = SettingsText,
                         unfocusedTextColor = SettingsText,
-                        focusedBorderColor = SettingsAccent.copy(alpha = 0.76f),
+                        focusedContainerColor = SettingsSurface,
+                        unfocusedContainerColor = SettingsSurface,
+                        focusedBorderColor = SettingsAccent.copy(alpha = 0.72f),
                         unfocusedBorderColor = SettingsOutline,
-                        focusedLabelColor = SettingsAccent,
-                        unfocusedLabelColor = SettingsMuted,
                         cursorColor = SettingsAccent,
                     ),
                 )
                 DropdownMenu(
                     expanded = searchMenuVisible && uiState.searchResults.isNotEmpty(),
                     onDismissRequest = { searchMenuVisible = false },
+                    modifier = Modifier
+                        .heightIn(max = 260.dp)
+                        .testTag("settings-city-suggestions"),
                     containerColor = SettingsSurfaceRaised,
+                    properties = PopupProperties(focusable = false),
                 ) {
                     uiState.searchResults.forEach { city ->
                         DropdownMenuItem(
@@ -389,7 +436,7 @@ private fun LocationControlCard(
                 Text("Ricerca locale…", style = MaterialTheme.typography.bodySmall, color = SettingsMuted)
             }
             uiState.searchMessage?.let {
-                Text(it, style = MaterialTheme.typography.bodySmall, color = SettingsMuted)
+                Text(it, style = MaterialTheme.typography.bodySmall, color = SettingsMuted, maxLines = 1)
             }
         }
     }
@@ -398,9 +445,10 @@ private fun LocationControlCard(
 @Composable
 private fun SettingsSectionTitle(text: String, tag: String) {
     Text(
-        text = text,
-        style = MaterialTheme.typography.labelLarge,
+        text = text.uppercase(),
+        style = MaterialTheme.typography.labelSmall,
         fontWeight = FontWeight.Bold,
+        letterSpacing = 1.2.sp,
         color = SettingsAccent,
         modifier = Modifier
             .padding(top = 2.dp, start = 2.dp)
@@ -414,20 +462,22 @@ private fun CompactOutlinedAction(label: String, onClick: () -> Unit) {
         onClick = onClick,
         border = BorderStroke(1.dp, SettingsOutline),
         colors = ButtonDefaults.outlinedButtonColors(contentColor = SettingsText),
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 3.dp),
     ) {
-        Text(label, style = MaterialTheme.typography.labelLarge)
+        Text(label, style = MaterialTheme.typography.labelMedium)
     }
 }
 
 @Composable
 private fun CityResultContent(city: CitySearchResult) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
         Text(
             text = city.displayName,
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
             color = SettingsText,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
         Text(city.timeZoneId, style = MaterialTheme.typography.bodySmall, color = SettingsMuted)
         if (!city.timeZoneSupported) {
@@ -459,7 +509,7 @@ private fun AlarmVolumeCard(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("settings-alarm-volume-card"),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = SettingsSurface),
         border = BorderStroke(1.dp, SettingsOutline),
     ) {
@@ -477,7 +527,7 @@ private fun AlarmVolumeSetting(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 13.dp, vertical = 9.dp)
+            .padding(horizontal = 14.dp, vertical = 9.dp)
             .testTag("settings-alarm-volume"),
         verticalArrangement = Arrangement.spacedBy(1.dp),
     ) {
@@ -486,12 +536,18 @@ private fun AlarmVolumeSetting(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                "Volume sveglia",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = SettingsText,
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Rounded.Alarm, contentDescription = null, tint = SettingsAccent, modifier = Modifier.size(18.dp))
+                Text(
+                    "Volume sveglia",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = SettingsText,
+                )
+            }
             Text(
                 "${volume.percent}%",
                 style = MaterialTheme.typography.titleSmall,
@@ -536,7 +592,7 @@ private fun AlarmDiagnosticCard(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("settings-alarm-tests"),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = SettingsSurfaceRaised),
         border = BorderStroke(1.dp, SettingsOutline),
     ) {
@@ -556,7 +612,7 @@ private fun AlarmDiagnosticCard(
                     contentPadding = PaddingValues(horizontal = 7.dp, vertical = 5.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = SettingsAccent,
-                        contentColor = SettingsBackground,
+                        contentColor = SettingsBackgroundTop,
                     ),
                 ) {
                     Text(

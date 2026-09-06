@@ -60,10 +60,10 @@ class AlarmPlatformAndroidTest {
         val permissions = packageInfo.requestedPermissions?.toSet().orEmpty()
 
         assertTrue(Manifest.permission.ACCESS_COARSE_LOCATION in permissions)
+        assertTrue(Manifest.permission.ACCESS_FINE_LOCATION in permissions)
         assertTrue(Manifest.permission.SCHEDULE_EXACT_ALARM in permissions)
         assertTrue(Manifest.permission.RECEIVE_BOOT_COMPLETED in permissions)
         assertFalse("android.permission.USE_EXACT_ALARM" in permissions)
-        assertFalse(Manifest.permission.ACCESS_FINE_LOCATION in permissions)
         assertFalse(Manifest.permission.ACCESS_BACKGROUND_LOCATION in permissions)
 
         context.packageManager.getReceiverInfo(
