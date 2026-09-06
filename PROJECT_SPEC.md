@@ -2138,3 +2138,48 @@ Physical review of the temporarily non-scrollable Settings runtime `1ebac29f89df
 - Run unfiltered `testDebugUnitTest`, exact candidate `assembleDebug`, full Android 9/API28 connected regression with zero failures/errors/skips, and the existing API36 denied/granted exact-alarm + notification + full-screen + overlay matrix.
 - Reverify frozen GeoNames SHA-256 `7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb`, manifest/dependency policy, package id and persistent signing identity.
 - Only after exact-SHA gate success may the candidate fast-forward non-forced to `main` and be packaged as a new persistent-debug Galaxy S25 prerelease. Stop for physical visual validation of Settings and Home.
+
+## Home + Settings exact approved mockup and Google fused location takeover — APPROVED 2026-09-06
+
+The user has physically reviewed the current Galaxy S25 Home/Settings build and rejected the current Home visual direction and the unreliable framework-device refresh. The visual mockup generated and explicitly approved in chat is now the binding visual target, not a loose inspiration. This round supersedes only the conflicting visual/location-technology decisions below; alarm, prayer, Qibla and other product semantics remain frozen.
+
+### Binding visual target
+
+- Rebuild Home and General Settings in Jetpack Compose to match the explicitly approved mockup as closely as practical on the Galaxy S25: deep near-black emerald background, subtle emerald depth/gradient, restrained warm-gold borders/accent, compact premium surfaces, high-contrast warm text, and deliberate spacing.
+- Home hierarchy is: Arihna header and location context; dominant next-prayer hero with prayer name, large time and live countdown; compact six-item current-day prayer strip for Fajr, Alba, Dhuhr, Asr, Maghrib and Isha with the next prayer highlighted; Monday-Sunday week strip with today highlighted; compact verified Quran inspiration card; compact quick actions for Qibla, Sveglie and Posizione.
+- Do not expose technical provenance words such as Device, FRESH or CACHED in the normal Home/Settings UI. A location refresh action may be represented by an icon.
+- Replace letter placeholders H/O/Q/C/S/I in the bottom navigation with real Material icons. The bottom navigation must not wrap `Impostazioni`; icon-only navigation with accessibility content descriptions is approved and preferred for the binding mockup.
+- `androidx.compose.material:material-icons-extended` is approved solely to provide the real UI icons needed by the approved mockup. Do not add downloaded third-party icon packs or branding.
+- The inspiration card may use a short, verified, non-invented Quran reference. For this implementation use the concise Italian rendering `Con la difficoltà viene il sollievo.` with source `Corano 94:5–6`; do not fabricate Arabic calligraphy or claim a rotating content service.
+- Existing unavailable/loading/no-location states remain controlled and must not invent prayer times or location data.
+
+### Settings search interaction correction
+
+- General Settings remains a compact non-scroll surface in its ordinary state.
+- The city text field remains focused while the user types. Opening suggestions must not dismiss the software keyboard or steal focus.
+- Suggestions are anchored immediately below the city field, show at most five visible results, and scroll only inside their bounded results surface when more results exist.
+- Selecting a result closes the suggestion surface and applies the existing manual-city selection behavior.
+- The current-location action uses a real location/crosshair icon rather than a textual icon placeholder. Other Settings actions use real icons where the approved mockup shows them.
+- Keep the existing offline GeoNames city dataset and authoritative stored ZoneId mapping for manual city selection. Do not add Google Places, Maps, a paid API, an API key, or network-backed city autocomplete in this round.
+
+### Google Play Services fused device location — superseding technology decision
+
+The earlier `LocationManager`-only / no-Google-Play-Services device-location restriction is explicitly superseded by the user's 2026-09-06 decision to use the same Google fused-location approach already used by Timzguida. The Timzguida repository was inspected before this approval: its automatic path uses `FusedLocationProviderClient`, `lastLocation`, `getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, ...)`, and foreground `requestLocationUpdates(...)`.
+
+- Add `com.google.android.gms:play-services-location:21.3.0` and implement Arihna's `DeviceLocationDataSource` with `FusedLocationProviderClient`.
+- Automatic Device refresh uses a real high-accuracy fused current-location request and a foreground fused update stream. Play Services last-known location is an optional real cache input only and must retain explicit CACHED semantics internally; it must never be presented as a newly acquired current fix.
+- Request both `ACCESS_FINE_LOCATION` and `ACCESS_COARSE_LOCATION` as a foreground location permission pair, matching the Timzguida pattern. Either granted permission is sufficient to continue; high-accuracy is used when Android grants the required precision. `ACCESS_BACKGROUND_LOCATION` remains forbidden and no location foreground service is introduced.
+- Startup permission guidance remains the owner of the initial permission request. The Settings current-location action may repeat the same foreground permission pair when necessary.
+- Preserve Arihna domain ownership: no default/fabricated coordinates, no silently invented city, existing `SelectedLocation`, persistence, ZoneId validation, Prayer engine input and location error states remain authoritative.
+- A Google fused current fix is converted through the existing Arihna location domain contract. For a fresh current fix, the current device ZoneId is captured as before. Raw last-known coordinates do not invent a historical ZoneId; existing Arihna provenance/persistence rules remain authoritative.
+- The previous framework `LocationManagerDeviceLocationDataSource` may remain as unused historical/tested code, but production DI must use the new Google fused datasource.
+- Preserve `applicationId = com.archimedeprojects.arihna`, minSdk 28, compileSdk 37, targetSdk 37, persistent signing identity, exact-alarm/full-screen/overlay/notification behavior, 10-second alarm/Adhan diagnostics, alarm volume, Qibla sensor behavior, prayer calculation semantics and the frozen Adhan audio.
+
+### Validation required before Galaxy S25 delivery
+
+- Candidate must be a direct child of this spec commit and contain only the approved Home/Settings/navigation/location/dependency/permission/test changes.
+- JVM tests and `assembleDebug` must pass.
+- Android API28 full connected regression must complete with zero failures, zero errors and zero skips.
+- API36 denied/granted modern capability matrix must pass with the new foreground location permission pair represented correctly while alarm capability coverage remains intact.
+- Gate must verify no `ACCESS_BACKGROUND_LOCATION`, no `USE_EXACT_ALARM`, no Google Places/Maps API or API key, package/SDK invariants, frozen GeoNames and Adhan digests, real icon navigation, bounded non-focus-stealing city suggestions, production DI to fused location, and the approved Home visual anchors.
+- Only after exact-SHA gate success may `main` fast-forward to the candidate and a persistent-signer Galaxy S25 prerelease APK be published.
