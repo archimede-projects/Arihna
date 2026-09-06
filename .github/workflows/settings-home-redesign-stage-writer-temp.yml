@@ -1,0 +1,37 @@
+name: Settings Home redesign stage writer temp
+
+on:
+  push:
+    branches:
+      - settings-home-redesign-stage-writer-temp
+
+permissions:
+  contents: write
+
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout staging tree
+        uses: actions/checkout@v4
+        with:
+          ref: settings-home-redesign-stage-temp
+          fetch-depth: 0
+      - name: Apply compile fixes and focused Home coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -c 'from pathlib import Path; p=Path("app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt"); s=p.read_text(); s=s.replace("presentation: LocationSettingsPresentation", "presentation: LocationStatusPresentation"); p.write_text(s)'
+          python -c 'from pathlib import Path; p=Path("app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt"); s=p.read_text(); s=s.replace("import androidx.compose.foundation.layout.Column\n", "import androidx.compose.foundation.layout.Column\nimport androidx.compose.foundation.layout.ColumnScope\n"); p.write_text(s)'
+          python -c 'from pathlib import Path; p=Path("app/src/androidTest/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreenAndroidTest.kt"); s=p.read_text(); s=s.replace("import androidx.compose.ui.test.onAllNodesWithText\n", "import androidx.compose.ui.test.onAllNodesWithText\nimport androidx.compose.ui.test.onNodeWithTag\n"); s=s.replace("        composeRule.onNodeWithText(\"Dhuhr · 13:15\").assertIsDisplayed()", "        composeRule.onNodeWithTag(\"home-next-prayer-name\").assertIsDisplayed()\n        composeRule.onNodeWithTag(\"home-next-prayer-time\").assertIsDisplayed()\n        composeRule.onNodeWithTag(\"home-next-prayer-countdown\").assertIsDisplayed()\n        composeRule.onNodeWithTag(\"home-week-strip\").assertIsDisplayed()\n        composeRule.onNodeWithTag(\"home-week-today\").assertIsDisplayed()"); s=s.replace("        composeRule.onNodeWithText(\"Dhuhr\").assertIsDisplayed()", "        assertTrue(composeRule.onAllNodesWithText(\"Dhuhr\").fetchSemanticsNodes().isNotEmpty())"); p.write_text(s)'
+          git diff --check
+          git diff -- app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt app/src/androidTest/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreenAndroidTest.kt
+      - name: Commit staging corrections
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "IbnKhaldoun-svg"
+          git config user.email "essalih.idriss.w@gmail.com"
+          git add app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt app/src/androidTest/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreenAndroidTest.kt
+          git commit -m "tmp(ui): complete redesigned Settings and Home tree"
+          git push origin HEAD:refs/heads/settings-home-redesign-stage-temp
