@@ -1,4 +1,4 @@
-name: UI wow fused v2 exact-SHA gate
+name: UI wow fused v3 exact-SHA gate
 
 on:
   push:
@@ -12,8 +12,8 @@ permissions:
 
 env:
   SPEC_SHA: 975c62931acca374b3727ad10d45e005fcdd7bf2
-  FAILED_CANDIDATE_SHA: c6c73e6bf6d61b72d4ebeea1547c545dc16ed2fe
-  CANDIDATE_SHA: c016085e4002b534796cd69b6fcf165be6265de4
+  PREVIOUS_CANDIDATE_SHA: c016085e4002b534796cd69b6fcf165be6265de4
+  CANDIDATE_SHA: e9d0b2c6abde1fcc78577c777590b205586bc3ff
   GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
   ADHAN_SHA256: 3b350bc210d657727578ed977e32323c06b63c2088c3ebcea9fc9afb7d487702
   FROZEN_ASSET_RELEASE: settings-s25-premium-3f28b6f0-20260906
@@ -37,9 +37,19 @@ jobs:
           test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
           test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
           test "$(git rev-list --parents -n 1 HEAD | wc -w)" -eq 2
-          test "$(git diff --name-only "$FAILED_CANDIDATE_SHA" "$CANDIDATE_SHA")" = "app/src/androidTest/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreenAndroidTest.kt"
+          git diff --name-only "$PREVIOUS_CANDIDATE_SHA" "$CANDIDATE_SHA" | sort > /tmp/actual-v3-delta.txt
+          cat > /tmp/expected-v3-delta.txt <<'EOF'
+          app/src/androidTest/java/com/archimedeprojects/arihna/core/location/data/sqlite/SQLiteCityRepositoryAndroidTest.kt
+          app/src/androidTest/java/com/archimedeprojects/arihna/core/location/platform/LocationManagerDeviceLocationDataSourceAndroidTest.kt
+          app/src/androidTest/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmPlatformAndroidTest.kt
+          EOF
+          sort -o /tmp/expected-v3-delta.txt /tmp/expected-v3-delta.txt
+          diff -u /tmp/expected-v3-delta.txt /tmp/actual-v3-delta.txt
           ! grep -q '^import androidx.compose.ui.test.onNode$' app/src/androidTest/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreenAndroidTest.kt
           grep -q 'composeRule.onNode(hasScrollAction())' app/src/androidTest/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreenAndroidTest.kt
+          grep -q 'assertTrue(Manifest.permission.ACCESS_FINE_LOCATION in requested)' app/src/androidTest/java/com/archimedeprojects/arihna/core/location/data/sqlite/SQLiteCityRepositoryAndroidTest.kt
+          grep -q 'assertTrue(Manifest.permission.ACCESS_FINE_LOCATION in requested)' app/src/androidTest/java/com/archimedeprojects/arihna/core/location/platform/LocationManagerDeviceLocationDataSourceAndroidTest.kt
+          grep -q 'assertTrue(Manifest.permission.ACCESS_FINE_LOCATION in permissions)' app/src/androidTest/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmPlatformAndroidTest.kt
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -243,13 +253,13 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           script: |
-            set -euo pipefail
+            set -eu
             ./gradlew :app:installDebug --stacktrace
             PKG="$PACKAGE_NAME"
             dump_perm() { adb shell dumpsys package "$PKG" | grep -E "android.permission.ACCESS_(FINE|COARSE)_LOCATION:" || true; }
             assert_state() {
-              local perm="$1" expected="$2"
-              local line
+              perm="$1"
+              expected="$2"
               line="$(adb shell dumpsys package "$PKG" | grep -F "$perm:" | head -n 1 | tr -d '\r')"
               echo "$line"
               echo "$line" | grep -q "granted=$expected"
