@@ -1,4 +1,4 @@
-name: UI wow fused API28 diagnostic
+name: UI wow fused v2 exact-SHA gate
 
 on:
   push:
@@ -11,15 +11,122 @@ permissions:
   contents: read
 
 env:
-  CANDIDATE_SHA: c6c73e6bf6d61b72d4ebeea1547c545dc16ed2fe
+  SPEC_SHA: 975c62931acca374b3727ad10d45e005fcdd7bf2
+  FAILED_CANDIDATE_SHA: c6c73e6bf6d61b72d4ebeea1547c545dc16ed2fe
+  CANDIDATE_SHA: c016085e4002b534796cd69b6fcf165be6265de4
   GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
+  ADHAN_SHA256: 3b350bc210d657727578ed977e32323c06b63c2088c3ebcea9fc9afb7d487702
   FROZEN_ASSET_RELEASE: settings-s25-premium-3f28b6f0-20260906
   FROZEN_ASSET_APK: arihna-settings-s25-premium.apk
+  PACKAGE_NAME: com.archimedeprojects.arihna
 
 jobs:
-  diagnose-api28:
+  static-jvm-build:
+    name: Exact SHA + JVM + compile/build + frozen assets
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Checkout and verify exact replacement candidate lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout --detach "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          test "$(git rev-list --parents -n 1 HEAD | wc -w)" -eq 2
+          test "$(git diff --name-only "$FAILED_CANDIDATE_SHA" "$CANDIDATE_SHA")" = "app/src/androidTest/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreenAndroidTest.kt"
+          ! grep -q '^import androidx.compose.ui.test.onNode$' app/src/androidTest/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreenAndroidTest.kt
+          grep -q 'composeRule.onNode(hasScrollAction())' app/src/androidTest/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreenAndroidTest.kt
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+      - name: Restore frozen GeoNames from approved APK
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+          echo "$ADHAN_SHA256  app/src/main/res/raw/adhan_cc0.ogg" | sha256sum -c -
+      - name: Verify frozen platform, package and permission policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'namespace = "com.archimedeprojects.arihna"' app/build.gradle.kts
+          grep -q 'applicationId = "com.archimedeprojects.arihna"' app/build.gradle.kts
+          grep -q 'compileSdk = 37' app/build.gradle.kts
+          grep -q 'minSdk = 28' app/build.gradle.kts
+          grep -q 'targetSdk = 37' app/build.gradle.kts
+          grep -q 'implementation(libs.play.services.location)' app/build.gradle.kts
+          grep -q 'playServicesLocation = "21.3.0"' gradle/libs.versions.toml
+          grep -q 'android.permission.ACCESS_FINE_LOCATION' app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.ACCESS_COARSE_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.ACCESS_BACKGROUND_LOCATION' app/src/main/AndroidManifest.xml
+          grep -q 'GoogleFusedDeviceLocationDataSource(appContext)' app/src/main/java/com/archimedeprojects/arihna/app/AppContainer.kt
+          ! grep -q 'LocationManagerDeviceLocationDataSource(appContext)' app/src/main/java/com/archimedeprojects/arihna/app/AppContainer.kt
+          grep -q 'FusedLocationProviderClient' app/src/main/java/com/archimedeprojects/arihna/core/location/platform/GoogleFusedDeviceLocationDataSource.kt
+          grep -q 'lastLocation' app/src/main/java/com/archimedeprojects/arihna/core/location/platform/GoogleFusedDeviceLocationDataSource.kt
+          grep -q 'Priority.PRIORITY_HIGH_ACCURACY' app/src/main/java/com/archimedeprojects/arihna/core/location/platform/GoogleFusedDeviceLocationDataSource.kt
+          grep -q 'requestLocationUpdates' app/src/main/java/com/archimedeprojects/arihna/core/location/platform/GoogleFusedDeviceLocationDataSource.kt
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          manifest=Path('app/src/main/AndroidManifest.xml').read_text()
+          actual=sorted(set(re.findall(r'<uses-permission android:name="([^"]+)"', manifest)))
+          expected=sorted([
+              'android.permission.ACCESS_FINE_LOCATION',
+              'android.permission.ACCESS_COARSE_LOCATION',
+              'android.permission.POST_NOTIFICATIONS',
+              'android.permission.SCHEDULE_EXACT_ALARM',
+              'android.permission.RECEIVE_BOOT_COMPLETED',
+              'android.permission.USE_FULL_SCREEN_INTENT',
+              'android.permission.SYSTEM_ALERT_WINDOW',
+              'android.permission.FOREGROUND_SERVICE',
+              'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK',
+          ])
+          print('MANIFEST_PERMISSIONS', actual)
+          if actual != expected:
+              raise SystemExit(f'Unexpected permission set: {actual}')
+          PY
+      - name: JVM regression, androidTest compile and debug build
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:assembleDebug --stacktrace
+      - name: Verify built APK package, SDK and permissions
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt -print | sort -V | tail -n 1)"
+          test -x "$AAPT"
+          "$AAPT" dump badging "$APK" | tee /tmp/badging.txt
+          grep -q "package: name='$PACKAGE_NAME'" /tmp/badging.txt
+          grep -q "sdkVersion:'28'" /tmp/badging.txt
+          grep -q "targetSdkVersion:'37'" /tmp/badging.txt
+          "$AAPT" dump permissions "$APK" | tee /tmp/apk-permissions.txt
+          grep -q 'android.permission.ACCESS_FINE_LOCATION' /tmp/apk-permissions.txt
+          grep -q 'android.permission.ACCESS_COARSE_LOCATION' /tmp/apk-permissions.txt
+          ! grep -q 'android.permission.ACCESS_BACKGROUND_LOCATION' /tmp/apk-permissions.txt
+          sha256sum "$APK"
+
+  api28-full-instrumentation:
+    name: API28 full instrumentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,6 +136,7 @@ jobs:
         run: |
           set -euo pipefail
           git checkout --detach "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -37,7 +145,7 @@ jobs:
         with:
           cache-read-only: true
       - uses: android-actions/setup-android@v3
-      - name: Restore frozen GeoNames
+      - name: Restore frozen GeoNames from approved APK
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -49,11 +157,10 @@ jobs:
           unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
           echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
       - name: Enable KVM
+        shell: bash
         run: |
           if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
-      - name: API28 connected regression
-        id: connected
-        continue-on-error: true
+      - name: Run every instrumentation test on Android 9 / API28
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 28
@@ -63,7 +170,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
-      - name: Print concise failing test summary
+      - name: Require real instrumentation XML with zero failures/errors/skips
         if: always()
         shell: bash
         run: |
@@ -77,15 +184,99 @@ jobs:
               r=ET.parse(f).getroot()
               tests += int(r.attrib.get('tests',0)); failures += int(r.attrib.get('failures',0)); errors += int(r.attrib.get('errors',0)); skipped += int(r.attrib.get('skipped',0))
               for tc in r.iter('testcase'):
-                  failure=tc.find('failure'); error=tc.find('error'); skipped_node=tc.find('skipped')
-                  if failure is not None or error is not None or skipped_node is not None:
-                      node=failure if failure is not None else error if error is not None else skipped_node
-                      txt=(node.attrib.get('message','')+' '+(node.text or '')).replace('\n',' ')[:1800]
-                      bad.append((tc.attrib.get('classname',''),tc.attrib.get('name',''),txt))
-          print(f'CONNECTED_TOTAL tests={tests} failures={failures} errors={errors} skipped={skipped}')
+                  failure=tc.find('failure'); error=tc.find('error'); skip=tc.find('skipped')
+                  if failure is not None or error is not None or skip is not None:
+                      node=failure if failure is not None else error if error is not None else skip
+                      bad.append((tc.attrib.get('classname',''), tc.attrib.get('name',''), (node.attrib.get('message','')+' '+(node.text or '')).replace('\n',' ')[:1600]))
+          print(f'API28_TOTAL tests={tests} failures={failures} errors={errors} skipped={skipped}')
           for cls,name,msg in bad:
               print('BAD_TEST', cls, name)
               print('BAD_DETAIL', msg)
-          if failures or errors or skipped or not files:
+          if not files or tests == 0 or failures or errors or skipped:
               raise SystemExit(1)
           PY
+
+  api36-modern-permissions:
+    name: API36 modern location permission/access matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Checkout exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout --detach "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+      - name: Restore frozen GeoNames from approved APK
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+      - name: Enable KVM
+        shell: bash
+        run: |
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
+      - name: Exercise Android 16 / API36 precise-approximate location matrix
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          arch: x86_64
+          target: google_apis
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: |
+            set -euo pipefail
+            ./gradlew :app:installDebug --stacktrace
+            PKG="$PACKAGE_NAME"
+            dump_perm() { adb shell dumpsys package "$PKG" | grep -E "android.permission.ACCESS_(FINE|COARSE)_LOCATION:" || true; }
+            assert_state() {
+              local perm="$1" expected="$2"
+              local line
+              line="$(adb shell dumpsys package "$PKG" | grep -F "$perm:" | head -n 1 | tr -d '\r')"
+              echo "$line"
+              echo "$line" | grep -q "granted=$expected"
+            }
+            adb shell pm revoke "$PKG" android.permission.ACCESS_FINE_LOCATION || true
+            adb shell pm revoke "$PKG" android.permission.ACCESS_COARSE_LOCATION || true
+            echo 'MATRIX none'
+            dump_perm
+            assert_state android.permission.ACCESS_FINE_LOCATION false
+            assert_state android.permission.ACCESS_COARSE_LOCATION false
+            adb shell pm grant "$PKG" android.permission.ACCESS_COARSE_LOCATION
+            echo 'MATRIX approximate-only'
+            dump_perm
+            assert_state android.permission.ACCESS_COARSE_LOCATION true
+            assert_state android.permission.ACCESS_FINE_LOCATION false
+            adb shell pm grant "$PKG" android.permission.ACCESS_FINE_LOCATION
+            echo 'MATRIX precise+approximate'
+            dump_perm
+            assert_state android.permission.ACCESS_COARSE_LOCATION true
+            assert_state android.permission.ACCESS_FINE_LOCATION true
+            adb shell pm revoke "$PKG" android.permission.ACCESS_FINE_LOCATION
+            echo 'MATRIX downgrade-to-approximate'
+            dump_perm
+            assert_state android.permission.ACCESS_COARSE_LOCATION true
+            assert_state android.permission.ACCESS_FINE_LOCATION false
+            adb shell pm revoke "$PKG" android.permission.ACCESS_COARSE_LOCATION
+            echo 'MATRIX revoked'
+            dump_perm
+            assert_state android.permission.ACCESS_COARSE_LOCATION false
+            assert_state android.permission.ACCESS_FINE_LOCATION false
