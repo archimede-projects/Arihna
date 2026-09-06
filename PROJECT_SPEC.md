@@ -2045,3 +2045,47 @@ Required validation:
 - Layout direction: tighter spacing, smaller card count, stronger hierarchy, rounded compact surfaces and less copy. Normal ready-state content should fit substantially more information above the fold on the Galaxy S25 than the current implementation.
 - Instrumentation must cover the compact section structure, absence of the removed STEP 6 copy, retained Location recovery semantics, retained overlay/volume controls and the new concise global-volume warning. API28 full connected regression must have zero failures/errors/skips; API36 denied/granted exact-alarm, notification, full-screen and overlay matrix remains required.
 - `applicationId = com.archimedeprojects.arihna`, minSdk 28, compileSdk 37, targetSdk 37, frozen GeoNames SHA-256, persistent signer, permissions and all previously frozen platform constraints remain unchanged.
+
+### General Settings streamline + startup capability guidance — APPROVED 2026-09-06
+
+Physical Galaxy S25 review of runtime `3f28b6f053ed7cb10b0f74d789e2db730a0c2c76` approved a second presentation refinement of the General Settings screen plus shorter diagnostics and a startup capability-guidance flow. This change is intentionally limited to Settings presentation, permission/capability guidance, and diagnostic delay; alarm scheduling/ringing, Prayer, Location engine, Qibla and all frozen platform contracts remain unchanged except where explicitly stated below.
+
+Approved Settings presentation changes:
+
+- Remove the visible `Device` and `CACHED` provenance/freshness badges from the General Settings location summary. Internal `LocationSource` / `LocationFreshness` metadata remains authoritative and unchanged; this is presentation-only.
+- Keep the resolved city/location name dominant and the timezone secondary.
+- Consolidate automatic and manual location choice into one compact location-control surface: the manual `Cerca città` field remains the primary field and the `Usa posizione attuale` action is integrated into that same field/surface instead of occupying a separate full-width button/card.
+- Preserve manual city search, unsupported-timezone handling, controlled permission/service errors, and the existing explicit location rationale when the user chooses current location.
+- Remove the permanent alarm capability/permission rows from General Settings (`Notifiche`, `Allarmi esatti`, `Schermo intero`, `Popup sveglia`) to recover vertical space.
+- Keep real alarm-volume control visible and functional, with the existing truthful text that it changes the phone's global alarm volume.
+- Keep `Test rapidi`, but make the card more compact and visually lighter.
+- Refine spacing, surface hierarchy, borders, typography and derived dark-green/gold tones where useful while remaining recognizably Arihna and preserving the official palette contract. Gold is an accent, not a large background mass. The screen must feel calmer, cleaner and more premium without adding new product features.
+- No new navigation destinations, dependencies, SDK changes, or permissions are authorized by this visual refinement.
+
+Approved startup permission/capability guidance:
+
+- Because the permanent permission list is removed from Settings, Arihna must surface missing required capabilities proactively when the app is opened/foregrounded instead of relying on that list.
+- Runtime permissions that Android can request directly are requested through the normal Android permission flow. This includes `ACCESS_COARSE_LOCATION` and, on API 33+, `POST_NOTIFICATIONS`.
+- Special accesses that Android does not expose as ordinary runtime permission dialogs remain system-settings flows: exact alarm access, full-screen-intent access, and overlay access. Arihna must show a short in-app explanation first and then open the corresponding Android Settings screen only after explicit user action.
+- Special-access guidance is sequential and non-destructive: at most one Arihna guidance dialog is visible at a time; the user can choose `Non ora`; returning from Settings refreshes capability state and continues normally.
+- Never claim a capability is ready before the platform reports it ready.
+- Do not automatically open Android Settings without an Arihna explanation and explicit user action.
+- No `ACCESS_FINE_LOCATION`, `ACCESS_BACKGROUND_LOCATION`, `USE_EXACT_ALARM`, Google Play Services Location, DND/Notification Policy access, or any other new permission is authorized.
+- Existing permission/settings recovery actions tied to concrete controlled-error states may remain available where needed for recovery, even though the permanent capability list is removed.
+
+Approved diagnostic timing change:
+
+- Change both diagnostic alarm tests from 20 seconds to **10 seconds**.
+- `AlarmDiagnosticTestScheduler.TEST_DELAY_MILLIS` becomes exactly `10_000L`.
+- Visible labels/messages become `Test sveglia (10 secondi)`, `Test Adhan (10 secondi)`, and corresponding “programmato tra 10 secondi” confirmation text.
+- The diagnostic mechanism, exact-alarm requirement, notification requirement, full-screen requirement, audio usage, ringtone/Adhan selection and cancellation semantics otherwise remain unchanged.
+
+Frozen scope / regression requirements:
+
+- Base runtime before this spec: `3f28b6f053ed7cb10b0f74d789e2db730a0c2c76`.
+- `applicationId = com.archimedeprojects.arihna`, minSdk 28, compileSdk 37, targetSdk 37 remain fixed.
+- `SYSTEM_ALERT_WINDOW` remains required for the already-approved unlocked ringing overlay; the overlay lifecycle and OEM-safe implementation remain unchanged.
+- No `RemoteViews` may be reintroduced into ringing.
+- Persistent Arihna signing identity, frozen GeoNames SHA-256 `7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb`, and frozen Adhan asset remain unchanged.
+- Definitive candidate gate must verify exact spec/candidate lineage, changed-file scope, host unit tests, exact candidate assemble, API28 full connected regression with zero failures/errors/skips, and API36 denied/granted exact-alarm + notification + full-screen + overlay matrix.
+- Galaxy S25 physical validation is required before this refinement is considered closed.
