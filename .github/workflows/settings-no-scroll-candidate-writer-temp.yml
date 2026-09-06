@@ -1,0 +1,84 @@
+name: Settings no-scroll candidate writer temp
+
+on:
+  push:
+    branches:
+      - settings-no-scroll-candidate-writer-20260906
+    paths:
+      - .github/workflows/settings-no-scroll-candidate-writer-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  write-candidate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create exact candidate commit
+        env:
+          BASE_MAIN_SHA: 1ce14ee06a5e2195d5f884fdb4d3fb8c146e8198
+          SPEC_SHA: 984d3c1d3fa8541ef182bb8b184c866935d4fc3f
+          TARGET_BRANCH: settings-no-scroll-candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main settings-no-scroll-spec --force
+          test "$(git rev-parse origin/main)" = "$BASE_MAIN_SHA"
+          test "$(git rev-parse origin/settings-no-scroll-spec)" = "$SPEC_SHA"
+          test "$(git rev-parse "$SPEC_SHA^")" = "$BASE_MAIN_SHA"
+          if git ls-remote --exit-code --heads origin "refs/heads/$TARGET_BRANCH" >/dev/null 2>&1; then
+            echo "Target branch already exists" >&2
+            exit 1
+          fi
+          git checkout --detach "$SPEC_SHA"
+          git switch -c "$TARGET_BRANCH"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          ui = Path('app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt')
+          text = ui.read_text()
+          old = '        verticalArrangement = Arrangement.spacedBy(10.dp),\n    ) {\n'
+          new = '        verticalArrangement = Arrangement.spacedBy(10.dp),\n        userScrollEnabled = false,\n    ) {\n'
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one LazyColumn arrangement block, found {text.count(old)}')
+          ui.write_text(text.replace(old, new, 1))
+
+          test_path = Path('app/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreenAndroidTest.kt')
+          tests = test_path.read_text()
+          tests = tests.replace('import androidx.compose.ui.test.hasText\n', '')
+          tests = tests.replace('import androidx.compose.ui.test.performScrollToNode\n', '')
+          for line in [
+              '        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Sveglia"))\n',
+              '        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Volume sveglia"))\n',
+              '        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Test rapidi"))\n',
+              '        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Test sveglia (10 secondi)"))\n',
+              '        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Nuuk, Sermersooq, Greenland"))\n',
+          ]:
+              tests = tests.replace(line, '')
+          anchor = '        assertTrue(composeRule.onAllNodesWithText("Popup sveglia").fetchSemanticsNodes().isEmpty())\n\n'
+          if tests.count(anchor) != 1:
+              raise SystemExit(f'expected one no-popup anchor, found {tests.count(anchor)}')
+          tests = tests.replace(
+              anchor,
+              anchor + '        assertTrue(composeRule.onAllNodes(hasScrollAction()).fetchSemanticsNodes().isEmpty())\n\n',
+              1,
+          )
+          if 'performScrollToNode' in tests or 'hasText(' in tests:
+              raise SystemExit('legacy scroll helper remains in settings instrumentation')
+          test_path.write_text(tests)
+          PY
+          git diff --check
+          EXPECTED=$'app/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreenAndroidTest.kt\napp/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt'
+          ACTUAL="$(git diff --name-only | sort)"
+          test "$ACTUAL" = "$EXPECTED"
+          grep -Fq 'userScrollEnabled = false' app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
+          grep -Fq 'onAllNodes(hasScrollAction()).fetchSemanticsNodes().isEmpty()' app/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreenAndroidTest.kt
+          git config user.name "IbnKhaldoun-svg"
+          git config user.email "essalih.idriss.w@gmail.com"
+          git add app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt app/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreenAndroidTest.kt
+          git commit -m "fix(settings): disable temporary page scrolling"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
