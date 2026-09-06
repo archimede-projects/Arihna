@@ -351,14 +351,14 @@ class SQLiteCityRepositoryAndroidTest {
     }
 
     @Test
-    fun manifestRequestsCoarseLocationOnly() {
+    fun manifestRequestsForegroundFineAndCoarseLocation() {
         val packageInfo = context.packageManager.getPackageInfo(
             context.packageName,
             PackageManager.GET_PERMISSIONS,
         )
         val requested = packageInfo.requestedPermissions?.toSet().orEmpty()
         assertTrue(Manifest.permission.ACCESS_COARSE_LOCATION in requested)
-        assertFalse(Manifest.permission.ACCESS_FINE_LOCATION in requested)
+        assertTrue(Manifest.permission.ACCESS_FINE_LOCATION in requested)
         assertFalse("android.permission.ACCESS_BACKGROUND_LOCATION" in requested)
     }
 
