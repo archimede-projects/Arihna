@@ -6,13 +6,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.unit.dp
 import com.archimedeprojects.arihna.core.location.model.CitySearchResult
 import com.archimedeprojects.arihna.core.location.model.LocationFailure
@@ -107,13 +105,11 @@ class LocationSettingsScreenAndroidTest {
         assertTrue(composeRule.onAllNodesWithText("Schermo intero").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Popup sveglia").fetchSemanticsNodes().isEmpty())
 
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Sveglia"))
+        assertTrue(composeRule.onAllNodes(hasScrollAction()).fetchSemanticsNodes().isEmpty())
+
         composeRule.onNodeWithText("Sveglia").assertIsDisplayed()
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Volume sveglia"))
         composeRule.onNodeWithText("Volume sveglia").assertIsDisplayed()
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Test rapidi"))
         composeRule.onNodeWithText("Test rapidi").assertIsDisplayed()
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Test sveglia (10 secondi)"))
         composeRule.onNodeWithText("Test sveglia (10 secondi)").assertIsDisplayed()
         composeRule.onNodeWithText("Test Adhan (10 secondi)").assertIsDisplayed()
     }
@@ -133,9 +129,7 @@ class LocationSettingsScreenAndroidTest {
                 .fetchSemanticsNodes().isEmpty(),
         )
 
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Sveglia"))
         composeRule.onNodeWithText("Sveglia").assertIsDisplayed()
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Test rapidi"))
         composeRule.onNodeWithText("Test rapidi").assertIsDisplayed()
     }
 
@@ -257,7 +251,6 @@ class LocationSettingsScreenAndroidTest {
             }
         }
 
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Nuuk, Sermersooq, Greenland"))
         composeRule.onNodeWithText("Nuuk, Sermersooq, Greenland").assertIsDisplayed()
         composeRule.onNodeWithText(
             "Fuso non supportato su questa versione Android: selezionando la città Arihna mostrerà un errore controllato.",
