@@ -1,4 +1,4 @@
-name: UI wow fused v3 exact-SHA gate
+name: UI wow fused v4 exact-SHA gate
 
 on:
   push:
@@ -12,8 +12,8 @@ permissions:
 
 env:
   SPEC_SHA: 975c62931acca374b3727ad10d45e005fcdd7bf2
-  PREVIOUS_CANDIDATE_SHA: c016085e4002b534796cd69b6fcf165be6265de4
-  CANDIDATE_SHA: e9d0b2c6abde1fcc78577c777590b205586bc3ff
+  PREVIOUS_CANDIDATE_SHA: e9d0b2c6abde1fcc78577c777590b205586bc3ff
+  CANDIDATE_SHA: f61133c0dcab8b1f1e7255967b81c280f064e3f9
   GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
   ADHAN_SHA256: 3b350bc210d657727578ed977e32323c06b63c2088c3ebcea9fc9afb7d487702
   FROZEN_ASSET_RELEASE: settings-s25-premium-3f28b6f0-20260906
@@ -37,14 +37,8 @@ jobs:
           test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
           test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
           test "$(git rev-list --parents -n 1 HEAD | wc -w)" -eq 2
-          git diff --name-only "$PREVIOUS_CANDIDATE_SHA" "$CANDIDATE_SHA" | sort > /tmp/actual-v3-delta.txt
-          cat > /tmp/expected-v3-delta.txt <<'EOF'
-          app/src/androidTest/java/com/archimedeprojects/arihna/core/location/data/sqlite/SQLiteCityRepositoryAndroidTest.kt
-          app/src/androidTest/java/com/archimedeprojects/arihna/core/location/platform/LocationManagerDeviceLocationDataSourceAndroidTest.kt
-          app/src/androidTest/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmPlatformAndroidTest.kt
-          EOF
-          sort -o /tmp/expected-v3-delta.txt /tmp/expected-v3-delta.txt
-          diff -u /tmp/expected-v3-delta.txt /tmp/actual-v3-delta.txt
+          test "$(git rev-parse HEAD^{tree})" = "$(git rev-parse "$PREVIOUS_CANDIDATE_SHA^{tree}")"
+          test -z "$(git diff --name-only "$PREVIOUS_CANDIDATE_SHA" "$CANDIDATE_SHA")"
           ! grep -q '^import androidx.compose.ui.test.onNode$' app/src/androidTest/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreenAndroidTest.kt
           grep -q 'composeRule.onNode(hasScrollAction())' app/src/androidTest/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreenAndroidTest.kt
           grep -q 'assertTrue(Manifest.permission.ACCESS_FINE_LOCATION in requested)' app/src/androidTest/java/com/archimedeprojects/arihna/core/location/data/sqlite/SQLiteCityRepositoryAndroidTest.kt
@@ -252,41 +246,5 @@ jobs:
           profile: pixel_2
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
-          script: |
-            set -eu
-            ./gradlew :app:installDebug --stacktrace
-            PKG="$PACKAGE_NAME"
-            dump_perm() { adb shell dumpsys package "$PKG" | grep -E "android.permission.ACCESS_(FINE|COARSE)_LOCATION:" || true; }
-            assert_state() {
-              perm="$1"
-              expected="$2"
-              line="$(adb shell dumpsys package "$PKG" | grep -F "$perm:" | head -n 1 | tr -d '\r')"
-              echo "$line"
-              echo "$line" | grep -q "granted=$expected"
-            }
-            adb shell pm revoke "$PKG" android.permission.ACCESS_FINE_LOCATION || true
-            adb shell pm revoke "$PKG" android.permission.ACCESS_COARSE_LOCATION || true
-            echo 'MATRIX none'
-            dump_perm
-            assert_state android.permission.ACCESS_FINE_LOCATION false
-            assert_state android.permission.ACCESS_COARSE_LOCATION false
-            adb shell pm grant "$PKG" android.permission.ACCESS_COARSE_LOCATION
-            echo 'MATRIX approximate-only'
-            dump_perm
-            assert_state android.permission.ACCESS_COARSE_LOCATION true
-            assert_state android.permission.ACCESS_FINE_LOCATION false
-            adb shell pm grant "$PKG" android.permission.ACCESS_FINE_LOCATION
-            echo 'MATRIX precise+approximate'
-            dump_perm
-            assert_state android.permission.ACCESS_COARSE_LOCATION true
-            assert_state android.permission.ACCESS_FINE_LOCATION true
-            adb shell pm revoke "$PKG" android.permission.ACCESS_FINE_LOCATION
-            echo 'MATRIX downgrade-to-approximate'
-            dump_perm
-            assert_state android.permission.ACCESS_COARSE_LOCATION true
-            assert_state android.permission.ACCESS_FINE_LOCATION false
-            adb shell pm revoke "$PKG" android.permission.ACCESS_COARSE_LOCATION
-            echo 'MATRIX revoked'
-            dump_perm
-            assert_state android.permission.ACCESS_COARSE_LOCATION false
-            assert_state android.permission.ACCESS_FINE_LOCATION false
+          script: >-
+            sh -c 'set -eu; ./gradlew :app:installDebug --stacktrace; adb shell pm revoke "$PACKAGE_NAME" android.permission.ACCESS_FINE_LOCATION || true; adb shell pm revoke "$PACKAGE_NAME" android.permission.ACCESS_COARSE_LOCATION || true; echo MATRIX-none; adb shell dumpsys package "$PACKAGE_NAME" | grep -E "android.permission.ACCESS_(FINE|COARSE)_LOCATION:"; adb shell dumpsys package "$PACKAGE_NAME" | grep -F "android.permission.ACCESS_FINE_LOCATION:" | head -n 1 | grep -q "granted=false"; adb shell dumpsys package "$PACKAGE_NAME" | grep -F "android.permission.ACCESS_COARSE_LOCATION:" | head -n 1 | grep -q "granted=false"; adb shell pm grant "$PACKAGE_NAME" android.permission.ACCESS_COARSE_LOCATION; echo MATRIX-approximate-only; adb shell dumpsys package "$PACKAGE_NAME" | grep -E "android.permission.ACCESS_(FINE|COARSE)_LOCATION:"; adb shell dumpsys package "$PACKAGE_NAME" | grep -F "android.permission.ACCESS_COARSE_LOCATION:" | head -n 1 | grep -q "granted=true"; adb shell dumpsys package "$PACKAGE_NAME" | grep -F "android.permission.ACCESS_FINE_LOCATION:" | head -n 1 | grep -q "granted=false"; adb shell pm grant "$PACKAGE_NAME" android.permission.ACCESS_FINE_LOCATION; echo MATRIX-precise-plus-approximate; adb shell dumpsys package "$PACKAGE_NAME" | grep -E "android.permission.ACCESS_(FINE|COARSE)_LOCATION:"; adb shell dumpsys package "$PACKAGE_NAME" | grep -F "android.permission.ACCESS_COARSE_LOCATION:" | head -n 1 | grep -q "granted=true"; adb shell dumpsys package "$PACKAGE_NAME" | grep -F "android.permission.ACCESS_FINE_LOCATION:" | head -n 1 | grep -q "granted=true"; adb shell pm revoke "$PACKAGE_NAME" android.permission.ACCESS_FINE_LOCATION; echo MATRIX-downgrade-to-approximate; adb shell dumpsys package "$PACKAGE_NAME" | grep -E "android.permission.ACCESS_(FINE|COARSE)_LOCATION:"; adb shell dumpsys package "$PACKAGE_NAME" | grep -F "android.permission.ACCESS_COARSE_LOCATION:" | head -n 1 | grep -q "granted=true"; adb shell dumpsys package "$PACKAGE_NAME" | grep -F "android.permission.ACCESS_FINE_LOCATION:" | head -n 1 | grep -q "granted=false"; adb shell pm revoke "$PACKAGE_NAME" android.permission.ACCESS_COARSE_LOCATION; echo MATRIX-revoked; adb shell dumpsys package "$PACKAGE_NAME" | grep -E "android.permission.ACCESS_(FINE|COARSE)_LOCATION:"; adb shell dumpsys package "$PACKAGE_NAME" | grep -F "android.permission.ACCESS_COARSE_LOCATION:" | head -n 1 | grep -q "granted=false"; adb shell dumpsys package "$PACKAGE_NAME" | grep -F "android.permission.ACCESS_FINE_LOCATION:" | head -n 1 | grep -q "granted=false"'
