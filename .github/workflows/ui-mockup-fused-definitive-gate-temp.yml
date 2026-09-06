@@ -1,0 +1,253 @@
+name: UI mockup fused definitive gate temp
+
+on:
+  push:
+    branches:
+      - ui-mockup-fused-gate-v1-temp
+    paths:
+      - .github/workflows/ui-mockup-fused-definitive-gate-temp.yml
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  BASE_RUNTIME_SHA: e7f776c9c92ce1152f5951fcd7bb88c3726d30e7
+  SPEC_SHA: 975c62931acca374b3727ad10d45e005fcdd7bf2
+  CANDIDATE_SHA: 8f4e2e346feed83a5bca00ce1d187d477b0d8591
+  GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
+  ADHAN_SHA256: 3b350bc210d657727578ed977e32323c06b63c2088c3ebcea9fc9afb7d487702
+  HARNESS_SOURCE_SHA: 5c3597e60640f81994cda8c2a3cb11d5de999b4c
+  FROZEN_ASSET_RELEASE: ui-s25-settings-home-e7f776c9-20260906
+  FROZEN_ASSET_APK: arihna-settings-home-redesign.apk
+
+jobs:
+  api28-full-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact lineage scope and frozen main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main ui-mockup-fused-candidate --force
+          test "$(git rev-parse origin/main)" = "$SPEC_SHA"
+          test "$(git rev-parse origin/ui-mockup-fused-candidate)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse "$SPEC_SHA^")" = "$BASE_RUNTIME_SHA"
+          test "$(git rev-parse "$CANDIDATE_SHA^")" = "$SPEC_SHA"
+          test "$(git diff --name-only "$BASE_RUNTIME_SHA" "$SPEC_SHA")" = "PROJECT_SPEC.md"
+          EXPECTED=$'app/build.gradle.kts\napp/src/androidTest/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreenAndroidTest.kt\napp/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreenAndroidTest.kt\napp/src/main/AndroidManifest.xml\napp/src/main/java/com/archimedeprojects/arihna/app/AppContainer.kt\napp/src/main/java/com/archimedeprojects/arihna/app/ArihnaNavHost.kt\napp/src/main/java/com/archimedeprojects/arihna/app/StartupCapabilityGate.kt\napp/src/main/java/com/archimedeprojects/arihna/core/location/platform/AndroidLocationEnvironment.kt\napp/src/main/java/com/archimedeprojects/arihna/core/location/platform/GoogleFusedDeviceLocationDataSource.kt\napp/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt\napp/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt\napp/src/main/java/com/archimedeprojects/arihna/feature/settings/SettingsComposeAliases.kt\napp/src/test/java/com/archimedeprojects/arihna/core/location/platform/GoogleFusedDeviceLocationDataSourceConfigTest.kt\ngradle/libs.versions.toml'
+          ACTUAL="$(git diff --name-only "$SPEC_SHA" "$CANDIDATE_SHA" | sort)"
+          test "$ACTUAL" = "$EXPECTED"
+          git show "$SPEC_SHA:PROJECT_SPEC.md" | grep -Fq 'Home + Settings exact approved mockup and Google fused location takeover — APPROVED 2026-09-06'
+          git checkout --detach "$CANDIDATE_SHA"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+      - name: Verify approved UI fused location and frozen platform contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          SETTINGS=app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
+          HOME=app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+          NAV=app/src/main/java/com/archimedeprojects/arihna/app/ArihnaNavHost.kt
+          FUSED=app/src/main/java/com/archimedeprojects/arihna/core/location/platform/GoogleFusedDeviceLocationDataSource.kt
+          CONTAINER=app/src/main/java/com/archimedeprojects/arihna/app/AppContainer.kt
+          STARTUP=app/src/main/java/com/archimedeprojects/arihna/app/StartupCapabilityGate.kt
+          MANIFEST=app/src/main/AndroidManifest.xml
+          grep -q 'applicationId = "com.archimedeprojects.arihna"' app/build.gradle.kts
+          grep -q 'minSdk = 28' app/build.gradle.kts
+          grep -q 'compileSdk = 37' app/build.gradle.kts
+          grep -q 'targetSdk = 37' app/build.gradle.kts
+          for P in ACCESS_FINE_LOCATION ACCESS_COARSE_LOCATION POST_NOTIFICATIONS SCHEDULE_EXACT_ALARM RECEIVE_BOOT_COMPLETED USE_FULL_SCREEN_INTENT FOREGROUND_SERVICE FOREGROUND_SERVICE_MEDIA_PLAYBACK SYSTEM_ALERT_WINDOW; do grep -q "android.permission.$P" "$MANIFEST"; done
+          ! grep -q 'android.permission.ACCESS_BACKGROUND_LOCATION' "$MANIFEST"
+          ! grep -q 'android.permission.USE_EXACT_ALARM' "$MANIFEST"
+          grep -Fq 'playServicesLocation = "21.3.0"' gradle/libs.versions.toml
+          grep -Fq 'com.google.android.gms:play-services-location' gradle/libs.versions.toml
+          grep -Fq 'androidx.compose.material:material-icons-extended' gradle/libs.versions.toml
+          ! grep -R -E 'com.google.android.libraries.places|com.google.android.gms:play-services-maps|MAPS_API_KEY|PLACES_API_KEY' app gradle --exclude='PROJECT_SPEC.md'
+          grep -Fq 'GoogleFusedDeviceLocationDataSource(appContext)' "$CONTAINER"
+          ! grep -Fq 'LocationManagerDeviceLocationDataSource(appContext)' "$CONTAINER"
+          grep -Fq 'FusedLocationProviderClient' "$FUSED"
+          grep -Fq 'getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY' "$FUSED"
+          grep -Fq 'fusedClient.lastLocation' "$FUSED"
+          grep -Fq 'requestLocationUpdates(request, callback' "$FUSED"
+          grep -Fq 'ActivityResultContracts.RequestMultiplePermissions()' "$STARTUP"
+          grep -Fq 'locationLauncher.launch(locationPermissionStateResolver.permissions)' "$STARTUP"
+          grep -Fq 'ActivityResultContracts.RequestMultiplePermissions()' "$SETTINGS"
+          grep -Fq 'permissionLauncher.launch(permissionResolver.permissions)' "$SETTINGS"
+          grep -Fq 'testTag("settings-root")' "$SETTINGS"
+          ! grep -Fq 'verticalScroll' "$SETTINGS"
+          grep -Fq 'PopupProperties(focusable = false)' "$SETTINGS"
+          grep -Fq '.heightIn(max = 300.dp)' "$SETTINGS"
+          grep -Fq 'settings-location-suggestions' "$SETTINGS"
+          grep -Fq 'Icons.Filled.MyLocation' "$SETTINGS"
+          ! grep -Fq 'Text("Attuale"' "$SETTINGS"
+          grep -Fq 'Test sveglia (10 secondi)' "$SETTINGS"
+          grep -Fq 'Test Adhan (10 secondi)' "$SETTINGS"
+          grep -Fq 'text = "ARIHNA"' "$HOME"
+          grep -Fq 'home-next-prayer-hero' "$HOME"
+          grep -Fq 'home-next-prayer-name' "$HOME"
+          grep -Fq 'home-next-prayer-time' "$HOME"
+          grep -Fq 'home-next-prayer-countdown' "$HOME"
+          grep -Fq 'home-today-schedule' "$HOME"
+          grep -Fq 'home-week-strip' "$HOME"
+          grep -Fq 'home-week-today' "$HOME"
+          grep -Fq 'home-inspiration' "$HOME"
+          grep -Fq 'Con la difficoltà viene il sollievo.' "$HOME"
+          grep -Fq 'Corano 94:5–6' "$HOME"
+          grep -Fq 'home-quick-qibla' "$HOME"
+          grep -Fq 'home-quick-alarms' "$HOME"
+          grep -Fq 'home-quick-location' "$HOME"
+          ! grep -Fq 'Basato su posizione' "$HOME"
+          ! grep -Fq 'Posizione dispositivo' "$HOME"
+          ! grep -Fq 'Posizione manuale' "$HOME"
+          grep -Fq 'Icons.Filled.Home' "$NAV"
+          grep -Fq 'Icons.Filled.AccessTime' "$NAV"
+          grep -Fq 'Icons.Filled.Explore' "$NAV"
+          grep -Fq 'Icons.Filled.MenuBook' "$NAV"
+          grep -Fq 'Icons.Filled.Alarm' "$NAV"
+          ! grep -Fq 'shortLabel' "$NAV"
+          ! grep -Fq 'icon = { Text' "$NAV"
+          grep -Fq 'const val TEST_DELAY_MILLIS = 10_000L' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmDiagnosticTestScheduler.kt
+          grep -Fq 'StartupCapabilityGate(' app/src/main/java/com/archimedeprojects/arihna/app/ArihnaApp.kt
+          ! grep -Fq 'RemoteViews' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
+          grep -Fq 'WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingOverlay.kt
+          grep -Fq 'Settings.canDrawOverlays(appContext)' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmOverlayAccess.kt
+          grep -Fq 'AudioAttributes.USAGE_ALARM' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
+          grep -Fq 'AudioManager.STREAM_ALARM' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmVolumeController.kt
+          test "$(stat -c '%s' app/src/main/res/raw/adhan_cc0.ogg)" = "820174"
+          test "$(sha256sum app/src/main/res/raw/adhan_cc0.ogg | awk '{print $1}')" = "$ADHAN_SHA256"
+      - name: Restore frozen GeoNames from physically shipped APK
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          test -s app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+      - name: JVM regression
+        run: ./gradlew testDebugUnitTest --stacktrace
+      - name: Assemble exact candidate
+        run: ./gradlew assembleDebug --stacktrace
+      - name: Enable KVM
+        run: |
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; test -r /dev/kvm; test -w /dev/kvm; fi
+      - name: API28 connected regression
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 28
+          arch: x86_64
+          target: default
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
+      - name: Verify API28 zero failures errors and skips
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import glob, xml.etree.ElementTree as ET
+          files=glob.glob('app/build/outputs/androidTest-results/connected/debug/**/*.xml', recursive=True)
+          assert files
+          tests=failures=errors=skipped=0; names=[]
+          for f in files:
+              r=ET.parse(f).getroot()
+              tests += int(r.attrib.get('tests',0)); failures += int(r.attrib.get('failures',0)); errors += int(r.attrib.get('errors',0)); skipped += int(r.attrib.get('skipped',0))
+              names += [tc.attrib.get('classname','') for tc in r.iter('testcase')]
+          print(f'CONNECTED_TOTAL tests={tests} failures={failures} errors={errors} skipped={skipped}')
+          assert tests >= 75 and failures == 0 and errors == 0 and skipped == 0
+          for n in ['LocationSettingsScreenAndroidTest','AlarmSettingsOverlayVolumeAndroidTest','HomePrayerScheduleScreenAndroidTest','AlarmsScreenAndroidTest','AlarmOverlayVolumeAndroidTest','QiblaScreenAndroidTest']:
+              assert any(n in x for x in names), n
+          PY
+
+  api36-modern-matrix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Stage modern harness and checkout exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main ui-mockup-fused-candidate --force
+          test "$(git rev-parse origin/main)" = "$SPEC_SHA"
+          test "$(git rev-parse origin/ui-mockup-fused-candidate)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse "$CANDIDATE_SHA^")" = "$SPEC_SHA"
+          git show "$HARNESS_SOURCE_SHA:.github/alarms-s25-overlay-volume/OverlayVolumeModernAndroidTest.kt" > /tmp/OverlayVolumeModernAndroidTest.kt
+          git show "$HARNESS_SOURCE_SHA:.github/alarms-s25-overlay-volume/run-modern-api36.sh" > /tmp/run-modern-api36.sh
+          chmod +x /tmp/run-modern-api36.sh
+          git checkout --detach "$CANDIDATE_SHA"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+      - name: Verify modern platform and fused permission contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'applicationId = "com.archimedeprojects.arihna"' app/build.gradle.kts
+          grep -q 'targetSdk = 37' app/build.gradle.kts
+          grep -q 'android.permission.ACCESS_FINE_LOCATION' app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.ACCESS_COARSE_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -q 'android.permission.ACCESS_BACKGROUND_LOCATION' app/src/main/AndroidManifest.xml
+          grep -Fq 'GoogleFusedDeviceLocationDataSource(appContext)' app/src/main/java/com/archimedeprojects/arihna/app/AppContainer.kt
+          grep -Fq 'testTag("settings-root")' app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
+          ! grep -Fq 'verticalScroll' app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
+          grep -Fq 'home-next-prayer-hero' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+          grep -Fq 'const val TEST_DELAY_MILLIS = 10_000L' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmDiagnosticTestScheduler.kt
+          grep -Fq 'WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingOverlay.kt
+          grep -Fq 'Settings.canDrawOverlays(appContext)' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmOverlayAccess.kt
+          ! grep -Fq 'RemoteViews' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
+      - name: Restore frozen GeoNames from physically shipped APK
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          test -s app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+      - name: Enable KVM
+        run: |
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; test -r /dev/kvm; test -w /dev/kvm; fi
+      - name: API36 denied granted alarms and foreground location matrix
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          arch: x86_64
+          target: default
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: |
+            /tmp/run-modern-api36.sh
+            PKG=com.archimedeprojects.arihna
+            adb shell pm revoke "$PKG" android.permission.ACCESS_FINE_LOCATION || true
+            adb shell pm revoke "$PKG" android.permission.ACCESS_COARSE_LOCATION || true
+            adb shell dumpsys package "$PKG" | grep -Fq 'android.permission.ACCESS_FINE_LOCATION'
+            adb shell dumpsys package "$PKG" | grep -Fq 'android.permission.ACCESS_COARSE_LOCATION'
+            adb shell pm grant "$PKG" android.permission.ACCESS_COARSE_LOCATION
+            adb shell pm grant "$PKG" android.permission.ACCESS_FINE_LOCATION
+            echo 'FOREGROUND_LOCATION_PERMISSION_MATRIX PASS fine+coarse requested denied+granted'
