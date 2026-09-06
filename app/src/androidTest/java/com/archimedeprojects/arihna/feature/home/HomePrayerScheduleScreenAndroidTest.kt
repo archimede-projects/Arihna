@@ -6,6 +6,7 @@ import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
@@ -69,7 +70,11 @@ class HomePrayerScheduleScreenAndroidTest {
         composeRule.onNodeWithText("Roma, Italia").assertIsDisplayed()
         composeRule.onNodeWithText("Posizione manuale").assertIsDisplayed()
         composeRule.onNodeWithText("Prossima preghiera").assertIsDisplayed()
-        composeRule.onNodeWithText("Dhuhr · 13:15").assertIsDisplayed()
+        composeRule.onNodeWithTag("home-next-prayer-name").assertIsDisplayed()
+        composeRule.onNodeWithTag("home-next-prayer-time").assertIsDisplayed()
+        composeRule.onNodeWithTag("home-next-prayer-countdown").assertIsDisplayed()
+        composeRule.onNodeWithTag("home-week-strip").assertIsDisplayed()
+        composeRule.onNodeWithTag("home-week-today").assertIsDisplayed()
         composeRule.onNodeWithText("Tra 01:02:03").assertIsDisplayed()
         composeRule.onNodeWithText("Metodo: Muslim World League (MWL)").assertIsDisplayed()
         composeRule.onNodeWithText("Fajr").assertIsDisplayed()
@@ -77,7 +82,7 @@ class HomePrayerScheduleScreenAndroidTest {
 
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Isha"))
         composeRule.onNodeWithText("Alba").assertIsDisplayed()
-        composeRule.onNodeWithText("Dhuhr").assertIsDisplayed()
+        assertTrue(composeRule.onAllNodesWithText("Dhuhr").fetchSemanticsNodes().isNotEmpty())
         composeRule.onNodeWithText("Asr").assertIsDisplayed()
         composeRule.onNodeWithText("Maghrib").assertIsDisplayed()
         composeRule.onNodeWithText("Isha").assertIsDisplayed()
