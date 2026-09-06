@@ -1,7 +1,6 @@
 package com.archimedeprojects.arihna.feature.settings
 
 import com.archimedeprojects.arihna.core.location.model.LocationFailure
-import com.archimedeprojects.arihna.core.location.model.LocationFreshness
 import com.archimedeprojects.arihna.core.location.model.LocationResolutionState
 import com.archimedeprojects.arihna.core.location.model.LocationSource
 import com.archimedeprojects.arihna.core.location.model.SelectedLocation
@@ -18,74 +17,66 @@ data class LocationStatusPresentation(
 
 fun LocationModeUi.label(): String = when (this) {
     LocationModeUi.Unconfigured -> "Non configurata"
-    LocationModeUi.Device -> "Device"
-    LocationModeUi.Manual -> "Manuale"
+    LocationModeUi.Device -> "Posizione attuale"
+    LocationModeUi.Manual -> "Città scelta"
 }
 
 fun LocationResolutionState.toPresentation(): LocationStatusPresentation = when (this) {
     LocationResolutionState.Unconfigured -> LocationStatusPresentation(
         title = "Posizione non configurata",
-        message = "Scegli la posizione del dispositivo oppure cerca una città manualmente.",
+        message = "Usa la posizione attuale oppure cerca una città.",
     )
 
     LocationResolutionState.Resolving -> LocationStatusPresentation(
-        title = "Risoluzione in corso",
-        message = "Arihna sta determinando la posizione da usare per i calcoli.",
+        title = "Aggiornamento posizione",
+        message = "Sto cercando la posizione corrente.",
     )
 
     is LocationResolutionState.Ready -> {
         val isDevice = location.source is LocationSource.Device
         LocationStatusPresentation(
-            title = if (isDevice) "Posizione dispositivo pronta" else "Città manuale attiva",
+            title = if (isDevice) "Posizione attuale" else "Città selezionata",
             message = if (isDevice) {
-                "La posizione approssimativa del dispositivo è pronta per il calcolo degli orari."
+                "Posizione pronta per orari e Qibla."
             } else {
-                "Arihna userà questa città e il suo fuso orario per i calcoli."
+                "Questa città verrà usata per i calcoli."
             },
             locationName = location.displayName,
             zoneId = location.zoneId.id,
-            freshness = when (location.freshness) {
-                LocationFreshness.FRESH -> "FRESH"
-                LocationFreshness.CACHED -> "CACHED"
-                null -> null
-            },
         )
     }
 
     is LocationResolutionState.PermissionDenied -> LocationStatusPresentation(
         title = "Permesso posizione non concesso",
-        message = appendCached(
+        message = appendSaved(
             if (canRequestAgain) {
-                "Puoi riprovare con ‘Usa posizione attuale’ oppure scegliere una città manualmente."
+                "Puoi riprovare oppure scegliere una città."
             } else {
-                "Il permesso è disattivato per Arihna. Puoi abilitarlo dalle impostazioni dell’app oppure usare una città manuale."
+                "Abilita la posizione dalle impostazioni dell’app oppure scegli una città."
             },
             cachedLocation,
         ),
         locationName = cachedLocation?.displayName,
         zoneId = cachedLocation?.zoneId?.id,
-        freshness = cachedLocation?.let { "CACHED" },
         showAppSettingsAction = !canRequestAgain,
     )
 
     is LocationResolutionState.LocationServicesDisabled -> LocationStatusPresentation(
         title = "Servizi di localizzazione disattivati",
-        message = appendCached(
-            "Attiva la Posizione nelle impostazioni Android per ottenere un nuovo fix, oppure scegli una città manuale.",
+        message = appendSaved(
+            "Attiva la Posizione Android oppure scegli una città.",
             cachedLocation,
         ),
         locationName = cachedLocation?.displayName,
         zoneId = cachedLocation?.zoneId?.id,
-        freshness = cachedLocation?.let { "CACHED" },
         showLocationSettingsAction = true,
     )
 
     is LocationResolutionState.Unavailable -> LocationStatusPresentation(
         title = failureTitle(reason),
-        message = appendCached(failureMessage(reason), cachedLocation),
+        message = appendSaved(failureMessage(reason), cachedLocation),
         locationName = cachedLocation?.displayName,
         zoneId = cachedLocation?.zoneId?.id,
-        freshness = cachedLocation?.let { "CACHED" },
     )
 }
 
@@ -101,9 +92,9 @@ private fun failureTitle(reason: LocationFailure): String = when (reason) {
 
 private fun failureMessage(reason: LocationFailure): String = when (reason) {
     LocationFailure.TIMEOUT ->
-        "Nessuna posizione corrente è arrivata entro 30 secondi e non è disponibile alcuna posizione reale salvata. Puoi riprovare o scegliere una città manuale."
+        "Nessuna posizione corrente è arrivata entro 30 secondi. Puoi riprovare o scegliere una città manuale."
     LocationFailure.NO_PROVIDER ->
-        "Android non ha reso disponibile un provider di posizione utilizzabile. Puoi riprovare o scegliere una città manuale."
+        "Il servizio di posizione non ha restituito un fix utilizzabile. Puoi riprovare o scegliere una città."
     LocationFailure.INVALID_FIX ->
         "Il dispositivo ha restituito una posizione non valida; Arihna non la userà."
     LocationFailure.CITY_NOT_FOUND ->
@@ -116,9 +107,9 @@ private fun failureMessage(reason: LocationFailure): String = when (reason) {
         "Arihna non è riuscita a salvare la scelta della posizione. Riprova."
 }
 
-private fun appendCached(base: String, cachedLocation: SelectedLocation?): String =
+private fun appendSaved(base: String, cachedLocation: SelectedLocation?): String =
     if (cachedLocation == null) {
         base
     } else {
-        "$base Ultima posizione reale salvata: ${cachedLocation.displayName}; viene mostrata come CACHED, non come posizione corrente."
+        "$base Ultima posizione salvata: ${cachedLocation.displayName}."
     }

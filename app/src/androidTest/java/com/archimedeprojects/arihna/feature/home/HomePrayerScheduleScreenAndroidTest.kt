@@ -6,6 +6,7 @@ import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNode
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -41,7 +42,7 @@ class HomePrayerScheduleScreenAndroidTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun noLocationShowsMessageAndSettingsCtaWithoutPrayerValues() {
+    fun noLocationShowsPremiumBrandAndSettingsCtaWithoutPrayerValues() {
         var openSettingsCalls = 0
         setScreen(
             uiState = PrayerScheduleUiState.NoLocation(
@@ -51,46 +52,51 @@ class HomePrayerScheduleScreenAndroidTest {
             onOpenLocationSettings = { openSettingsCalls += 1 },
         )
 
-        composeRule.onNodeWithText("Imposta una posizione per calcolare gli orari di preghiera.")
-            .assertIsDisplayed()
-        composeRule.onNodeWithText("Configura posizione")
-            .assertIsDisplayed()
-            .performClick()
+        composeRule.onNodeWithText("Arihna").assertIsDisplayed()
+        composeRule.onNodeWithText("Imposta una posizione per calcolare gli orari di preghiera.").assertIsDisplayed()
+        composeRule.onNodeWithText("Configura posizione").performClick()
         composeRule.runOnIdle { assertEquals(1, openSettingsCalls) }
-
         assertTextAbsent("Prossima preghiera")
-        assertTextAbsent("Fajr")
         assertTextAbsent("--:--")
     }
 
     @Test
-    fun readyShowsReadableLocationNextPrayerCountdownAndCompleteDay() {
+    fun readyMatchesApprovedHierarchyWithHeroSixTimesWeekInspirationAndQuickActions() {
         setScreen(uiState = readyState())
 
+        composeRule.onNodeWithText("Arihna").assertIsDisplayed()
         composeRule.onNodeWithText("Roma, Italia").assertIsDisplayed()
-        composeRule.onNodeWithText("Posizione manuale").assertIsDisplayed()
         composeRule.onNodeWithText("Prossima preghiera").assertIsDisplayed()
         composeRule.onNodeWithTag("home-next-prayer-name").assertIsDisplayed()
         composeRule.onNodeWithTag("home-next-prayer-time").assertIsDisplayed()
-        composeRule.onNodeWithTag("home-next-prayer-countdown").assertIsDisplayed()
+        composeRule.onNodeWithText("Tra 01:02:03").assertIsDisplayed()
+        composeRule.onNodeWithText("Orari di oggi").assertIsDisplayed()
+        composeRule.onNodeWithTag("home-today-schedule").assertIsDisplayed()
+
+        listOf("Fajr", "Alba", "Dhuhr", "Asr", "Maghrib", "Isha").forEach { label ->
+            assertTrue(composeRule.onAllNodesWithText(label).fetchSemanticsNodes().isNotEmpty())
+        }
+
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Ispirazione del giorno"))
+        composeRule.onNodeWithText("Ispirazione del giorno").assertIsDisplayed()
+        composeRule.onNodeWithText("“Con la difficoltà viene il sollievo.”").assertIsDisplayed()
+        composeRule.onNodeWithText("Corano 94:5–6").assertIsDisplayed()
         composeRule.onNodeWithTag("home-week-strip").assertIsDisplayed()
         composeRule.onNodeWithTag("home-week-today").assertIsDisplayed()
-        composeRule.onNodeWithText("Tra 01:02:03").assertIsDisplayed()
-        composeRule.onNodeWithText("Metodo: Muslim World League (MWL)").assertIsDisplayed()
-        composeRule.onNodeWithText("Fajr").assertIsDisplayed()
-        composeRule.onNodeWithText("05:10").assertIsDisplayed()
 
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Isha"))
-        composeRule.onNodeWithText("Alba").assertIsDisplayed()
-        assertTrue(composeRule.onAllNodesWithText("Dhuhr").fetchSemanticsNodes().isNotEmpty())
-        composeRule.onNodeWithText("Asr").assertIsDisplayed()
-        composeRule.onNodeWithText("Maghrib").assertIsDisplayed()
-        composeRule.onNodeWithText("Isha").assertIsDisplayed()
-        composeRule.onNodeWithText("22:05").assertIsDisplayed()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Qibla"))
+        composeRule.onNodeWithTag("home-quick-actions").assertIsDisplayed()
+        composeRule.onNodeWithText("Qibla").assertIsDisplayed()
+        composeRule.onNodeWithText("Sveglie").assertIsDisplayed()
+        composeRule.onNodeWithText("Posizione").assertIsDisplayed()
+
+        assertTextAbsent("Posizione manuale")
+        assertTextAbsent("Device")
+        assertTextAbsent("CACHED")
     }
 
     @Test
-    fun cachedDeviceLocationShowsAgeAndRefreshAction() {
+    fun cachedDeviceLocationIsNotExposedAsTechnicalBannerAndRefreshIconWorks() {
         var refreshCalls = 0
         val state = readyState().copy(
             location = PrayerScheduleLocationUi(
@@ -111,8 +117,9 @@ class HomePrayerScheduleScreenAndroidTest {
         )
         setScreen(uiState = state, onRefreshLocation = { refreshCalls += 1 })
 
-        composeRule.onNodeWithText("Basato su posizione di 2 ore fa").assertIsDisplayed()
-        composeRule.onNodeWithText("Aggiorna posizione").assertIsDisplayed().performClick()
+        assertTextAbsent("Basato su posizione di 2 ore fa")
+        assertTextAbsent("CACHED")
+        composeRule.onNodeWithTag("home-refresh-location").assertIsDisplayed().performClick()
         composeRule.runOnIdle { assertEquals(1, refreshCalls) }
     }
 
@@ -125,26 +132,16 @@ class HomePrayerScheduleScreenAndroidTest {
                 selectedLocation = selectedManualLocation(),
             ),
         )
-
         composeRule.onNodeWithText("Orari non disponibili").assertIsDisplayed()
-        composeRule.onNodeWithText(
-            "Orari di preghiera non disponibili per la posizione e le impostazioni selezionate.",
-        ).assertIsDisplayed()
-        composeRule.onNodeWithText("Nessun orario viene mostrato finché il calcolo non torna disponibile.")
-            .assertIsDisplayed()
-
         assertTextAbsent("Prossima preghiera")
-        assertTextAbsent("Fajr")
         assertTextAbsent("--:--")
     }
 
     @Test
     fun loadingIsExplicitAndDoesNotExposePrayerValues() {
         setScreen(uiState = PrayerScheduleUiState.Loading)
-
         composeRule.onNodeWithText("Calcolo degli orari in corso…").assertIsDisplayed()
         assertTextAbsent("Prossima preghiera")
-        assertTextAbsent("Fajr")
         assertTextAbsent("--:--")
     }
 
@@ -186,7 +183,6 @@ class HomePrayerScheduleScreenAndroidTest {
             isha = Instant.parse("2026-08-31T20:05:00Z"),
         )
         val selectedLocation = selectedManualLocation()
-
         return PrayerScheduleUiState.Ready(
             localDate = LocalDate.of(2026, 8, 31),
             location = PrayerScheduleLocationUi(

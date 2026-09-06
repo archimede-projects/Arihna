@@ -2,14 +2,24 @@ package com.archimedeprojects.arihna.app
 
 import android.app.Activity
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Alarm
+import androidx.compose.material.icons.rounded.Explore
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.MenuBook
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.flowWithLifecycle
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -33,17 +43,21 @@ import com.archimedeprojects.arihna.feature.quran.QuranPlaceholderScreen
 import com.archimedeprojects.arihna.feature.settings.LocationSettingsRoute
 import com.archimedeprojects.arihna.feature.settings.LocationSettingsViewModel
 
+private val NavBackground = Color(0xFF07110D)
+private val NavSelected = Color(0xFFD9B95B)
+private val NavUnselected = Color(0xFF83948A)
+
 private enum class Destination(
     val route: String,
     val label: String,
-    val shortLabel: String,
+    val icon: ImageVector,
 ) {
-    Home("home", "Home", "H"),
-    Prayers("prayers", "Orari", "O"),
-    Qibla("qibla", "Qibla", "Q"),
-    Quran("quran", "Corano", "C"),
-    Alarms("alarms", "Sveglie", "S"),
-    Settings("settings", "Impostazioni", "I"),
+    Home("home", "Home", Icons.Rounded.Home),
+    Prayers("prayers", "Orari", Icons.Rounded.Schedule),
+    Qibla("qibla", "Qibla", Icons.Rounded.Explore),
+    Quran("quran", "Corano", Icons.Rounded.MenuBook),
+    Alarms("alarms", "Sveglie", Icons.Rounded.Alarm),
+    Settings("settings", "Impostazioni", Icons.Rounded.Settings),
 }
 
 @Composable
@@ -66,7 +80,7 @@ fun ArihnaNavHost(
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
-            NavigationBar {
+            NavigationBar(containerColor = NavBackground) {
                 Destination.entries.forEach { destination ->
                     val selected = currentDestination?.hierarchy?.any {
                         it.route == destination.route
@@ -80,8 +94,17 @@ fun ArihnaNavHost(
                                 restoreState = true
                             }
                         },
-                        icon = { Text(destination.shortLabel) },
-                        label = { Text(destination.label) },
+                        icon = {
+                            Icon(
+                                imageVector = destination.icon,
+                                contentDescription = destination.label,
+                            )
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = NavBackground,
+                            selectedIndicatorColor = NavSelected,
+                            unselectedIconColor = NavUnselected,
+                        ),
                     )
                 }
             }
@@ -119,6 +142,12 @@ fun ArihnaNavHost(
                                 launchSingleTop = true
                             }
                         }
+                    },
+                    onOpenQibla = {
+                        navController.navigate(Destination.Qibla.route) { launchSingleTop = true }
+                    },
+                    onOpenAlarms = {
+                        navController.navigate(Destination.Alarms.route) { launchSingleTop = true }
                     },
                 )
             }

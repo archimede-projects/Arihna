@@ -18,6 +18,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.archimedeprojects.arihna.core.location.platform.AndroidLocationEnvironment
+import com.archimedeprojects.arihna.core.location.platform.AndroidLocationPermissionStateResolver
 import com.archimedeprojects.arihna.feature.alarms.AlarmsViewModel
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmFullScreenAccess
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmNotificationPermissionReader
@@ -26,8 +28,6 @@ import com.archimedeprojects.arihna.feature.alarms.platform.AlarmPlatformSchedul
 import com.archimedeprojects.arihna.feature.alarms.platform.ExactAlarmAccessIntentFactory
 import com.archimedeprojects.arihna.feature.alarms.platform.ExactAlarmCapability
 import com.archimedeprojects.arihna.feature.settings.LocationSettingsViewModel
-import com.archimedeprojects.arihna.core.location.platform.AndroidLocationEnvironment
-import com.archimedeprojects.arihna.core.location.platform.AndroidLocationPermissionStateResolver
 
 enum class StartupCapability {
     LOCATION,
@@ -81,7 +81,7 @@ fun StartupCapabilityGate(
     }
 
     val locationLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
+        contract = ActivityResultContracts.RequestMultiplePermissions(),
     ) {
         dismissed = dismissed + StartupCapability.LOCATION
         val permissionState = locationPermissionStateResolver.resolve(
@@ -101,19 +101,13 @@ fun StartupCapabilityGate(
     }
     val exactAlarmLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult(),
-    ) {
-        refreshCapabilities()
-    }
+    ) { refreshCapabilities() }
     val fullScreenLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult(),
-    ) {
-        refreshCapabilities()
-    }
+    ) { refreshCapabilities() }
     val overlayLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult(),
-    ) {
-        refreshCapabilities()
-    }
+    ) { refreshCapabilities() }
 
     DisposableEffect(activity) {
         val observer = LifecycleEventObserver { _, event ->
@@ -132,7 +126,7 @@ fun StartupCapabilityGate(
 
     capabilityRefresh
     val snapshot = StartupCapabilitySnapshot(
-        locationReady = locationEnvironment.isCoarsePermissionGranted(),
+        locationReady = locationEnvironment.isLocationPermissionGranted(),
         notificationsReady = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             alarmNotificationPermissionReader.isGranted(),
         exactAlarmReady = alarmPlatformScheduler.capability() == ExactAlarmCapability.READY,
@@ -146,7 +140,7 @@ fun StartupCapabilityGate(
         when (next) {
             StartupCapability.LOCATION -> {
                 locationViewModel.markPermissionRequestStarted()
-                locationLauncher.launch(locationPermissionStateResolver.permission)
+                locationLauncher.launch(locationPermissionStateResolver.permissions)
             }
             StartupCapability.NOTIFICATIONS -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -205,14 +199,10 @@ private fun StartupSpecialAccessDialog(
         title = { Text(title) },
         text = { Text(message) },
         confirmButton = {
-            TextButton(onClick = onConfigure) {
-                Text("Configura")
-            }
+            TextButton(onClick = onConfigure) { Text("Configura") }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Non ora")
-            }
+            TextButton(onClick = onDismiss) { Text("Non ora") }
         },
     )
 }

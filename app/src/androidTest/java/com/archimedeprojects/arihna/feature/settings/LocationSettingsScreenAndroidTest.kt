@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodes
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -32,58 +33,7 @@ class LocationSettingsScreenAndroidTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun mainResolutionStatesRenderExplicitlyWithoutProvenanceBadges() {
-        var state by mutableStateOf(LocationSettingsUiState())
-        setScreen { state }
-
-        assertState(
-            newState = LocationSettingsUiState(
-                resolutionState = LocationResolutionState.Unconfigured,
-                activeMode = LocationModeUi.Unconfigured,
-            ),
-            updateState = { state = it },
-            "Posizione non configurata",
-        )
-        assertState(
-            newState = LocationSettingsUiState(
-                resolutionState = LocationResolutionState.Resolving,
-                activeMode = LocationModeUi.Device,
-            ),
-            updateState = { state = it },
-            "Risoluzione in corso",
-        )
-        assertState(
-            newState = LocationSettingsUiState(
-                resolutionState = LocationResolutionState.Ready(
-                    location = selectedDevice(),
-                    freshness = LocationFreshness.FRESH,
-                ),
-                activeMode = LocationModeUi.Device,
-            ),
-            updateState = { state = it },
-            "Ferrara, Italia",
-            "Europe/Rome",
-        )
-        assertTrue(composeRule.onAllNodesWithText("Device").fetchSemanticsNodes().isEmpty())
-        assertTrue(composeRule.onAllNodesWithText("FRESH").fetchSemanticsNodes().isEmpty())
-
-        assertState(
-            newState = LocationSettingsUiState(
-                resolutionState = LocationResolutionState.Ready(
-                    location = selectedManual(),
-                    freshness = null,
-                ),
-                activeMode = LocationModeUi.Manual,
-            ),
-            updateState = { state = it },
-            "Makkah, Saudi Arabia",
-            "Asia/Riyadh",
-        )
-        assertTrue(composeRule.onAllNodesWithText("Manuale").fetchSemanticsNodes().isEmpty())
-    }
-
-    @Test
-    fun streamlinedSectionsHideCapabilityRowsAndKeepTenSecondTests() {
+    fun premiumNonScrollableSettingsKeepsRequiredControlsAndHidesTechnicalProvenance() {
         setScreen {
             LocationSettingsUiState(
                 resolutionState = LocationResolutionState.Ready(
@@ -98,95 +48,94 @@ class LocationSettingsScreenAndroidTest {
         composeRule.onNodeWithText("Posizione").assertIsDisplayed()
         composeRule.onNodeWithTag("settings-location-search").assertIsDisplayed()
         composeRule.onNodeWithTag("settings-use-current-location").assertIsDisplayed()
-        assertTrue(composeRule.onAllNodesWithText("Device").fetchSemanticsNodes().isEmpty())
-        assertTrue(composeRule.onAllNodesWithText("CACHED").fetchSemanticsNodes().isEmpty())
-        assertTrue(composeRule.onAllNodesWithText("Notifiche").fetchSemanticsNodes().isEmpty())
-        assertTrue(composeRule.onAllNodesWithText("Allarmi esatti").fetchSemanticsNodes().isEmpty())
-        assertTrue(composeRule.onAllNodesWithText("Schermo intero").fetchSemanticsNodes().isEmpty())
-        assertTrue(composeRule.onAllNodesWithText("Popup sveglia").fetchSemanticsNodes().isEmpty())
-
-        assertTrue(composeRule.onAllNodes(hasScrollAction()).fetchSemanticsNodes().isEmpty())
-
         composeRule.onNodeWithText("Sveglia").assertIsDisplayed()
         composeRule.onNodeWithText("Volume sveglia").assertIsDisplayed()
         composeRule.onNodeWithText("Test rapidi").assertIsDisplayed()
-        composeRule.onNodeWithText("Test sveglia (10 secondi)").assertIsDisplayed()
-        composeRule.onNodeWithText("Test Adhan (10 secondi)").assertIsDisplayed()
+        composeRule.onNodeWithText("Sveglia · 10 s").assertIsDisplayed()
+        composeRule.onNodeWithText("Adhan · 10 s").assertIsDisplayed()
+        assertTrue(composeRule.onAllNodes(hasScrollAction()).fetchSemanticsNodes().isEmpty())
+        assertTextAbsent("Device")
+        assertTextAbsent("CACHED")
+        assertTextAbsent("FRESH")
     }
 
     @Test
-    fun premiumSectionsReplaceVerboseTemporaryCopy() {
-        setScreen { LocationSettingsUiState() }
-
-        composeRule.onNodeWithText("Impostazioni").assertIsDisplayed()
-        composeRule.onNodeWithText("Posizione").assertIsDisplayed()
-        assertTrue(
-            composeRule.onAllNodesWithText("Pannello funzionale STEP 6 — la Home definitiva verrà costruita più avanti.")
-                .fetchSemanticsNodes().isEmpty(),
-        )
-        assertTrue(
-            composeRule.onAllNodesWithText("Controlli di sistema e test rapidi per sveglie e Adhan.")
-                .fetchSemanticsNodes().isEmpty(),
-        )
-
-        composeRule.onNodeWithText("Sveglia").assertIsDisplayed()
-        composeRule.onNodeWithText("Test rapidi").assertIsDisplayed()
-    }
-
-    @Test
-    fun permissionServicesTimeoutAndUnsupportedErrorsAreUnderstandable() {
+    fun mainResolutionStatesRemainUnderstandable() {
         var state by mutableStateOf(LocationSettingsUiState())
         setScreen { state }
 
         assertState(
-            newState = LocationSettingsUiState(
+            LocationSettingsUiState(
+                resolutionState = LocationResolutionState.Unconfigured,
+                activeMode = LocationModeUi.Unconfigured,
+            ),
+            { state = it },
+            "Posizione non configurata",
+        )
+        assertState(
+            LocationSettingsUiState(
+                resolutionState = LocationResolutionState.Resolving,
+                activeMode = LocationModeUi.Device,
+            ),
+            { state = it },
+            "Aggiornamento posizione",
+        )
+        assertState(
+            LocationSettingsUiState(
+                resolutionState = LocationResolutionState.Ready(
+                    location = selectedDevice(),
+                    freshness = LocationFreshness.FRESH,
+                ),
+                activeMode = LocationModeUi.Device,
+            ),
+            { state = it },
+            "Ferrara, Italia",
+            "Europe/Rome",
+        )
+    }
+
+    @Test
+    fun failureActionsRemainAvailableWithoutTechnicalCacheLabels() {
+        var state by mutableStateOf(LocationSettingsUiState())
+        setScreen { state }
+
+        assertState(
+            LocationSettingsUiState(
                 resolutionState = LocationResolutionState.PermissionDenied(
                     canRequestAgain = false,
                     cachedLocation = null,
                 ),
                 activeMode = LocationModeUi.Device,
             ),
-            updateState = { state = it },
+            { state = it },
             "Permesso posizione non concesso",
             "Apri impostazioni app",
         )
         assertState(
-            newState = LocationSettingsUiState(
+            LocationSettingsUiState(
                 resolutionState = LocationResolutionState.LocationServicesDisabled(null),
                 activeMode = LocationModeUi.Device,
             ),
-            updateState = { state = it },
+            { state = it },
             "Servizi di localizzazione disattivati",
-            "Apri impostazioni Posizione",
+            "Apri Posizione Android",
         )
         assertState(
-            newState = LocationSettingsUiState(
+            LocationSettingsUiState(
                 resolutionState = LocationResolutionState.Unavailable(
                     reason = LocationFailure.TIMEOUT,
                     cachedLocation = null,
                 ),
                 activeMode = LocationModeUi.Device,
             ),
-            updateState = { state = it },
+            { state = it },
             "Posizione non ricevuta",
-            "Nessuna posizione corrente è arrivata entro 30 secondi e non è disponibile alcuna posizione reale salvata. Puoi riprovare o scegliere una città manuale.",
         )
-        assertState(
-            newState = LocationSettingsUiState(
-                resolutionState = LocationResolutionState.Unavailable(
-                    reason = LocationFailure.UNSUPPORTED_TIME_ZONE,
-                    cachedLocation = null,
-                ),
-                activeMode = LocationModeUi.Manual,
-            ),
-            updateState = { state = it },
-            "Fuso orario non supportato",
-            "Questa città usa un fuso orario che questa versione di Android non può risolvere in modo affidabile. Scegli un’altra città.",
-        )
+        assertTextAbsent("CACHED")
     }
 
     @Test
-    fun permissionRequestCallbackIsGatedBehindExplicitRationaleConfirmation() {
+    fun currentLocationCallbackIsGatedBehindRationaleConfirmation() {
         var state by mutableStateOf(LocationSettingsUiState())
         var permissionLaunchRequests = 0
 
@@ -209,29 +158,30 @@ class LocationSettingsScreenAndroidTest {
             }
         }
 
-        composeRule.runOnIdle { assertEquals(0, permissionLaunchRequests) }
         composeRule.onNodeWithTag("settings-use-current-location").performClick()
-        composeRule.onNodeWithText("Perché Arihna chiede la posizione").assertIsDisplayed()
+        composeRule.onNodeWithText("Posizione per Arihna").assertIsDisplayed()
         composeRule.runOnIdle { assertEquals(0, permissionLaunchRequests) }
         composeRule.onNodeWithText("Continua").performClick()
         composeRule.runOnIdle { assertEquals(1, permissionLaunchRequests) }
     }
 
     @Test
-    fun manualSearchResultShowsUnsupportedWarningAndSelectionCallback() {
-        val unsupportedCity = CitySearchResult(
-            id = 3412093L,
-            name = "Nuuk",
-            regionName = "Sermersooq",
-            countryName = "Greenland",
-            countryCode = "GL",
-            coordinates = Coordinates(64.18347, -51.72157),
-            timeZoneId = "America/Nuuk",
-            timeZoneSupported = false,
-        )
+    fun manualSuggestionsStayBoundedSurfaceAndSelectionWorks() {
+        val results = (1L..8L).map { id ->
+            CitySearchResult(
+                id = id,
+                name = "Mirandola $id",
+                regionName = "Emilia-Romagna",
+                countryName = "Italy",
+                countryCode = "IT",
+                coordinates = Coordinates(44.88 + id / 1000.0, 11.06),
+                timeZoneId = "Europe/Rome",
+                timeZoneSupported = true,
+            )
+        }
         val state = LocationSettingsUiState(
-            searchQuery = "Nuuk",
-            searchResults = listOf(unsupportedCity),
+            searchQuery = "Mira",
+            searchResults = results,
         )
         var selectedCityId: Long? = null
 
@@ -251,12 +201,13 @@ class LocationSettingsScreenAndroidTest {
             }
         }
 
-        composeRule.onNodeWithText("Nuuk, Sermersooq, Greenland").assertIsDisplayed()
-        composeRule.onNodeWithText(
-            "Fuso non supportato su questa versione Android: selezionando la città Arihna mostrerà un errore controllato.",
-        ).assertIsDisplayed()
-        composeRule.onNodeWithText("Nuuk, Sermersooq, Greenland").performClick()
-        composeRule.runOnIdle { assertEquals(3412093L, selectedCityId) }
+        composeRule.onNodeWithTag("settings-location-suggestions").assertIsDisplayed()
+        composeRule.onNodeWithText("Mirandola 1, Emilia-Romagna, Italy").assertIsDisplayed().performClick()
+        composeRule.runOnIdle { assertEquals(1L, selectedCityId) }
+    }
+
+    private fun assertTextAbsent(text: String) {
+        assertTrue(composeRule.onAllNodesWithText(text).fetchSemanticsNodes().isEmpty())
     }
 
     private fun setScreen(state: () -> LocationSettingsUiState) {
@@ -294,12 +245,5 @@ class LocationSettingsScreenAndroidTest {
         coordinates = Coordinates(44.8, 11.0),
         zoneId = ZoneId.of("Europe/Rome"),
         displayName = "Ferrara, Italia",
-    )
-
-    private fun selectedManual() = SelectedLocation(
-        source = LocationSource.Manual(cityId = 104515L),
-        coordinates = Coordinates(21.4225, 39.8262),
-        zoneId = ZoneId.of("Asia/Riyadh"),
-        displayName = "Makkah, Saudi Arabia",
     )
 }
