@@ -129,5 +129,16 @@ fun ArihnaApp(
             locationEnvironment = appContainer.locationEnvironment,
             locationPermissionStateResolver = appContainer.locationPermissionStateResolver,
         )
+        StartupCapabilityGate(
+            activity = activity,
+            locationViewModel = locationViewModel,
+            locationEnvironment = appContainer.locationEnvironment,
+            locationPermissionStateResolver = appContainer.locationPermissionStateResolver,
+            alarmsViewModel = alarmsViewModel,
+            alarmPlatformScheduler = appContainer.alarmPlatformScheduler,
+            alarmNotificationPermissionReader = appContainer.alarmNotificationPermissionReader,
+            exactAlarmAccessIntentFactory = appContainer.exactAlarmAccessIntentFactory,
+            alarmFullScreenAccess = appContainer.alarmFullScreenAccess,
+        )
     }
 }

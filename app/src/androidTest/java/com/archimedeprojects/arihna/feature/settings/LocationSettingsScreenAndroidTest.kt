@@ -9,6 +9,7 @@ import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
@@ -33,7 +34,7 @@ class LocationSettingsScreenAndroidTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun mainResolutionStatesRenderExplicitly() {
+    fun mainResolutionStatesRenderExplicitlyWithoutProvenanceBadges() {
         var state by mutableStateOf(LocationSettingsUiState())
         setScreen { state }
 
@@ -44,7 +45,6 @@ class LocationSettingsScreenAndroidTest {
             ),
             updateState = { state = it },
             "Posizione non configurata",
-            "Non configurata",
         )
         assertState(
             newState = LocationSettingsUiState(
@@ -53,7 +53,6 @@ class LocationSettingsScreenAndroidTest {
             ),
             updateState = { state = it },
             "Risoluzione in corso",
-            "Device",
         )
         assertState(
             newState = LocationSettingsUiState(
@@ -65,9 +64,11 @@ class LocationSettingsScreenAndroidTest {
             ),
             updateState = { state = it },
             "Ferrara, Italia",
-            "FRESH",
             "Europe/Rome",
         )
+        assertTrue(composeRule.onAllNodesWithText("Device").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithText("FRESH").fetchSemanticsNodes().isEmpty())
+
         assertState(
             newState = LocationSettingsUiState(
                 resolutionState = LocationResolutionState.Ready(
@@ -78,8 +79,43 @@ class LocationSettingsScreenAndroidTest {
             ),
             updateState = { state = it },
             "Makkah, Saudi Arabia",
-            "Manuale",
+            "Asia/Riyadh",
         )
+        assertTrue(composeRule.onAllNodesWithText("Manuale").fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun streamlinedSectionsHideCapabilityRowsAndKeepTenSecondTests() {
+        setScreen {
+            LocationSettingsUiState(
+                resolutionState = LocationResolutionState.Ready(
+                    location = selectedDevice(),
+                    freshness = LocationFreshness.CACHED,
+                ),
+                activeMode = LocationModeUi.Device,
+            )
+        }
+
+        composeRule.onNodeWithText("Impostazioni").assertIsDisplayed()
+        composeRule.onNodeWithText("Posizione").assertIsDisplayed()
+        composeRule.onNodeWithTag("settings-location-search").assertIsDisplayed()
+        composeRule.onNodeWithTag("settings-use-current-location").assertIsDisplayed()
+        assertTrue(composeRule.onAllNodesWithText("Device").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithText("CACHED").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithText("Notifiche").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithText("Allarmi esatti").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithText("Schermo intero").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithText("Popup sveglia").fetchSemanticsNodes().isEmpty())
+
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Sveglia"))
+        composeRule.onNodeWithText("Sveglia").assertIsDisplayed()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Volume sveglia"))
+        composeRule.onNodeWithText("Volume sveglia").assertIsDisplayed()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Test rapidi"))
+        composeRule.onNodeWithText("Test rapidi").assertIsDisplayed()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Test sveglia (10 secondi)"))
+        composeRule.onNodeWithText("Test sveglia (10 secondi)").assertIsDisplayed()
+        composeRule.onNodeWithText("Test Adhan (10 secondi)").assertIsDisplayed()
     }
 
     @Test
@@ -97,11 +133,9 @@ class LocationSettingsScreenAndroidTest {
                 .fetchSemanticsNodes().isEmpty(),
         )
 
-        composeRule.onNode(hasScrollAction())
-            .performScrollToNode(hasText("Sveglie e notifiche"))
-        composeRule.onNodeWithText("Sveglie e notifiche").assertIsDisplayed()
-        composeRule.onNode(hasScrollAction())
-            .performScrollToNode(hasText("Test rapidi"))
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Sveglia"))
+        composeRule.onNodeWithText("Sveglia").assertIsDisplayed()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Test rapidi"))
         composeRule.onNodeWithText("Test rapidi").assertIsDisplayed()
     }
 
@@ -182,7 +216,7 @@ class LocationSettingsScreenAndroidTest {
         }
 
         composeRule.runOnIdle { assertEquals(0, permissionLaunchRequests) }
-        composeRule.onNodeWithText("Usa posizione attuale").performClick()
+        composeRule.onNodeWithTag("settings-use-current-location").performClick()
         composeRule.onNodeWithText("Perché Arihna chiede la posizione").assertIsDisplayed()
         composeRule.runOnIdle { assertEquals(0, permissionLaunchRequests) }
         composeRule.onNodeWithText("Continua").performClick()
@@ -223,16 +257,12 @@ class LocationSettingsScreenAndroidTest {
             }
         }
 
-        composeRule.onNode(hasScrollAction())
-            .performScrollToNode(hasText("Nuuk, Sermersooq, Greenland"))
-        composeRule.onNodeWithText("Nuuk, Sermersooq, Greenland")
-            .assertIsDisplayed()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Nuuk, Sermersooq, Greenland"))
+        composeRule.onNodeWithText("Nuuk, Sermersooq, Greenland").assertIsDisplayed()
         composeRule.onNodeWithText(
             "Fuso non supportato su questa versione Android: selezionando la città Arihna mostrerà un errore controllato.",
-        )
-            .assertIsDisplayed()
-        composeRule.onNodeWithText("Nuuk, Sermersooq, Greenland")
-            .performClick()
+        ).assertIsDisplayed()
+        composeRule.onNodeWithText("Nuuk, Sermersooq, Greenland").performClick()
         composeRule.runOnIdle { assertEquals(3412093L, selectedCityId) }
     }
 
@@ -260,9 +290,7 @@ class LocationSettingsScreenAndroidTest {
         vararg expectedTexts: String,
     ) {
         composeRule.runOnIdle { updateState(newState) }
-        expectedTexts.forEach { text ->
-            composeRule.onNodeWithText(text).assertIsDisplayed()
-        }
+        expectedTexts.forEach { text -> composeRule.onNodeWithText(text).assertIsDisplayed() }
     }
 
     private fun selectedDevice() = SelectedLocation(
