@@ -274,7 +274,7 @@ fun LocationSettingsScreen(
 @Composable
 private fun LocationControlCard(
     uiState: LocationSettingsUiState,
-    presentation: LocationSettingsPresentation,
+    presentation: LocationStatusPresentation,
     ready: Boolean,
     onUseDevice: () -> Unit,
     onSearchQueryChanged: (String) -> Unit,
