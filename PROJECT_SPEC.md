@@ -2098,3 +2098,43 @@ Frozen scope / regression requirements:
 - The implementation must use the smallest Compose change that disables user scrolling while preserving the existing Settings layout and content.
 - Add/adjust instrumentation coverage so the Settings root has no user scroll action while the already-visible streamlined content remains unchanged.
 - This approval does **not** authorize Home implementation; the Home redesign remains a separate next objective.
+
+## Galaxy S25 Settings + definitive Home visual redesign — APPROVED 2026-09-06
+
+Physical review of the temporarily non-scrollable Settings runtime `1ebac29f89dfc46d7a5f31285eafd4d90b15658c` is **visual FAIL**: disabling scroll exposed that the existing composition is too tall and clips normal content below the Galaxy S25 viewport. The user explicitly authorizes a real visual redesign of both General Settings and the existing functional Home Prayer Schedule surface. This round is UI/presentation only except for harmless navigation callbacks already owned by the shell; no Prayer, Location, Qibla or Alarm runtime semantics may be reopened.
+
+### General Settings target
+
+- Keep the Settings page itself non-user-scrollable, but redesign the normal Ready state so its core content fits inside the primary Galaxy S25 portrait viewport above bottom navigation instead of merely clipping overflow.
+- Replace the current tall stack with three compact groups: `Posizione`, `Sveglia`, `Test rapidi`, using substantially tighter vertical spacing, smaller card radii/inner padding and stronger hierarchy.
+- Location: one compact summary/control card. Resolved location name remains primary and timezone secondary. Manual `Cerca città` remains the main field; `Attuale` remains integrated in that control. Search results must not require scrolling the Settings page; a popup/dropdown/overlay result surface is permitted using existing Compose/Material dependencies. Controlled permission/services/error recovery remains truthful and actionable.
+- Alarm volume: one compact row/card with label, percentage, real `STREAM_ALARM` slider and a short truthful global-volume caption. Do not change AudioManager semantics.
+- Quick tests: compact side-by-side or otherwise space-efficient controls for the existing `Test sveglia (10 secondi)` and `Test Adhan (10 secondi)` actions plus cancellation/state feedback. Do not change the 10-second scheduler contract.
+- Remove decorative empty space and oversized cards. Gold remains an accent; prefer refined deep forest/charcoal surfaces, warm off-white text, muted sage secondary text and subtle outlines. The Settings result must look intentionally designed rather than a disabled-scroll version of the old page.
+- Permanent capability rows stay absent; startup capability guidance remains exactly as already implemented.
+
+### Home target
+
+- Replace the current minimal technical Prayer Schedule panel styling with the definitive Arihna Hero Dashboard direction using only data already authoritative in `PrayerScheduleUiState` during this round.
+- `Ready` Home hierarchy: compact top location/date context; dominant `Prossima preghiera` hero with prayer name, large time and live countdown; a compact current-week strip derived from the authoritative `localDate` with today highlighted; and a polished compact `Oggi` prayer schedule for Fajr, Alba, Dhuhr, Asr, Maghrib and Isha.
+- The current calculation method may remain available only as subtle secondary information; it must not compete with prayer/time information.
+- Device CACHED disclosure and `Aggiorna posizione` remain truthful and available when applicable, but are visually compact.
+- NoLocation, Loading and CalculationUnavailable remain controlled, visually coherent states and never display fabricated prayer values.
+- Do **not** fabricate daily Quran/hadith content, alarm summaries or future-week prayer times in this round. Daily motivational content still requires verified religious-source data; alarm summaries require separate wiring. Existing bottom navigation already provides direct Qibla/Sveglie access, so no fake quick-action cards are required here.
+- Home may remain vertically scrollable where necessary, but the primary hero and today's schedule should be substantially denser and more premium than the previous technical panel.
+- Use the same refined Arihna visual family as Settings: deep forest/near-black background, layered emerald surfaces, restrained gold accents and warm off-white text. Do not modify the global theme constants for unrelated screens.
+
+### Frozen behavior / scope
+
+- `applicationId = com.archimedeprojects.arihna`, minSdk 28, compileSdk 37, targetSdk 37 remain fixed.
+- Prayer calculation, Prayer settings persistence/defaults, countdown ticker/repository refresh semantics, Location acquisition/cache/freshness, GeoNames, Qibla, Alarm scheduling/ringing/overlay/audio/volume, startup permissions/capabilities and bottom-navigation destinations remain unchanged.
+- No new dependency, permission, image asset, network source, religious quotation/content, database, persistence key or navigation destination is authorized.
+- Candidate runtime must be a direct child of this specification commit.
+
+### Required validation
+
+- Focused Compose/API28 coverage must verify the Settings root has no scroll action, the three compact groups are present, location search/current-location actions remain operable, normal Ready content including quick tests is reachable without page scrolling, and hidden capability rows remain absent.
+- Home Compose/API28 coverage must verify the premium hero exposes exact authoritative location, next prayer/time/countdown, week strip/today highlight and all six current-day schedule values; cached Device refresh remains operable; controlled error/loading states expose no fabricated prayer values.
+- Run unfiltered `testDebugUnitTest`, exact candidate `assembleDebug`, full Android 9/API28 connected regression with zero failures/errors/skips, and the existing API36 denied/granted exact-alarm + notification + full-screen + overlay matrix.
+- Reverify frozen GeoNames SHA-256 `7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb`, manifest/dependency policy, package id and persistent signing identity.
+- Only after exact-SHA gate success may the candidate fast-forward non-forced to `main` and be packaged as a new persistent-debug Galaxy S25 prerelease. Stop for physical visual validation of Settings and Home.
