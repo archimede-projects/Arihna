@@ -1,0 +1,53 @@
+name: Settings no-scroll spec writer temp
+
+on:
+  push:
+    branches:
+      - settings-no-scroll-spec-writer-20260906
+    paths:
+      - .github/workflows/settings-no-scroll-spec-writer-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  write-spec:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create exact spec commit
+        env:
+          BASE_SHA: 1ce14ee06a5e2195d5f884fdb4d3fb8c146e8198
+          TARGET_BRANCH: settings-no-scroll-spec
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --force
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+          if git ls-remote --exit-code --heads origin "refs/heads/$TARGET_BRANCH" >/dev/null 2>&1; then
+            echo "Target branch already exists" >&2
+            exit 1
+          fi
+          git checkout --detach "$BASE_SHA"
+          git switch -c "$TARGET_BRANCH"
+          cat >> PROJECT_SPEC.md <<'EOF'
+
+## General Settings temporary non-scroll surface — APPROVED 2026-09-06
+
+- The main `Impostazioni` surface is temporarily **non-user-scrollable**.
+- This authorization is interaction-only: do not redesign, reorder, add, remove, or restyle Settings content in this change.
+- Existing location search/current-location behavior, alarm volume, quick diagnostics, capability startup guidance, permissions, Prayer, Location, Qibla and alarm runtime behavior remain unchanged.
+- The implementation must use the smallest Compose change that disables user scrolling while preserving the existing Settings layout and content.
+- Add/adjust instrumentation coverage so the Settings root has no user scroll action while the already-visible streamlined content remains unchanged.
+- This approval does **not** authorize Home implementation; the Home redesign remains a separate next objective.
+EOF
+          git diff --check
+          test "$(git diff --name-only)" = "PROJECT_SPEC.md"
+          git config user.name "IbnKhaldoun-svg"
+          git config user.email "essalih.idriss.w@gmail.com"
+          git add PROJECT_SPEC.md
+          git commit -m "docs(settings): make settings temporarily non-scrollable"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
