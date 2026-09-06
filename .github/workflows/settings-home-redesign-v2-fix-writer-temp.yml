@@ -1,0 +1,47 @@
+name: Settings Home redesign v2 fix writer temp
+
+on:
+  push:
+    branches:
+      - settings-home-redesign-v2-fix-writer-temp
+    paths:
+      - .github/workflows/settings-home-redesign-v2-fix-writer-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout v1 staging tree
+        uses: actions/checkout@v4
+        with:
+          ref: settings-home-redesign-v2-stage-temp
+          fetch-depth: 0
+      - name: Fix invalid Compose padding overload only
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE=app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+          grep -Fq 'Modifier.padding(horizontal = 2.dp, bottom = 4.dp)' "$FILE"
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt')
+          s = p.read_text()
+          old = 'Modifier.padding(horizontal = 2.dp, bottom = 4.dp)'
+          new = 'Modifier.padding(start = 2.dp, end = 2.dp, bottom = 4.dp)'
+          assert s.count(old) == 1
+          p.write_text(s.replace(old, new))
+          PY
+          git diff --check
+          git diff -- "$FILE"
+      - name: Commit corrected staging tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "IbnKhaldoun-svg"
+          git config user.email "essalih.idriss.w@gmail.com"
+          git add app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+          git commit -m "tmp(ui): fix Home padding compile error"
+          git push origin HEAD:refs/heads/settings-home-redesign-v2-stage-temp
