@@ -2089,3 +2089,12 @@ Frozen scope / regression requirements:
 - Persistent Arihna signing identity, frozen GeoNames SHA-256 `7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb`, and frozen Adhan asset remain unchanged.
 - Definitive candidate gate must verify exact spec/candidate lineage, changed-file scope, host unit tests, exact candidate assemble, API28 full connected regression with zero failures/errors/skips, and API36 denied/granted exact-alarm + notification + full-screen + overlay matrix.
 - Galaxy S25 physical validation is required before this refinement is considered closed.
+
+## General Settings temporary non-scroll surface — APPROVED 2026-09-06
+
+- The main `Impostazioni` surface is temporarily **non-user-scrollable**.
+- This authorization is interaction-only: do not redesign, reorder, add, remove, or restyle Settings content in this change.
+- Existing location search/current-location behavior, alarm volume, quick diagnostics, capability startup guidance, permissions, Prayer, Location, Qibla and alarm runtime behavior remain unchanged.
+- The implementation must use the smallest Compose change that disables user scrolling while preserving the existing Settings layout and content.
+- Add/adjust instrumentation coverage so the Settings root has no user scroll action while the already-visible streamlined content remains unchanged.
+- This approval does **not** authorize Home implementation; the Home redesign remains a separate next objective.
