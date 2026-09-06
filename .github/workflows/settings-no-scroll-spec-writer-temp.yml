@@ -34,15 +34,15 @@ jobs:
           git switch -c "$TARGET_BRANCH"
           cat >> PROJECT_SPEC.md <<'EOF'
 
-## General Settings temporary non-scroll surface — APPROVED 2026-09-06
+          ## General Settings temporary non-scroll surface — APPROVED 2026-09-06
 
-- The main `Impostazioni` surface is temporarily **non-user-scrollable**.
-- This authorization is interaction-only: do not redesign, reorder, add, remove, or restyle Settings content in this change.
-- Existing location search/current-location behavior, alarm volume, quick diagnostics, capability startup guidance, permissions, Prayer, Location, Qibla and alarm runtime behavior remain unchanged.
-- The implementation must use the smallest Compose change that disables user scrolling while preserving the existing Settings layout and content.
-- Add/adjust instrumentation coverage so the Settings root has no user scroll action while the already-visible streamlined content remains unchanged.
-- This approval does **not** authorize Home implementation; the Home redesign remains a separate next objective.
-EOF
+          - The main `Impostazioni` surface is temporarily **non-user-scrollable**.
+          - This authorization is interaction-only: do not redesign, reorder, add, remove, or restyle Settings content in this change.
+          - Existing location search/current-location behavior, alarm volume, quick diagnostics, capability startup guidance, permissions, Prayer, Location, Qibla and alarm runtime behavior remain unchanged.
+          - The implementation must use the smallest Compose change that disables user scrolling while preserving the existing Settings layout and content.
+          - Add/adjust instrumentation coverage so the Settings root has no user scroll action while the already-visible streamlined content remains unchanged.
+          - This approval does **not** authorize Home implementation; the Home redesign remains a separate next objective.
+          EOF
           git diff --check
           test "$(git diff --name-only)" = "PROJECT_SPEC.md"
           git config user.name "IbnKhaldoun-svg"
