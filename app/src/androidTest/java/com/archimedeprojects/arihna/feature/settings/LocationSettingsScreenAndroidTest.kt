@@ -5,12 +5,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodes
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.dp
 import com.archimedeprojects.arihna.core.location.model.CitySearchResult
 import com.archimedeprojects.arihna.core.location.model.LocationFailure
@@ -104,14 +107,13 @@ class LocationSettingsScreenAndroidTest {
         assertTrue(composeRule.onAllNodesWithText("Allarmi esatti").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Schermo intero").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Popup sveglia").fetchSemanticsNodes().isEmpty())
-
         assertTrue(composeRule.onAllNodes(hasScrollAction()).fetchSemanticsNodes().isEmpty())
 
         composeRule.onNodeWithText("Sveglia").assertIsDisplayed()
         composeRule.onNodeWithText("Volume sveglia").assertIsDisplayed()
         composeRule.onNodeWithText("Test rapidi").assertIsDisplayed()
-        composeRule.onNodeWithText("Test sveglia (10 secondi)").assertIsDisplayed()
-        composeRule.onNodeWithText("Test Adhan (10 secondi)").assertIsDisplayed()
+        composeRule.onNodeWithText("Test sveglia (10 secondi)", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Test Adhan (10 secondi)", substring = true).assertIsDisplayed()
     }
 
     @Test
@@ -218,7 +220,42 @@ class LocationSettingsScreenAndroidTest {
     }
 
     @Test
-    fun manualSearchResultShowsUnsupportedWarningAndSelectionCallback() {
+    fun citySuggestionsStayOpenWithoutStealingTextFieldFocus() {
+        val result = supportedCity(1L, "Mirandola")
+        var state by mutableStateOf(LocationSettingsUiState())
+
+        composeRule.setContent {
+            ArihnaTheme {
+                LocationSettingsScreen(
+                    contentPadding = PaddingValues(0.dp),
+                    uiState = state,
+                    onUseDevice = {},
+                    onDismissRationale = {},
+                    onConfirmRationale = {},
+                    onSearchQueryChanged = { query ->
+                        state = state.copy(
+                            searchQuery = query,
+                            searchResults = if (query.length >= 2) listOf(result) else emptyList(),
+                        )
+                    },
+                    onSelectCity = {},
+                    onOpenAppSettings = {},
+                    onOpenLocationSettings = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("settings-location-search")
+            .performClick()
+            .performTextInput("Mirandola")
+            .assertIsFocused()
+        composeRule.onNodeWithTag("settings-location-suggestions").assertIsDisplayed()
+        composeRule.onNodeWithText("Mirandola, Emilia-Romagna, Italy").assertIsDisplayed()
+        composeRule.onNodeWithTag("settings-location-search").assertIsFocused()
+    }
+
+    @Test
+    fun manualSearchResultShowsCompactUnsupportedWarningAndSelectionCallback() {
         val unsupportedCity = CitySearchResult(
             id = 3412093L,
             name = "Nuuk",
@@ -252,9 +289,7 @@ class LocationSettingsScreenAndroidTest {
         }
 
         composeRule.onNodeWithText("Nuuk, Sermersooq, Greenland").assertIsDisplayed()
-        composeRule.onNodeWithText(
-            "Fuso non supportato su questa versione Android: selezionando la città Arihna mostrerà un errore controllato.",
-        ).assertIsDisplayed()
+        composeRule.onNodeWithText("Fuso non supportato su questa versione Android.").assertIsDisplayed()
         composeRule.onNodeWithText("Nuuk, Sermersooq, Greenland").performClick()
         composeRule.runOnIdle { assertEquals(3412093L, selectedCityId) }
     }
@@ -285,6 +320,17 @@ class LocationSettingsScreenAndroidTest {
         composeRule.runOnIdle { updateState(newState) }
         expectedTexts.forEach { text -> composeRule.onNodeWithText(text).assertIsDisplayed() }
     }
+
+    private fun supportedCity(id: Long, name: String) = CitySearchResult(
+        id = id,
+        name = name,
+        regionName = "Emilia-Romagna",
+        countryName = "Italy",
+        countryCode = "IT",
+        coordinates = Coordinates(44.887, 11.066),
+        timeZoneId = "Europe/Rome",
+        timeZoneSupported = true,
+    )
 
     private fun selectedDevice() = SelectedLocation(
         source = LocationSource.Device(
