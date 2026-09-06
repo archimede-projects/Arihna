@@ -201,7 +201,7 @@ private fun ReadyContent(
         text = "Metodo: ${methodLabel(state.settings.method)}",
         style = MaterialTheme.typography.bodySmall,
         color = HomeMuted,
-        modifier = Modifier.padding(horizontal = 2.dp, bottom = 4.dp),
+        modifier = Modifier.padding(start = 2.dp, end = 2.dp, bottom = 4.dp),
     )
 
     if (
