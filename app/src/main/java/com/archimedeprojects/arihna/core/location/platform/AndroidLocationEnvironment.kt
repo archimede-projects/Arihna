@@ -15,27 +15,22 @@ class AndroidLocationEnvironment(context: Context) {
     private val appContext = context.applicationContext
     private val locationManager = appContext.getSystemService(LocationManager::class.java)
 
-    fun isCoarsePermissionGranted(): Boolean =
-        ContextCompat.checkSelfPermission(appContext, COARSE_LOCATION_PERMISSION) ==
+    fun isCoarsePermissionGranted(): Boolean = hasForegroundLocationPermission(appContext)
+
+    fun isFinePermissionGranted(): Boolean =
+        ContextCompat.checkSelfPermission(appContext, FINE_LOCATION_PERMISSION) ==
             PackageManager.PERMISSION_GRANTED
 
     fun isLocationServicesEnabled(): Boolean = LocationManagerCompat.isLocationEnabled(locationManager)
 }
 
-/**
- * Converts Android permission signals into Arihna domain state.
- *
- * STEP 6 will call [resolve] from the explicit Device-location action. This class has no
- * requestPermissions/ActivityResult side effect, so constructing it at startup cannot show a prompt.
- */
+/** Converts Android permission signals into Arihna domain state without opening prompts. */
 class AndroidLocationPermissionStateResolver(private val context: Context) {
     val permission: String = COARSE_LOCATION_PERMISSION
+    val permissions: Array<String> = arrayOf(FINE_LOCATION_PERMISSION, COARSE_LOCATION_PERMISSION)
 
     fun resolve(activity: Activity, hasRequestedBefore: Boolean): LocationPermissionState {
-        if (
-            ContextCompat.checkSelfPermission(context, COARSE_LOCATION_PERMISSION) ==
-            PackageManager.PERMISSION_GRANTED
-        ) {
+        if (hasForegroundLocationPermission(context)) {
             return LocationPermissionState.Granted
         }
         if (!hasRequestedBefore) return LocationPermissionState.NotRequested
@@ -43,10 +38,18 @@ class AndroidLocationPermissionStateResolver(private val context: Context) {
         return LocationPermissionState.Denied(
             canRequestAgain = ActivityCompat.shouldShowRequestPermissionRationale(
                 activity,
+                FINE_LOCATION_PERMISSION,
+            ) || ActivityCompat.shouldShowRequestPermissionRationale(
+                activity,
                 COARSE_LOCATION_PERMISSION,
             ),
         )
     }
 }
 
+internal fun hasForegroundLocationPermission(context: Context): Boolean =
+    ContextCompat.checkSelfPermission(context, FINE_LOCATION_PERMISSION) == PackageManager.PERMISSION_GRANTED ||
+        ContextCompat.checkSelfPermission(context, COARSE_LOCATION_PERMISSION) == PackageManager.PERMISSION_GRANTED
+
+const val FINE_LOCATION_PERMISSION: String = Manifest.permission.ACCESS_FINE_LOCATION
 const val COARSE_LOCATION_PERMISSION: String = Manifest.permission.ACCESS_COARSE_LOCATION
