@@ -2,12 +2,9 @@ package com.archimedeprojects.arihna.feature.settings
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.hasScrollAction
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.unit.dp
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaTheme
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeState
@@ -48,11 +45,8 @@ class AlarmSettingsOverlayVolumeAndroidTest {
         assertTrue(composeRule.onAllNodesWithText("Notifiche").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Allarmi esatti").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Schermo intero").fetchSemanticsNodes().isEmpty())
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Volume sveglia"))
         composeRule.onNodeWithText("Volume sveglia").assertIsDisplayed()
         composeRule.onNodeWithText("53%").assertIsDisplayed()
-        composeRule.onNode(hasScrollAction())
-            .performScrollToNode(hasText("Volume globale delle sveglie del telefono"))
         composeRule.onNodeWithText("Volume globale delle sveglie del telefono").assertIsDisplayed()
     }
 }

@@ -214,6 +214,7 @@ fun LocationSettingsScreen(
             bottom = contentPadding.calculateBottomPadding() + 24.dp,
         ),
         verticalArrangement = Arrangement.spacedBy(10.dp),
+        userScrollEnabled = false,
     ) {
         item {
             Text(
