@@ -1,0 +1,91 @@
+name: UI wow fused API28 diagnostic
+
+on:
+  push:
+    branches:
+      - ui-wow-fused-api28-diagnostic
+    paths:
+      - .github/workflows/ui-wow-fused-api28-diagnostic.yml
+
+permissions:
+  contents: read
+
+env:
+  CANDIDATE_SHA: c6c73e6bf6d61b72d4ebeea1547c545dc16ed2fe
+  GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
+  FROZEN_ASSET_RELEASE: settings-s25-premium-3f28b6f0-20260906
+  FROZEN_ASSET_APK: arihna-settings-s25-premium.apk
+
+jobs:
+  diagnose-api28:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Checkout exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout --detach "$CANDIDATE_SHA"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+      - name: Restore frozen GeoNames
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+      - name: Enable KVM
+        run: |
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
+      - name: API28 connected regression
+        id: connected
+        continue-on-error: true
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 28
+          arch: x86_64
+          target: google_apis
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
+      - name: Print concise failing test summary
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import glob, xml.etree.ElementTree as ET
+          files=glob.glob('app/build/outputs/androidTest-results/connected/debug/**/*.xml', recursive=True)
+          print('RESULT_FILES', len(files))
+          tests=failures=errors=skipped=0
+          bad=[]
+          for f in files:
+              r=ET.parse(f).getroot()
+              tests += int(r.attrib.get('tests',0)); failures += int(r.attrib.get('failures',0)); errors += int(r.attrib.get('errors',0)); skipped += int(r.attrib.get('skipped',0))
+              for tc in r.iter('testcase'):
+                  failure=tc.find('failure'); error=tc.find('error'); skipped_node=tc.find('skipped')
+                  if failure is not None or error is not None or skipped_node is not None:
+                      node=failure if failure is not None else error if error is not None else skipped_node
+                      txt=(node.attrib.get('message','')+' '+(node.text or '')).replace('\n',' ')[:1800]
+                      bad.append((tc.attrib.get('classname',''),tc.attrib.get('name',''),txt))
+          print(f'CONNECTED_TOTAL tests={tests} failures={failures} errors={errors} skipped={skipped}')
+          for cls,name,msg in bad:
+              print('BAD_TEST', cls, name)
+              print('BAD_DETAIL', msg)
+          if failures or errors or skipped or not files:
+              raise SystemExit(1)
+          PY
