@@ -55,7 +55,8 @@ jobs:
           CANDIDATE_SHA="$(printf '%s\n' 'fix: S25 Quran RTL reading and Adhan preview' | git commit-tree "$TREE_SHA" -p "$SPEC_SHA")"
           test "$(git rev-parse "$CANDIDATE_SHA^")" = "$SPEC_SHA"
           test "$(git rev-list --parents -n1 "$CANDIDATE_SHA" | wc -w)" -eq 2
-          git diff --exit-code "$SPEC_SHA" "$CANDIDATE_SHA" --check
+          git diff --check "$SPEC_SHA" "$CANDIDATE_SHA"
+          test -n "$(git diff --name-only "$SPEC_SHA" "$CANDIDATE_SHA")"
           git push origin "$CANDIDATE_SHA:refs/heads/$CANDIDATE_BRANCH" --force
           echo "CANDIDATE_SHA=$CANDIDATE_SHA" >> "$GITHUB_ENV"
           echo "CANDIDATE_SHA=$CANDIDATE_SHA"
