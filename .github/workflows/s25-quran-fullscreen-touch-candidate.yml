@@ -1,0 +1,77 @@
+name: S25 Quran fullscreen touch candidate
+
+on:
+  push:
+    branches:
+      - driver/s25-quran-fullscreen-touch-20260907
+
+permissions:
+  contents: write
+
+jobs:
+  build-candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      SPEC_SHA: 7d846e356184acf10fb50edb2ca16f42d8ce6f9b
+      CANDIDATE_BRANCH: candidate/s25-quran-fullscreen-touch-v1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Preserve patch driver then return to exact SPEC
+        run: |
+          git show "$GITHUB_SHA:.github/s25-quran-fullscreen-touch-fix.py" > /tmp/s25-quran-fullscreen-touch-fix.py
+          git checkout --detach "$SPEC_SHA"
+          test "$(git rev-parse HEAD)" = "$SPEC_SHA"
+
+      - name: Apply fullscreen and touch-target fix
+        run: python /tmp/s25-quran-fullscreen-touch-fix.py
+
+      - name: Restore pinned GeoNames database
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p app/src/main/assets/geonames /tmp/geonames-restore
+          gh release download settings-s25-premium-3f28b6f0-20260906 \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern arihna-settings-s25-premium.apk \
+            --dir /tmp/geonames-restore
+          unzip -p /tmp/geonames-restore/arihna-settings-s25-premium.apk assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo '7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb  app/src/main/assets/geonames/cities.db' | sha256sum -c -
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android API 37
+        run: android sdk install platforms/android-37 --canary || true
+
+      - name: Compile exact patched tree
+        run: |
+          git diff --check
+          ./gradlew testDebugUnitTest compileDebugAndroidTest assembleDebug --stacktrace
+
+      - name: Create direct-child candidate commit
+        run: |
+          rm -f app/src/main/assets/geonames/cities.db
+          git add app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt \
+                  app/src/main/java/com/archimedeprojects/arihna/app/ArihnaNavHost.kt \
+                  app/src/androidTest/java/com/archimedeprojects/arihna/feature/quran/QuranFullscreenAndroidTest.kt
+          git diff --cached --check
+          git config user.name 'Arihna SPEC-first CI'
+          git config user.email 'arihna-ci@users.noreply.github.com'
+          TREE_SHA="$(git write-tree)"
+          CANDIDATE_SHA="$(printf '%s\n' 'fix: S25 Quran real fullscreen and larger touch targets' | git commit-tree "$TREE_SHA" -p "$SPEC_SHA")"
+          test "$(git rev-parse "$CANDIDATE_SHA^")" = "$SPEC_SHA"
+          git push --force-with-lease origin "$CANDIDATE_SHA:refs/heads/$CANDIDATE_BRANCH"
+          echo "candidate=$CANDIDATE_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "spec=$SPEC_SHA" >> "$GITHUB_STEP_SUMMARY"
