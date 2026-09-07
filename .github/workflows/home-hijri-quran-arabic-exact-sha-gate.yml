@@ -10,7 +10,7 @@ permissions:
 
 env:
   SPEC_SHA: 89bef3ff59bebc8e3cf0db3652ff18b9dd056938
-  CANDIDATE_SHA: 0bfa6016afc3a1cbecb721680e68cd7d99d7226c
+  CANDIDATE_SHA: d6d8499bdbebb01fcfebcb518492ea3c25011f05
   PACKAGE_NAME: com.archimedeprojects.arihna
   GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
   FROZEN_ASSET_RELEASE: settings-s25-premium-3f28b6f0-20260906
@@ -23,7 +23,7 @@ jobs:
       - name: Checkout exact candidate
         uses: actions/checkout@v4
         with:
-          ref: 0bfa6016afc3a1cbecb721680e68cd7d99d7226c
+          ref: d6d8499bdbebb01fcfebcb518492ea3c25011f05
           fetch-depth: 0
 
       - name: Verify exact SHA lineage and product contracts
@@ -34,6 +34,8 @@ jobs:
           test "$(git rev-list --parents -n 1 HEAD | wc -w)" -eq 2
           test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
           grep -Fq 'home-hijri-date' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+          grep -Fq 'fillMaxWidth(0.82f)' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+          grep -Fq 'Modifier.fillMaxWidth().testTag("home-hijri-date")' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
           grep -Fq 'home-calendar-dialog' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
           grep -Fq 'Icons.Rounded.MenuBook' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
           grep -Fq 'quran-mode-easy' app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt
@@ -182,7 +184,7 @@ jobs:
       - name: Checkout exact candidate
         uses: actions/checkout@v4
         with:
-          ref: 0bfa6016afc3a1cbecb721680e68cd7d99d7226c
+          ref: d6d8499bdbebb01fcfebcb518492ea3c25011f05
           fetch-depth: 0
 
       - name: Verify exact candidate lineage
