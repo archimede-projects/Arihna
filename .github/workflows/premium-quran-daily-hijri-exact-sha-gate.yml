@@ -47,7 +47,7 @@ jobs:
           grep -Fq 'quran-mode-easy' "$QURAN"
           grep -Fq 'quran-surah-selector' "$QURAN"
           grep -Fq 'quran-mushaf-page-' "$QURAN"
-          grep -Fq 'quran-bookmark-page-' "$QURAN"
+          grep -Fq 'quran-bookmark-toggle' "$QURAN"
           grep -Fq 'HorizontalPager' "$QURAN"
 
           PREFS=app/src/main/java/com/archimedeprojects/arihna/feature/quran/MushafRepository.kt
