@@ -1,0 +1,44 @@
+name: Write Orari fixed-screen audio spec
+
+on:
+  push:
+    branches:
+      - spec-orari-fixed-audio-driver-20260907
+
+permissions:
+  contents: write
+
+jobs:
+  write-spec:
+    runs-on: ubuntu-latest
+    env:
+      BASE_SHA: ee93fef6ec216590ea51a4ebcfbc0491ab799818
+      TARGET_BRANCH: spec-orari-fixed-audio
+      SPEC_B64: IyMjIDIwMjYtMDktMDcg4oCUIFByYXllciBUaW1lcyAvIOKAnE9yYXJp4oCdIGZpeGVkLXNjcmVlbiBhdWRpbyBzZWxlY3Rpb24gQVBQUk9WRUQKClNjb3BlIGlzIGludGVudGlvbmFsbHkgbmFycm93LiBUaGUgSG9tZSBzY3JlZW4gcmVtYWlucyBmcm96ZW4gaW4gaXRzIGN1cnJlbnQgYXBwcm92ZWQg4oCcQWxiYSBkb3JhdGHigJ0gc3RhdGUuIFRoZSBBbGFybXMvU3ZlZ2xpZSBzY3JlZW4gYW5kIGl0cyBlZGl0b3IgcmVtYWluIGNvbXBsZXRlbHkgb3V0IG9mIHNjb3BlIGZvciB0aGlzIGl0ZXJhdGlvbi4gVGhlIG9ubHkgcHJvZHVjdCBzdXJmYWNlIGF1dGhvcml6ZWQgYnkgdGhpcyBkZWNpc2lvbiBpcyAqKk9yYXJpKiosIHRoZSBzZWNvbmQgcHJpbWFyeSBzY3JlZW4gYWZ0ZXIgSG9tZS4KCioqRml4ZWQsIG5vbi1zY3JvbGxhYmxlIE9yYXJpIHNjcmVlbi4qKiBUaGUgT3Jhcmkgc2NyZWVuIG11c3QgYmUgcmVkZXNpZ25lZCBzbyBpdHMgcHJpbWFyeSBwb3J0cmFpdCBsYXlvdXQgb24gdGhlIEdhbGF4eSBTMjUgZml0cyB3aXRoaW4gb25lIGZpeGVkIHZpZXdwb3J0IGFuZCBkb2VzIG5vdCByZXF1aXJlIHZlcnRpY2FsIHVzZXIgc2Nyb2xsaW5nLiBEbyBub3QgdXNlIGEgdmVydGljYWxseSBzY3JvbGxhYmxlIHRpbWVsaW5lL2xpc3QgYXMgdGhlIG5vcm1hbCBpbnRlcmFjdGlvbiBtb2RlbCBmb3IgdGhpcyBzY3JlZW4uIFByYXllciByb3dzLCBkYXkvZGF0ZSBjb250ZXh0LCBhdWRpbyBjb250cm9scyBhbmQgYm90dG9tIG5hdmlnYXRpb24gbXVzdCBiZSBjb21wYWN0IGVub3VnaCB0byByZW1haW4gdmlzaWJsZSB0b2dldGhlciB3aXRob3V0IHNhY3JpZmljaW5nIGxlZ2liaWxpdHkuCgoqKlZpc3VhbCBjb250aW51aXR5IHdpdGggSG9tZS4qKiBPcmFyaSBtdXN0IHVzZSB0aGUgc2FtZSBhcHByb3ZlZCDigJxBbGJhIGRvcmF0YeKAnSB2aXN1YWwgbGFuZ3VhZ2UgYXMgSG9tZTogd2FybSBpdm9yeS9jcmVhbSBiYWNrZ3JvdW5kLCBzb2Z0IHNhZ2Ugc3VyZmFjZXMsIHJlc3RyYWluZWQgd2FybS1nb2xkIGhpZ2hsaWdodHMgYW5kIGRhcmsgZm9yZXN0L2VtZXJhbGQgdHlwb2dyYXBoeS9pY29ucy4gSXNsYW1pYyBnZW9tZXRyaWMvYXJjaGl0ZWN0dXJhbCBkZWNvcmF0aW9uIG1heSByZW1haW4gc3VidGxlIGFuZCBub24tc2FjcmVkLiBPcmFyaSBtdXN0IG5vIGxvbmdlciByZWFkIGFzIGEgc2VwYXJhdGUgZGFyay9oZWF2eSB0aGVtZS4KCioqUGVyLXByYXllciBhdWRpbyBzdGF0ZSB1c2VzIGljb25zIGZpcnN0LioqIFdoZXJlIE9yYXJpIGV4cG9zZXMgYW4gYXVkaW8gY2hvaWNlIG9yIHN0YXRlIGZvciBhIHByYXllciwgdGhlIGNvbXBhY3Qgc3VyZmFjZSBzaG91bGQgY29tbXVuaWNhdGUgdGhlIHN0YXRlIHByaW1hcmlseSB3aXRoIHJlY29nbml6YWJsZSBpY29ucyByYXRoZXIgdGhhbiByZXBlYXRlZCBsYWJlbHMuIEFwcHJvdmVkIGV4YW1wbGVzOiBzaWxlbnQvbXV0ZWQgPSBtdXRlZC1zcGVha2VyIGljb247IEFkaGFuID0gbW9zcXVlIGljb247IGdlbmVyaWMvc3lzdGVtIHJpbmd0b25lIHdoZW4gYXZhaWxhYmxlID0gYmVsbC9hdWRpbyBpY29uLiBBY2Nlc3NpYmlsaXR5IGNvbnRlbnQgZGVzY3JpcHRpb25zIHJlbWFpbiByZXF1aXJlZCBldmVuIHdoZW4gdmlzaWJsZSB0ZXh0IGlzIG9taXR0ZWQuCgoqKk11bHRpcGxlIHJlYWwgQWRoYW4gY2hvaWNlcy4qKiBBcmlobmEgbXVzdCBubyBsb25nZXIgcHJlc2VudCBBZGhhbiBhcyBhIHNpbmdsZSB1bmRpZmZlcmVudGlhdGVkIHNvdW5kLiBUaGUgdXNlciBtdXN0IGJlIGFibGUgdG8gY2hvb3NlIGZyb20gYSBsaXN0IGNvbnRhaW5pbmcgbXVsdGlwbGUgZ2VudWluZWx5IGRpc3RpbmN0IEFkaGFuIGF1ZGlvIGNob2ljZXMuIEEgdmlzaWJsZSBsaXN0IGl0ZW0gbXVzdCBtYXAgdG8gYSByZWFsLCBkaXN0aW5jdCBwbGF5YWJsZSBzb3VyY2U7IGRvIG5vdCBjcmVhdGUgZmFrZSB2YXJpYW50cyB0aGF0IGFsbCByZXNvbHZlIHRvIHRoZSBzYW1lIGJ1bmRsZWQgYXVkaW8uIEFueSBuZXcgYnVuZGxlZCBhdWRpbyBtdXN0IGhhdmUgZXhwbGljaXQgcHJvdmVuYW5jZS9saWNlbnNpbmcgc3VpdGFibGUgZm9yIGZyZWUgcmVkaXN0cmlidXRpb24gYW5kIG11c3QgYmUgcmVjb3JkZWQvdmVyaWZpZWQgaW4gdGhlIHJlcG9zaXRvcnkgYmVmb3JlIHJlbGVhc2UuCgoqKlBlcnNpc3RlbmNlIGFuZCBwbGF5YmFjay4qKiBUaGUgc2VsZWN0ZWQgQWRoYW4gdmFyaWFudCBtdXN0IGJlIHBlcnNpc3RlZCBhcyBwYXJ0IG9mIHRoZSBwcmF5ZXIgYXVkaW8gcHJlZmVyZW5jZSBhbmQgdGhlIGFjdHVhbCBub3RpZmljYXRpb24vYWxhcm0gcGxheWJhY2sgcGF0aCBtdXN0IHJlc29sdmUgYW5kIHBsYXkgdGhhdCBleGFjdCB2YXJpYW50LiBFeGlzdGluZyBzaWxlbnQgYmVoYXZpb3IgbXVzdCByZW1haW4gZ2VudWluZWx5IHNpbGVudC4gRXhpc3RpbmcgYWxhcm0tZWRpdG9yIGJlaGF2aW9yIGlzIG5vdCBwYXJ0IG9mIHRoaXMgY2hhbmdlIGFuZCBtdXN0IG5vdCBiZSByZWRlc2lnbmVkIGFzIGNvbGxhdGVyYWwgd29yay4KCioqQWNjZXB0YW5jZSAvIHNjb3BlIGd1YXJkLioqIFRoZSBpbXBsZW1lbnRhdGlvbiBjYW5kaWRhdGUgbXVzdCBjaGFuZ2Ugb25seSB0aGUgZmlsZXMgbmVlZGVkIGZvciBPcmFyaSBhdWRpbyBwcmVzZW50YXRpb24vc2VsZWN0aW9uLCB0aGUgc2hhcmVkIG1vZGVsL3BlcnNpc3RlbmNlL3BsYXliYWNrIHJlcXVpcmVkIHRvIG1ha2UgdGhvc2UgT3JhcmkgY2hvaWNlcyByZWFsLCByZXF1aXJlZCB0ZXN0cywgYW5kIGV4cGxpY2l0bHkgdmVyaWZpZWQgbmV3IEFkaGFuIGFzc2V0cy9wcm92ZW5hbmNlLiBIb21lIHZpc3VhbC9sYXlvdXQgZmlsZXMgYW5kIHRoZSBTdmVnbGllIHNjcmVlbi9lZGl0b3IgbXVzdCByZW1haW4gYnl0ZS1mb3ItYnl0ZSB1bmNoYW5nZWQgdW5sZXNzIGEgY29tcGlsZS1vbmx5IHNoYXJlZCBBUEkgYWRqdXN0bWVudCBpcyBzdHJpY3RseSB1bmF2b2lkYWJsZSBhbmQgc2VwYXJhdGVseSBqdXN0aWZpZWQgYnkgdGhlIGV4YWN0LVNIQSBnYXRlLgoKKipTUEVDLUZJUlNUIGxpbmVhZ2UuKiogVGhpcyBjb21taXQgaXMgdGhlIHNwZWNpZmljYXRpb24gcGFyZW50IGZvciB0aGUgT3JhcmkgaW1wbGVtZW50YXRpb24gY2FuZGlkYXRlLiBUaGUgdGVjaG5pY2FsIGNhbmRpZGF0ZSBtdXN0IGJlIGEgZGlyZWN0IGNoaWxkIG9mIHRoaXMgZXhhY3Qgc3BlYyBjb21taXQuIElmIHRoYXQgY2FuZGlkYXRlIGZhaWxzIGl0cyBleGFjdC1TSEEgZ2F0ZSwgZXZlcnkgcmVwbGFjZW1lbnQgY2FuZGlkYXRlIG11c3QgYWdhaW4gYmUgYSBkaXJlY3QgY2hpbGQgb2YgdGhpcyBzYW1lIHNwZWMgY29tbWl0OyBuZXZlciBjaGFpbiBhIHJlcGxhY2VtZW50IG9udG8gYSBmYWlsZWQgY2FuZGlkYXRlLiBQcm9tb3Rpb24gdG8gYG1haW5gIGlzIGFsbG93ZWQgb25seSBhZnRlciB0aGUgZXhpc3RpbmcgZnJvemVuLWFzc2V0LCBwYWNrYWdlL1NESywgQVBJMjggaW5zdHJ1bWVudGF0aW9uIGFuZCBBUEkzNiBtb2Rlcm4tcGVybWlzc2lvbiBnYXRlIGlzIGZ1bGx5IGdyZWVuLgo=
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.BASE_SHA }}
+      - name: Verify exact base
+        run: test "$(git rev-parse HEAD)" = "$BASE_SHA"
+      - name: Append approved Orari spec
+        run: |
+          printf '\n\n' >> PROJECT_SPEC.md
+          printf '%s' "$SPEC_B64" | base64 -d >> PROJECT_SPEC.md
+      - name: Verify spec-only diff
+        run: |
+          test "$(git diff --name-only)" = "PROJECT_SPEC.md"
+          grep -F 'Prayer Times / “Orari” fixed-screen audio selection APPROVED' PROJECT_SPEC.md
+          grep -F 'Alarms/Sveglie screen and its editor remain completely out of scope' PROJECT_SPEC.md
+          grep -F 'Home screen remains frozen' PROJECT_SPEC.md
+      - name: Commit and push spec branch
+        run: |
+          git config user.name 'Arihna Spec Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add PROJECT_SPEC.md
+          git commit -m 'docs(spec): approve Orari fixed screen and Adhan selection'
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          test "$(git diff-tree --no-commit-id --name-only -r HEAD)" = "PROJECT_SPEC.md"
+          git push origin HEAD:refs/heads/$TARGET_BRANCH
+          echo "SPEC_SHA=$(git rev-parse HEAD)"
