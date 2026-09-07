@@ -47,6 +47,13 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaCream
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaDawnGold
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaDawnTop
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaForest
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaGreen
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaSage
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaSageStrong
 import com.archimedeprojects.arihna.feature.alarms.AlarmsViewModel
 import com.archimedeprojects.arihna.feature.alarms.domain.AdhanVariant
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmDefinition
@@ -61,13 +68,13 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private val OrariIvory = Color(0xFFFFF8EA)
-private val OrariCream = Color(0xFFFFFCF4)
-private val OrariSage = Color(0xFFE6EAD7)
-private val OrariSageStrong = Color(0xFFD7DFC2)
-private val OrariForest = Color(0xFF173C30)
-private val OrariGreen = Color(0xFF0F5132)
-private val OrariGold = Color(0xFFC79B3B)
+private val OrariIvory = ArihnaDawnTop
+private val OrariCream = ArihnaCream
+private val OrariSage = ArihnaSage
+private val OrariSageStrong = ArihnaSageStrong
+private val OrariForest = ArihnaForest
+private val OrariGreen = ArihnaGreen
+private val OrariGold = ArihnaDawnGold
 
 @Composable
 fun PrayerTimesRoute(

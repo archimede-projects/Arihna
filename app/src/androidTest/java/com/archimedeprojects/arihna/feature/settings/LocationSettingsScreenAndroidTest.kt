@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -20,6 +21,7 @@ import com.archimedeprojects.arihna.core.location.model.LocationSource
 import com.archimedeprojects.arihna.core.location.model.SelectedLocation
 import com.archimedeprojects.arihna.core.prayer.model.Coordinates
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaTheme
+import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeState
 import java.time.Instant
 import java.time.ZoneId
 import org.junit.Assert.assertEquals
@@ -253,6 +255,37 @@ class LocationSettingsScreenAndroidTest {
         ).assertIsDisplayed()
         composeRule.onNodeWithText("Nuuk, Sermersooq, Greenland").performClick()
         composeRule.runOnIdle { assertEquals(3412093L, selectedCityId) }
+    }
+
+    @Test
+    fun alarmVolumeUsesAdjacentStepButtonsAndNoSlider() {
+        var requestedVolume: Int? = null
+        composeRule.setContent {
+            ArihnaTheme {
+                LocationSettingsScreen(
+                    contentPadding = PaddingValues(0.dp),
+                    uiState = LocationSettingsUiState(),
+                    onUseDevice = {},
+                    onDismissRationale = {},
+                    onConfirmRationale = {},
+                    onSearchQueryChanged = {},
+                    onSelectCity = {},
+                    onOpenAppSettings = {},
+                    onOpenLocationSettings = {},
+                    alarmSettings = AlarmSettingsPresentation(
+                        alarmVolumeState = AlarmVolumeState(current = 4, min = 0, max = 7),
+                    ),
+                    onAlarmVolumeChange = { requestedVolume = it },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("settings-alarm-volume-slider").assertDoesNotExist()
+        composeRule.onNodeWithTag("settings-alarm-volume-value").assertIsDisplayed()
+        composeRule.onNodeWithTag("settings-alarm-volume-decrease").performClick()
+        composeRule.runOnIdle { assertEquals(3, requestedVolume) }
+        composeRule.onNodeWithTag("settings-alarm-volume-increase").performClick()
+        composeRule.runOnIdle { assertEquals(5, requestedVolume) }
     }
 
     private fun setScreen(state: () -> LocationSettingsUiState) {

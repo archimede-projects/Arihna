@@ -41,6 +41,16 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaCream
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaDawnBottom
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaDawnGold
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaDawnMiddle
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaDawnTop
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaForest
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaGreen
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaMutedText
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaSageStrong
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaWarmOutline
 import com.archimedeprojects.arihna.feature.prayerschedule.domain.PrayerName
 import com.archimedeprojects.arihna.feature.prayerschedule.presentation.PrayerScheduleUiState
 import com.archimedeprojects.arihna.feature.prayerschedule.presentation.PrayerScheduleViewModel
@@ -53,19 +63,19 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 
-private val HomeBackgroundTop = Color(0xFFFFF7E6)
-private val HomeBackgroundMiddle = Color(0xFFF8F0DC)
-private val HomeBackgroundBottom = Color(0xFFE7ECD7)
-private val HomeSurface = Color(0xFFFFF9ED)
-private val HomeSurfaceRaised = Color(0xFFFFFCF4)
-private val HomeHero = Color(0xFF1D5A43)
-private val HomeHeroDeep = Color(0xFF0F3D2E)
-private val HomeText = Color(0xFF183E31)
-private val HomeMuted = Color(0xFF6B786F)
-private val HomeHeroText = Color(0xFFFFF9EC)
-private val HomeAccent = Color(0xFFB68A25)
-private val HomeAccentSoft = Color(0xFFF0D78B)
-private val HomeOutline = Color(0xFFD6C993)
+private val HomeBackgroundTop = ArihnaDawnTop
+private val HomeBackgroundMiddle = ArihnaDawnMiddle
+private val HomeBackgroundBottom = ArihnaDawnBottom
+private val HomeSurface = ArihnaCream
+private val HomeSurfaceRaised = ArihnaCream
+private val HomeHero = ArihnaGreen
+private val HomeHeroDeep = ArihnaForest
+private val HomeText = ArihnaForest
+private val HomeMuted = ArihnaMutedText
+private val HomeHeroText = ArihnaCream
+private val HomeAccent = ArihnaDawnGold
+private val HomeAccentSoft = ArihnaSageStrong
+private val HomeOutline = ArihnaWarmOutline
 
 @Composable
 fun HomePrayerScheduleRoute(

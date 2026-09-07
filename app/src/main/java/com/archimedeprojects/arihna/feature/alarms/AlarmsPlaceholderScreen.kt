@@ -5,7 +5,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -52,6 +51,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaGold
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaCream
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaDawnBottom
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaDawnTop
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaSage
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmDefinition
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmRule
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmSoundProfile
@@ -116,8 +119,7 @@ fun AlarmsScreen(
     onToggle: (AlarmRule) -> Unit,
 ) {
     val customRules = state.rules.filter { it.definition is AlarmDefinition.Custom }
-    val dark = isSystemInDarkTheme()
-    val listBackground = if (dark) Color(0xFF111914) else Color(0xFFF2F0E9)
+    val listBackground = ArihnaCream
 
     LazyColumn(
         modifier = Modifier
@@ -125,8 +127,8 @@ fun AlarmsScreen(
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        MaterialTheme.colorScheme.background,
-                        if (dark) Color(0xFF0B2117) else Color(0xFFF5F1E5),
+                        ArihnaDawnTop,
+                        ArihnaDawnBottom,
                     ),
                 ),
             )
@@ -322,10 +324,9 @@ internal fun CustomAlarmEditorDialog(
     onDelete: (AlarmRule) -> Unit = {},
 ) {
     val context = LocalContext.current
-    val dark = isSystemInDarkTheme()
-    val editorBackground = if (dark) Color(0xFF08150F) else Color(0xFFF4F1E8)
-    val panelColor = if (dark) Color(0xFF15251E) else Color(0xFFFFFFFF)
-    val secondaryPanelColor = if (dark) Color(0xFF102019) else Color(0xFFEBE8DF)
+    val editorBackground = ArihnaDawnTop
+    val panelColor = ArihnaCream
+    val secondaryPanelColor = ArihnaSage
     val initialDefinition = initialRule?.definition as? AlarmDefinition.Custom
     var label by remember(initialRule?.alarmId) {
         mutableStateOf(initialDefinition?.label.orEmpty())

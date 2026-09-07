@@ -37,8 +37,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -62,6 +60,14 @@ import com.archimedeprojects.arihna.core.location.model.LocationPermissionState
 import com.archimedeprojects.arihna.core.location.model.LocationResolutionState
 import com.archimedeprojects.arihna.core.location.platform.AndroidLocationEnvironment
 import com.archimedeprojects.arihna.core.location.platform.AndroidLocationPermissionStateResolver
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaCream
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaDawnBottom
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaDawnGold
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaDawnTop
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaForest
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaMutedText
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaSage
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaWarmOutline
 import com.archimedeprojects.arihna.feature.alarms.AlarmsViewModel
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmDiagnosticKind
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmDiagnosticScheduleResult
@@ -71,17 +77,16 @@ import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeChangeRes
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeController
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeState
 import com.archimedeprojects.arihna.feature.alarms.platform.ExactAlarmAccessIntentFactory
-import kotlin.math.roundToInt
 
-private val SettingsBackgroundTop = Color(0xFF030B08)
-private val SettingsBackgroundBottom = Color(0xFF071610)
-private val SettingsSurface = Color(0xFF0C1A15)
-private val SettingsSurfaceRaised = Color(0xFF11251D)
-private val SettingsText = Color(0xFFF7F2E7)
-private val SettingsMuted = Color(0xFFA8B4AC)
-private val SettingsAccent = Color(0xFFD8B95A)
-private val SettingsDanger = Color(0xFFFF9188)
-private val SettingsOutline = Color(0xFF29483B)
+private val SettingsBackgroundTop = ArihnaDawnTop
+private val SettingsBackgroundBottom = ArihnaDawnBottom
+private val SettingsSurface = ArihnaCream
+private val SettingsSurfaceRaised = ArihnaSage.copy(alpha = 0.62f)
+private val SettingsText = ArihnaForest
+private val SettingsMuted = ArihnaMutedText
+private val SettingsAccent = ArihnaDawnGold
+private val SettingsDanger = Color(0xFF9A3C34)
+private val SettingsOutline = ArihnaWarmOutline
 
 @Suppress("UNUSED_PARAMETER")
 @Composable
@@ -523,24 +528,32 @@ private fun AlarmVolumeSetting(
     onAlarmVolumeChange: (Int) -> Unit,
 ) {
     val volume = state.alarmVolumeState
-    val sliderMax = if (volume.max > volume.min) volume.max else volume.min + 1
+    val current = volume.current.coerceIn(volume.min, volume.max)
+    val canDecrease = current > volume.min
+    val canIncrease = current < volume.max
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 9.dp)
+            .padding(horizontal = 14.dp, vertical = 10.dp)
             .testTag("settings-alarm-volume"),
-        verticalArrangement = Arrangement.spacedBy(1.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(
+                modifier = Modifier.weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Rounded.Alarm, contentDescription = null, tint = SettingsAccent, modifier = Modifier.size(18.dp))
+                Icon(
+                    Icons.Rounded.Alarm,
+                    contentDescription = null,
+                    tint = SettingsAccent,
+                    modifier = Modifier.size(18.dp),
+                )
                 Text(
                     "Volume sveglia",
                     style = MaterialTheme.typography.titleSmall,
@@ -553,23 +566,49 @@ private fun AlarmVolumeSetting(
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = SettingsAccent,
+                modifier = Modifier.testTag("settings-alarm-volume-value"),
             )
         }
-        Slider(
-            value = volume.current.coerceIn(volume.min, volume.max).toFloat(),
-            onValueChange = { onAlarmVolumeChange(it.roundToInt()) },
-            valueRange = volume.min.toFloat()..sliderMax.toFloat(),
-            steps = (volume.max - volume.min - 1).coerceAtLeast(0),
-            enabled = volume.max > volume.min,
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("settings-alarm-volume-slider"),
-            colors = SliderDefaults.colors(
-                thumbColor = SettingsAccent,
-                activeTrackColor = SettingsAccent,
-                inactiveTrackColor = SettingsOutline,
-            ),
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(
+                onClick = { onAlarmVolumeChange(current - 1) },
+                enabled = canDecrease,
+                modifier = Modifier
+                    .background(SettingsSurfaceRaised, RoundedCornerShape(14.dp))
+                    .testTag("settings-alarm-volume-decrease"),
+            ) {
+                Text(
+                    "−",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = if (canDecrease) SettingsText else SettingsMuted.copy(alpha = 0.45f),
+                )
+            }
+            Text(
+                "$current / ${volume.max}",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = SettingsMuted,
+            )
+            IconButton(
+                onClick = { onAlarmVolumeChange(current + 1) },
+                enabled = canIncrease,
+                modifier = Modifier
+                    .background(SettingsSurfaceRaised, RoundedCornerShape(14.dp))
+                    .testTag("settings-alarm-volume-increase"),
+            ) {
+                Text(
+                    "+",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = if (canIncrease) SettingsText else SettingsMuted.copy(alpha = 0.45f),
+                )
+            }
+        }
         Text(
             "Volume globale delle sveglie del telefono",
             style = MaterialTheme.typography.bodySmall,
