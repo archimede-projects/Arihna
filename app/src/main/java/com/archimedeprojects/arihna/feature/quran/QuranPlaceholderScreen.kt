@@ -1,5 +1,9 @@
 package com.archimedeprojects.arihna.feature.quran
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -16,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -49,6 +54,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -67,6 +73,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -74,8 +81,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import com.archimedeprojects.arihna.core.i18n.appText
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaCream
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaDawnBottom
@@ -87,6 +92,9 @@ import com.archimedeprojects.arihna.core.ui.theme.ArihnaInk
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaMutedText
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaSage
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaWarmOutline
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import kotlinx.coroutines.launch
 
 enum class QuranReadingMode { EASY, HAFS_UTHMANI }
@@ -94,14 +102,47 @@ enum class QuranReadingMode { EASY, HAFS_UTHMANI }
 private enum class QuranExplorerView { SURAHS, JUZ, HIZB, BOOKMARKS, RECENT }
 
 @Composable
-fun QuranPlaceholderScreen(contentPadding: PaddingValues) {
+fun QuranPlaceholderScreen(
+    contentPadding: PaddingValues,
+    onImmersiveChanged: (Boolean) -> Unit = {},
+) {
     val context = LocalContext.current
+    val view = LocalView.current
+    val activity = remember(context) { context.findActivity() }
     val corpus = remember(context) { QuranCorpus.load(context.applicationContext) }
     val surahs = remember(context) { MushafRepository.surahs(context.applicationContext) }
     var mode by remember { mutableStateOf(QuranReadingPrefs.mode(context)) }
     var selectedSurah by remember { mutableIntStateOf(1) }
     var requestedPage by remember { mutableIntStateOf(QuranReadingPrefs.lastPage(context)) }
     var explorerOpen by remember { mutableStateOf(false) }
+    var fullscreenOpen by remember { mutableStateOf(false) }
+
+    DisposableEffect(fullscreenOpen, activity, view) {
+        onImmersiveChanged(fullscreenOpen)
+        val insetsController = activity?.let { WindowCompat.getInsetsController(it.window, view) }
+        if (fullscreenOpen) {
+            insetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            insetsController?.hide(WindowInsetsCompat.Type.systemBars())
+        }
+        onDispose {
+            if (fullscreenOpen) {
+                insetsController?.show(WindowInsetsCompat.Type.systemBars())
+                onImmersiveChanged(false)
+            }
+        }
+    }
+
+    if (fullscreenOpen) {
+        FullscreenMushafReader(
+            startPage = requestedPage,
+            onDismiss = { fullscreenOpen = false },
+            onPageChanged = { pageIndex ->
+                requestedPage = pageIndex
+                MushafRepository.surahForPage(context, pageIndex)?.let { selectedSurah = it.number }
+            },
+        )
+        return
+    }
 
     Column(
         modifier = Modifier
@@ -141,6 +182,7 @@ fun QuranPlaceholderScreen(contentPadding: PaddingValues) {
                     requestedPage = pageIndex
                     MushafRepository.surahForPage(context, pageIndex)?.let { selectedSurah = it.number }
                 },
+                onOpenFullscreen = { fullscreenOpen = true },
                 modifier = Modifier.weight(1f),
             )
         } else {
@@ -236,6 +278,7 @@ private fun QuranReaderHeader(
 private fun MushafBookReader(
     startPage: Int,
     onPageChanged: (Int) -> Unit,
+    onOpenFullscreen: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -244,7 +287,6 @@ private fun MushafBookReader(
         pageCount = { 604 },
     )
     var bookmarkVersion by remember { mutableIntStateOf(0) }
-    var fullscreenOpen by remember { mutableStateOf(false) }
     val currentPage = pagerState.currentPage
     val meta = remember(currentPage) { MushafRepository.metaForPage(context, currentPage) }
     val bookmarked = remember(currentPage, bookmarkVersion) {
@@ -261,20 +303,12 @@ private fun MushafBookReader(
         onPageChanged(currentPage)
     }
 
-    if (fullscreenOpen) {
-        FullscreenMushafReader(
-            startPage = currentPage,
-            onDismiss = { fullscreenOpen = false },
-            onPageChanged = onPageChanged,
-        )
-    }
-
     Column(
         modifier = modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().height(42.dp),
+            modifier = Modifier.fillMaxWidth().height(56.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -285,11 +319,11 @@ private fun MushafBookReader(
                 modifier = Modifier.weight(1f),
             )
             TextButton(
-                onClick = { fullscreenOpen = true },
-                modifier = Modifier.testTag("quran-reading-fullscreen"),
+                onClick = onOpenFullscreen,
+                modifier = Modifier.heightIn(min = 52.dp).testTag("quran-reading-fullscreen"),
             ) {
-                Icon(Icons.Rounded.Fullscreen, null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(4.dp))
+                Icon(Icons.Rounded.Fullscreen, null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(5.dp))
                 Text(appText("Lettura", "قراءة"), fontWeight = FontWeight.Bold)
             }
             IconButton(
@@ -297,17 +331,17 @@ private fun MushafBookReader(
                     QuranReadingPrefs.setBookmarked(context, currentPage, !bookmarked)
                     bookmarkVersion++
                 },
-                modifier = Modifier.testTag("quran-bookmark-toggle"),
+                modifier = Modifier.size(52.dp).testTag("quran-bookmark-toggle"),
             ) {
                 Icon(
                     if (bookmarked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
                     contentDescription = appText("Segnalibro", "إشارة مرجعية"),
                     tint = if (bookmarked) ArihnaDawnGold else ArihnaGreen,
+                    modifier = Modifier.size(27.dp),
                 )
             }
         }
 
-        // Quran is a right-to-left book even when Arihna's surrounding UI is Italian/LTR.
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
             HorizontalPager(
                 state = pagerState,
@@ -319,7 +353,6 @@ private fun MushafBookReader(
                     modifier = Modifier.fillMaxSize().padding(horizontal = 1.dp, vertical = 1.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    // No oversized decorative book-card: the pinned page owns the viewport.
                     NativeMushafPage(
                         page = page + 1,
                         modifier = Modifier
@@ -359,75 +392,78 @@ private fun FullscreenMushafReader(
         QuranReadingPrefs.isBookmarked(context, currentPage)
     }
 
+    BackHandler(onBack = onDismiss)
+
     LaunchedEffect(currentPage) {
         zoomed = false
         QuranReadingPrefs.recordVisitedPage(context, currentPage)
         onPageChanged(currentPage)
     }
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = false,
-        ),
+    Surface(
+        modifier = Modifier.fillMaxSize().testTag("quran-fullscreen-reader"),
+        color = Color(0xFFFFFCF3),
     ) {
-        Surface(
-            modifier = Modifier.fillMaxSize().testTag("quran-fullscreen-reader"),
-            color = Color(0xFFFFFCF3),
-        ) {
-            Box(Modifier.fillMaxSize()) {
-                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                    HorizontalPager(
-                        state = pagerState,
-                        modifier = Modifier.fillMaxSize().testTag("quran-fullscreen-rtl-pager"),
-                        userScrollEnabled = !zoomed,
-                        beyondViewportPageCount = 1,
-                        pageSpacing = 2.dp,
-                    ) { page ->
-                        ZoomableMushafPage(
-                            page = page + 1,
-                            onZoomedChange = { active ->
-                                if (pagerState.currentPage == page) zoomed = active
-                            },
-                            modifier = Modifier.fillMaxSize(),
+        Box(Modifier.fillMaxSize()) {
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize().testTag("quran-fullscreen-rtl-pager"),
+                    userScrollEnabled = !zoomed,
+                    beyondViewportPageCount = 1,
+                    pageSpacing = 2.dp,
+                ) { page ->
+                    ZoomableMushafPage(
+                        page = page + 1,
+                        onZoomedChange = { active ->
+                            if (pagerState.currentPage == page) zoomed = active
+                        },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
+
+            Surface(
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp),
+                color = ArihnaCream.copy(alpha = 0.94f),
+                shape = RoundedCornerShape(999.dp),
+                shadowElevation = 4.dp,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                ) {
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(52.dp).testTag("quran-fullscreen-close"),
+                    ) {
+                        Icon(
+                            Icons.Rounded.Close,
+                            contentDescription = appText("Chiudi lettura", "إغلاق القراءة"),
+                            tint = ArihnaForest,
+                            modifier = Modifier.size(27.dp),
                         )
                     }
-                }
-
-                Surface(
-                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp),
-                    color = ArihnaCream.copy(alpha = 0.92f),
-                    shape = RoundedCornerShape(999.dp),
-                    shadowElevation = 4.dp,
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(2.dp),
-                        modifier = Modifier.padding(horizontal = 4.dp),
+                    Text(
+                        appText("pag. ${currentPage + 1}", "صفحة ${toArabicIndic(currentPage + 1)}"),
+                        color = ArihnaForest,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                    )
+                    IconButton(
+                        onClick = {
+                            QuranReadingPrefs.setBookmarked(context, currentPage, !bookmarked)
+                            bookmarkVersion++
+                        },
+                        modifier = Modifier.size(52.dp).testTag("quran-fullscreen-bookmark"),
                     ) {
-                        IconButton(onClick = onDismiss, modifier = Modifier.testTag("quran-fullscreen-close")) {
-                            Icon(Icons.Rounded.Close, contentDescription = appText("Chiudi lettura", "إغلاق القراءة"), tint = ArihnaForest)
-                        }
-                        Text(
-                            appText("pag. ${currentPage + 1}", "صفحة ${toArabicIndic(currentPage + 1)}"),
-                            color = ArihnaForest,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
+                        Icon(
+                            if (bookmarked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
+                            contentDescription = appText("Segnalibro", "إشارة مرجعية"),
+                            tint = if (bookmarked) ArihnaDawnGold else ArihnaGreen,
+                            modifier = Modifier.size(27.dp),
                         )
-                        IconButton(
-                            onClick = {
-                                QuranReadingPrefs.setBookmarked(context, currentPage, !bookmarked)
-                                bookmarkVersion++
-                            },
-                            modifier = Modifier.testTag("quran-fullscreen-bookmark"),
-                        ) {
-                            Icon(
-                                if (bookmarked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
-                                contentDescription = appText("Segnalibro", "إشارة مرجعية"),
-                                tint = if (bookmarked) ArihnaDawnGold else ArihnaGreen,
-                            )
-                        }
                     }
                 }
             }
@@ -520,7 +556,7 @@ private fun QuranExplorer(
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             ExplorerChip(QuranExplorerView.SURAHS, view, appText("Sure", "السور")) { view = it }
             ExplorerChip(QuranExplorerView.JUZ, view, appText("Juz", "الأجزاء")) { view = it }
@@ -547,14 +583,14 @@ private fun QuranExplorer(
                 value = bookmarked.size.toString(),
                 icon = if (view == QuranExplorerView.BOOKMARKS) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
                 selected = view == QuranExplorerView.BOOKMARKS,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).testTag("quran-shortcut-bookmarks"),
             ) { view = QuranExplorerView.BOOKMARKS }
             ExplorerShortcut(
                 title = appText("Recenti", "الأخيرة"),
                 value = recent.size.toString(),
                 icon = Icons.Rounded.History,
                 selected = view == QuranExplorerView.RECENT,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).testTag("quran-shortcut-recent"),
             ) { view = QuranExplorerView.RECENT }
         }
 
@@ -612,7 +648,10 @@ private fun ExplorerChip(
     FilterChip(
         selected = value == selected,
         onClick = { onClick(value) },
-        label = { Text(label) },
+        label = { Text(label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold) },
+        modifier = Modifier
+            .heightIn(min = 52.dp)
+            .testTag("quran-explorer-${value.name.lowercase()}"),
     )
 }
 
@@ -627,20 +666,20 @@ private fun ExplorerShortcut(
 ) {
     Card(
         onClick = onClick,
-        modifier = modifier,
+        modifier = modifier.heightIn(min = 64.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = if (selected) ArihnaSage else ArihnaCream),
         border = BorderStroke(1.dp, if (selected) ArihnaGreen else ArihnaWarmOutline),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 9.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 11.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(icon, null, tint = if (selected) ArihnaGreen else ArihnaDawnGold, modifier = Modifier.size(21.dp))
+            Icon(icon, null, tint = if (selected) ArihnaGreen else ArihnaDawnGold, modifier = Modifier.size(25.dp))
             Spacer(Modifier.width(7.dp))
             Column(Modifier.weight(1f)) {
-                Text(title, color = ArihnaInk, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                Text(value, color = ArihnaMutedText, fontSize = 9.sp)
+                Text(title, color = ArihnaInk, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                Text(value, color = ArihnaMutedText, fontSize = 10.sp)
             }
         }
     }
@@ -685,7 +724,7 @@ private fun SurahRow(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            IconButton(onClick = onBookmark, modifier = Modifier.size(38.dp)) {
+            IconButton(onClick = onBookmark, modifier = Modifier.size(52.dp).testTag("quran-surah-bookmark-${surah.number}")) {
                 Icon(
                     if (bookmarked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
                     contentDescription = appText("Segnalibro", "إشارة مرجعية"),
@@ -701,12 +740,12 @@ private fun SurahRow(
 private fun NavigationBoundaryRow(number: Int, label: String, page: Int, onClick: () -> Unit) {
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
         colors = CardDefaults.cardColors(containerColor = ArihnaCream),
         border = BorderStroke(1.dp, ArihnaWarmOutline),
         shape = RoundedCornerShape(15.dp),
     ) {
-        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Surface(shape = CircleShape, color = ArihnaGreen) {
                 Text(
                     number.toString(),
@@ -730,7 +769,7 @@ private fun SavedPageRow(page: Int, onClick: () -> Unit) {
     val surah = remember(page) { MushafRepository.surahForPage(context, page) }
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
         colors = CardDefaults.cardColors(containerColor = ArihnaCream),
         border = BorderStroke(1.dp, ArihnaWarmOutline),
         shape = RoundedCornerShape(15.dp),
@@ -836,6 +875,13 @@ private fun QuranAttribution() {
         fontSize = 8.sp,
         textAlign = TextAlign.Center,
     )
+}
+
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 internal fun toArabicIndic(value: Int): String = value.toString().map { c ->

@@ -16,7 +16,9 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -90,11 +92,12 @@ fun ArihnaNavHost(
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
+    var quranImmersive by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
-            NavigationBar(containerColor = AlbaNavBar, contentColor = AlbaNavIcon) {
+            if (!quranImmersive) NavigationBar(containerColor = AlbaNavBar, contentColor = AlbaNavIcon) {
                 Destination.entries.forEach { destination ->
                     val selected = currentDestination?.hierarchy?.any {
                         it.route == destination.route
@@ -187,7 +190,12 @@ fun ArihnaNavHost(
                     },
                 )
             }
-            composable(Destination.Quran.route) { QuranPlaceholderScreen(innerPadding) }
+            composable(Destination.Quran.route) {
+                QuranPlaceholderScreen(
+                    contentPadding = innerPadding,
+                    onImmersiveChanged = { quranImmersive = it },
+                )
+            }
             composable(Destination.Alarms.route) {
                 AlarmsRoute(contentPadding = innerPadding, viewModel = alarmsViewModel)
             }
