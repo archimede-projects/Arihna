@@ -41,6 +41,7 @@ jobs:
               r'Color\(0xFF111914\) else Color\(0xFFF2F0E9\)': r'Color\(0xFF15251E\) else Color\(0xFFFFFFFF\)',
               r'Color\(0xFF182019\) else Color\(0xFFE7E6DF\)': r'Color\(0xFF102019\) else Color\(0xFFEBE8DF\)',
               'adhan_extended_cc0.ogg': 'adhan_extended_cc_by_sa.ogg',
+              'R.raw.adhan_extended_cc0': 'R.raw.adhan_extended_cc_by_sa',
               'https://commons.wikimedia.org/wiki/File:Muslim_calling_to_prayer.ogg': 'https://commons.wikimedia.org/wiki/File:Azan.ogg',
               '"original": "Muslim calling to prayer.ogg"': '"original": "Azan.ogg"',
               '"author": "Aishatu98",\n        "license": "CC0 1.0 Universal",\n    },\n    "adhan_compact_pd.ogg"': '"author": "Andrewler",\n        "license": "CC BY-SA 4.0",\n    },\n    "adhan_compact_pd.ogg"',
@@ -110,6 +111,8 @@ jobs:
           grep -F 'CLASSIC("classic", "Adhan classico")' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/domain/AlarmModels.kt
           grep -F 'SHORT("short", "Adhan breve")' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/domain/AlarmModels.kt
           test "$(grep -c 'AdhanVariant\..*R.raw.adhan_' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt)" -ge 6
+          ! grep -Fq 'R.raw.adhan_extended_cc0' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
+          grep -Fq 'R.raw.adhan_extended_cc_by_sa' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
           ! grep -Fq 'settings-alarm-volume-slider' app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
           grep -Fq 'settings-alarm-volume-decrease' app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
           grep -Fq 'settings-alarm-volume-increase' app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
