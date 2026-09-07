@@ -1,6 +1,9 @@
 package com.archimedeprojects.arihna.feature.prayers
 
 import android.app.Activity
+import android.content.Context
+import android.media.AudioAttributes
+import android.media.MediaPlayer
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -26,12 +29,14 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,6 +52,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.archimedeprojects.arihna.R
 import com.archimedeprojects.arihna.core.i18n.appText
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaCream
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaDawnGold
@@ -282,6 +288,53 @@ private fun SoundIconButton(
     }
 }
 
+private class AdhanPreviewPlayer(private val context: Context) {
+    private var player: MediaPlayer? = null
+
+    fun play(variant: AdhanVariant) {
+        stop()
+        val rawResource = when (variant) {
+            AdhanVariant.CLASSIC -> R.raw.adhan_cc0
+            AdhanVariant.BEAUTIFUL -> R.raw.adhan_beautiful_cc0
+            AdhanVariant.SHORT -> R.raw.adhan_short_cc0
+            AdhanVariant.EXTENDED -> R.raw.adhan_extended_cc_by_sa
+            AdhanVariant.COMPACT -> R.raw.adhan_compact_pd
+            AdhanVariant.ALTERNATIVE -> R.raw.adhan_alternative_cc_by_sa
+        }
+        val next = MediaPlayer()
+        try {
+            next.setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build(),
+            )
+            context.resources.openRawResourceFd(rawResource).use { descriptor ->
+                next.setDataSource(descriptor.fileDescriptor, descriptor.startOffset, descriptor.length)
+            }
+            next.isLooping = false
+            next.prepare()
+            next.setOnCompletionListener { completed ->
+                if (player === completed) player = null
+                completed.release()
+            }
+            player = next
+            next.start()
+        } catch (_: Throwable) {
+            next.release()
+            player = null
+        }
+    }
+
+    fun stop() {
+        player?.let { active ->
+            runCatching { if (active.isPlaying) active.stop() }
+            active.release()
+        }
+        player = null
+    }
+}
+
 @Composable
 private fun PrayerSoundDialog(
     rule: AlarmRule,
@@ -295,9 +348,19 @@ private fun PrayerSoundDialog(
     }
     var ringtoneUri by remember(rule.alarmId, rule.revision) { mutableStateOf(rule.ringtoneUri) }
     var ringtoneTitle by remember(rule.alarmId, rule.revision) { mutableStateOf(rule.ringtoneTitle) }
+    var adhanListOpen by remember(rule.alarmId, rule.revision) { mutableStateOf(false) }
+    var previewing by remember(rule.alarmId, rule.revision) { mutableStateOf<AdhanVariant?>(null) }
+    val previewPlayer = remember(context, rule.alarmId) { AdhanPreviewPlayer(context.applicationContext) }
+
+    DisposableEffect(previewPlayer) {
+        onDispose { previewPlayer.stop() }
+    }
+
     val ringtoneLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             AlarmRingtonePicker.pickedUri(result.data)?.let { uri ->
+                previewPlayer.stop()
+                previewing = null
                 ringtoneUri = uri.toString()
                 ringtoneTitle = AlarmRingtonePicker.title(context, uri) ?: "Suoneria telefono"
                 profile = AlarmSoundProfile.SYSTEM_DEFAULT
@@ -306,60 +369,148 @@ private fun PrayerSoundDialog(
     }
 
     AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Suono promemoria", color = OrariForest) },
+        onDismissRequest = {
+            previewPlayer.stop()
+            previewing = null
+            onDismiss()
+        },
+        title = {
+            Text(
+                if (adhanListOpen) appText("Scegli Adhan", "اختر الأذان") else appText("Suono promemoria", "صوت التذكير"),
+                color = OrariForest,
+            )
+        },
         containerColor = OrariCream,
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Adhan", fontWeight = FontWeight.ExtraBold, color = OrariForest)
-                AdhanVariant.entries.forEach { variant ->
-                    SoundListRow(
-                        title = variant.displayName,
-                        icon = Icons.Rounded.Mosque,
-                        selected = profile == AlarmSoundProfile.ADHAN && adhanVariant == variant,
-                    ) {
-                        profile = AlarmSoundProfile.ADHAN
-                        adhanVariant = variant
-                        ringtoneUri = variant.storageValue
-                        ringtoneTitle = variant.displayName
+            if (adhanListOpen) {
+                Column(
+                    modifier = Modifier.testTag("prayer-sound-adhan-list"),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        appText("Tocca un Adhan per ascoltarlo prima di scegliere.", "اضغط على الأذان للاستماع إليه قبل الاختيار."),
+                        color = OrariForest.copy(alpha = 0.72f),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    AdhanVariant.entries.forEach { variant ->
+                        SoundListRow(
+                            title = if (previewing == variant) "${variant.displayName} · ${appText("in ascolto", "يعمل الآن")}" else variant.displayName,
+                            icon = Icons.Rounded.Mosque,
+                            selected = profile == AlarmSoundProfile.ADHAN && adhanVariant == variant,
+                        ) {
+                            profile = AlarmSoundProfile.ADHAN
+                            adhanVariant = variant
+                            ringtoneUri = variant.storageValue
+                            ringtoneTitle = variant.displayName
+                            previewing = variant
+                            previewPlayer.play(variant)
+                        }
                     }
-                }
-                SoundListRow(
-                    title = "Suoneria telefono",
-                    icon = Icons.Rounded.Notifications,
-                    selected = profile == AlarmSoundProfile.SYSTEM_DEFAULT,
-                ) {
-                    profile = AlarmSoundProfile.SYSTEM_DEFAULT
-                }
-                if (profile == AlarmSoundProfile.SYSTEM_DEFAULT) {
                     TextButton(
-                        onClick = { ringtoneLauncher.launch(AlarmRingtonePicker.createIntent(ringtoneUri)) },
-                    ) { Text(ringtoneTitle ?: "Scegli suoneria") }
+                        onClick = {
+                            previewPlayer.stop()
+                            previewing = null
+                            adhanListOpen = false
+                        },
+                    ) { Text(appText("Indietro", "رجوع")) }
                 }
-                SoundListRow(
-                    title = "Silenzioso",
-                    icon = Icons.Rounded.VolumeOff,
-                    selected = profile == AlarmSoundProfile.SILENT,
-                ) {
-                    profile = AlarmSoundProfile.SILENT
-                    ringtoneUri = null
-                    ringtoneTitle = null
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(appText("Adhan", "الأذان"), fontWeight = FontWeight.ExtraBold, color = OrariForest)
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        color = if (profile == AlarmSoundProfile.ADHAN) OrariSageStrong else Color.Transparent,
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Icon(Icons.Rounded.Mosque, contentDescription = null, tint = OrariForest)
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    if (profile == AlarmSoundProfile.ADHAN) adhanVariant.displayName else appText("Nessun Adhan selezionato", "لم يتم اختيار أذان"),
+                                    color = OrariForest,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Text(
+                                    appText("Puoi ascoltarli prima di confermare", "يمكنك الاستماع قبل التأكيد"),
+                                    color = OrariForest.copy(alpha = 0.66f),
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        }
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            previewPlayer.stop()
+                            previewing = null
+                            adhanListOpen = true
+                        },
+                        modifier = Modifier.fillMaxWidth().testTag("prayer-sound-choose-adhan"),
+                    ) {
+                        Icon(Icons.Rounded.Mosque, contentDescription = null)
+                        Text(appText("  Scegli Adhan", "  اختر الأذان"), fontWeight = FontWeight.Bold)
+                    }
+
+                    SoundListRow(
+                        title = appText("Suoneria telefono", "نغمة الهاتف"),
+                        icon = Icons.Rounded.Notifications,
+                        selected = profile == AlarmSoundProfile.SYSTEM_DEFAULT,
+                    ) {
+                        previewPlayer.stop()
+                        previewing = null
+                        profile = AlarmSoundProfile.SYSTEM_DEFAULT
+                    }
+                    if (profile == AlarmSoundProfile.SYSTEM_DEFAULT) {
+                        TextButton(
+                            onClick = {
+                                previewPlayer.stop()
+                                ringtoneLauncher.launch(AlarmRingtonePicker.createIntent(ringtoneUri))
+                            },
+                        ) { Text(ringtoneTitle ?: appText("Scegli suoneria", "اختر نغمة")) }
+                    }
+                    SoundListRow(
+                        title = appText("Silenzioso", "صامت"),
+                        icon = Icons.Rounded.VolumeOff,
+                        selected = profile == AlarmSoundProfile.SILENT,
+                    ) {
+                        previewPlayer.stop()
+                        previewing = null
+                        profile = AlarmSoundProfile.SILENT
+                        ringtoneUri = null
+                        ringtoneTitle = null
+                    }
                 }
             }
         },
         confirmButton = {
-            Button(
-                onClick = {
-                    val storedUri = if (profile == AlarmSoundProfile.ADHAN) adhanVariant.storageValue else ringtoneUri
-                    val storedTitle = if (profile == AlarmSoundProfile.ADHAN) adhanVariant.displayName else ringtoneTitle
-                    onSave(profile, storedUri, storedTitle)
-                },
-            ) { Text("Conferma") }
+            if (!adhanListOpen) {
+                Button(
+                    onClick = {
+                        previewPlayer.stop()
+                        previewing = null
+                        val storedUri = if (profile == AlarmSoundProfile.ADHAN) adhanVariant.storageValue else ringtoneUri
+                        val storedTitle = if (profile == AlarmSoundProfile.ADHAN) adhanVariant.displayName else ringtoneTitle
+                        onSave(profile, storedUri, storedTitle)
+                    },
+                ) { Text(appText("Conferma", "تأكيد")) }
+            }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Chiudi") } },
+        dismissButton = {
+            if (!adhanListOpen) {
+                TextButton(
+                    onClick = {
+                        previewPlayer.stop()
+                        previewing = null
+                        onDismiss()
+                    },
+                ) { Text(appText("Chiudi", "إغلاق")) }
+            }
+        },
     )
 }
-
 @Composable
 private fun SoundListRow(
     title: String,
