@@ -1,0 +1,350 @@
+name: Global visual Adhan volume v2 exact-SHA gate
+
+on:
+  push:
+    branches:
+      - global-visual-adhan-volume-v2-gate-driver-20260907
+
+permissions:
+  contents: read
+
+env:
+  SPEC_SHA: 4fb277b6956f7ca6f777c3badfd044d77b72a42b
+  CANDIDATE_SHA: f5478522533962f44ca9f8879f7d6a82d9c35af4
+  PACKAGE_NAME: com.archimedeprojects.arihna
+  GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
+  ADHAN_CLASSIC_SHA256: 3b350bc210d657727578ed977e32323c06b63c2088c3ebcea9fc9afb7d487702
+  ADHAN_BEAUTIFUL_SHA256: 35fe06b08fe80505c550c33fed8a783fa9901ddc81ac884958b4be048f5b2a79
+  ADHAN_SHORT_SHA256: faeb03e4338554fb8b54dba98ed4949648615b58e991bbd560a89f4837dde413
+  ADHAN_EXTENDED_SHA256: 2163ceafb8a05064a5ea5e1e0a7fac5fff958a21fcf830844d557d496b9b23c3
+  ADHAN_COMPACT_SHA256: c1530b7c66bfe2fe90f9e54741384ed80678d9888dc5257a91659c0aeafe95e9
+  ADHAN_ALTERNATIVE_SHA256: 8c8b41732334dd6cdb0d44596358c2fae0bb95f8feacb8ea7e04a10a6fe6f934
+  FROZEN_ASSET_RELEASE: settings-s25-premium-3f28b6f0-20260906
+  FROZEN_ASSET_APK: arihna-settings-s25-premium.apk
+
+jobs:
+  static-jvm-build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: f5478522533962f44ca9f8879f7d6a82d9c35af4
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Verify exact SHA lineage and exact scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git rev-list --parents -n 1 HEAD | wc -w)" -eq 2
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          git diff --name-only "$SPEC_SHA" HEAD | sort > /tmp/actual
+          printf '%s\n' \
+            app/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreenAndroidTest.kt \
+            app/src/main/java/com/archimedeprojects/arihna/core/ui/theme/Color.kt \
+            app/src/main/java/com/archimedeprojects/arihna/core/ui/theme/Theme.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/alarms/AlarmsPlaceholderScreen.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/alarms/domain/AlarmModels.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/qibla/QiblaPlaceholderScreen.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt \
+            app/src/main/res/raw/adhan_alternative_cc_by_sa.ogg \
+            app/src/main/res/raw/adhan_compact_pd.ogg \
+            app/src/main/res/raw/adhan_extended_cc_by_sa.ogg \
+            app/src/test/java/com/archimedeprojects/arihna/feature/alarms/domain/AdhanVariantTest.kt \
+            docs/audio/ADHAN_SOURCES.md \
+            docs/audio/THIRD_PARTY_AUDIO_LICENSES.md | sort > /tmp/expected
+          diff -u /tmp/expected /tmp/actual
+
+      - name: Verify v2 remediation is only test compatibility versus v1
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --name-only 8350956d995ba4ce962c092592f7b74212987ee2 "$CANDIDATE_SHA" > /tmp/v1-v2
+          test "$(wc -l < /tmp/v1-v2)" -eq 1
+          grep -Fx 'app/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreenAndroidTest.kt' /tmp/v1-v2
+          ! grep -Fq 'assertDoesNotExist' app/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreenAndroidTest.kt
+
+      - name: Verify shared Alba dorata design system
+        shell: bash
+        run: |
+          set -euo pipefail
+          COLORS=app/src/main/java/com/archimedeprojects/arihna/core/ui/theme/Color.kt
+          THEME=app/src/main/java/com/archimedeprojects/arihna/core/ui/theme/Theme.kt
+          SETTINGS=app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
+          ALARMS=app/src/main/java/com/archimedeprojects/arihna/feature/alarms/AlarmsPlaceholderScreen.kt
+          grep -F 'val ArihnaDawnTop = Color(0xFFFFF7E6)' "$COLORS"
+          grep -F 'val ArihnaDawnBottom = Color(0xFFE7ECD7)' "$COLORS"
+          grep -F 'val ArihnaCream = Color(0xFFFFFCF4)' "$COLORS"
+          grep -F 'val ArihnaForest = Color(0xFF173C30)' "$COLORS"
+          grep -F 'val ArihnaDawnGold = Color(0xFFB68A25)' "$COLORS"
+          grep -F 'private val ArihnaAlbaColors = lightColorScheme(' "$THEME"
+          grep -F 'darkTheme: Boolean = false' "$THEME"
+          ! grep -Fq 'isSystemInDarkTheme' "$THEME"
+          ! grep -Fq 'isSystemInDarkTheme' "$ALARMS"
+          for f in \
+            app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/qibla/QiblaPlaceholderScreen.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/alarms/AlarmsPlaceholderScreen.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt; do
+            grep -Fq 'ArihnaDawn' "$f"
+          done
+
+      - name: Verify alarm volume and six-Adhan contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          SETTINGS=app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
+          MODELS=app/src/main/java/com/archimedeprojects/arihna/feature/alarms/domain/AlarmModels.kt
+          SERVICE=app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
+          TEST=app/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreenAndroidTest.kt
+          ! grep -Fq 'Slider(' "$SETTINGS"
+          ! grep -Fq 'settings-alarm-volume-slider' "$SETTINGS"
+          grep -Fq 'settings-alarm-volume-decrease' "$SETTINGS"
+          grep -Fq 'settings-alarm-volume-value' "$SETTINGS"
+          grep -Fq 'settings-alarm-volume-increase' "$SETTINGS"
+          grep -Fq 'onAlarmVolumeChange(current - 1)' "$SETTINGS"
+          grep -Fq 'onAlarmVolumeChange(current + 1)' "$SETTINGS"
+          grep -Fq 'alarmVolumeUsesAdjacentStepButtonsAndNoSlider' "$TEST"
+          grep -F 'CLASSIC("classic", "Adhan classico")' "$MODELS"
+          grep -F 'BEAUTIFUL("beautiful", "Adhan armonioso")' "$MODELS"
+          grep -F 'SHORT("short", "Adhan breve")' "$MODELS"
+          grep -F 'EXTENDED("extended", "Adhan disteso")' "$MODELS"
+          grep -F 'COMPACT("compact", "Adhan compatto")' "$MODELS"
+          grep -F 'ALTERNATIVE("alternative", "Adhan alternativo")' "$MODELS"
+          test "$(grep -c 'AdhanVariant\..*R.raw.adhan_' "$SERVICE")" -eq 6
+          grep -F 'AdhanVariant.CLASSIC -> R.raw.adhan_cc0' "$SERVICE"
+          grep -F 'AdhanVariant.BEAUTIFUL -> R.raw.adhan_beautiful_cc0' "$SERVICE"
+          grep -F 'AdhanVariant.SHORT -> R.raw.adhan_short_cc0' "$SERVICE"
+          grep -F 'AdhanVariant.EXTENDED -> R.raw.adhan_extended_cc_by_sa' "$SERVICE"
+          grep -F 'AdhanVariant.COMPACT -> R.raw.adhan_compact_pd' "$SERVICE"
+          grep -F 'AdhanVariant.ALTERNATIVE -> R.raw.adhan_alternative_cc_by_sa' "$SERVICE"
+          grep -F 'assertEquals("arihna://adhan/classic"' app/src/test/java/com/archimedeprojects/arihna/feature/alarms/domain/AdhanVariantTest.kt
+          grep -F 'assertEquals("arihna://adhan/beautiful"' app/src/test/java/com/archimedeprojects/arihna/feature/alarms/domain/AdhanVariantTest.kt
+          grep -F 'assertEquals("arihna://adhan/short"' app/src/test/java/com/archimedeprojects/arihna/feature/alarms/domain/AdhanVariantTest.kt
+
+      - name: Verify all audio hashes provenance and frozen app contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "$ADHAN_CLASSIC_SHA256  app/src/main/res/raw/adhan_cc0.ogg" | sha256sum -c -
+          echo "$ADHAN_BEAUTIFUL_SHA256  app/src/main/res/raw/adhan_beautiful_cc0.ogg" | sha256sum -c -
+          echo "$ADHAN_SHORT_SHA256  app/src/main/res/raw/adhan_short_cc0.ogg" | sha256sum -c -
+          echo "$ADHAN_EXTENDED_SHA256  app/src/main/res/raw/adhan_extended_cc_by_sa.ogg" | sha256sum -c -
+          echo "$ADHAN_COMPACT_SHA256  app/src/main/res/raw/adhan_compact_pd.ogg" | sha256sum -c -
+          echo "$ADHAN_ALTERNATIVE_SHA256  app/src/main/res/raw/adhan_alternative_cc_by_sa.ogg" | sha256sum -c -
+          printf '%s\n' "$ADHAN_CLASSIC_SHA256" "$ADHAN_BEAUTIFUL_SHA256" "$ADHAN_SHORT_SHA256" "$ADHAN_EXTENDED_SHA256" "$ADHAN_COMPACT_SHA256" "$ADHAN_ALTERNATIVE_SHA256" | sort -u > /tmp/audio-hashes
+          test "$(wc -l < /tmp/audio-hashes)" -eq 6
+          grep -Fq 'Azan.ogg' docs/audio/ADHAN_SOURCES.md
+          grep -Fq 'Oración Al-Azzan.ogg' docs/audio/ADHAN_SOURCES.md
+          grep -Fq 'Call to prayer.ogg' docs/audio/ADHAN_SOURCES.md
+          grep -Fq 'CC BY-SA 4.0' docs/audio/THIRD_PARTY_AUDIO_LICENSES.md
+          grep -Fq 'Andrewler' docs/audio/THIRD_PARTY_AUDIO_LICENSES.md
+          grep -Fq 'Isaacayodele32' docs/audio/THIRD_PARTY_AUDIO_LICENSES.md
+          grep -F 'applicationId = "com.archimedeprojects.arihna"' app/build.gradle.kts
+          grep -F 'minSdk = 28' app/build.gradle.kts
+          grep -F 'compileSdk = 37' app/build.gradle.kts
+          grep -F 'targetSdk = 37' app/build.gradle.kts
+          grep -F 'playServicesLocation = "21.3.0"' gradle/libs.versions.toml
+          ! grep -Fq 'android.permission.ACCESS_BACKGROUND_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -Fq 'android.permission.USE_EXACT_ALARM' app/src/main/AndroidManifest.xml
+
+      - name: Restore frozen GeoNames
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+
+      - name: Host JVM tests instrumentation compile and debug build
+        shell: bash
+        run: ./gradlew :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:assembleDebug --stacktrace
+
+      - name: Inspect exact built APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -s "$APK" && test -x "$AAPT"
+          "$AAPT" dump badging "$APK" | grep -F "package: name='com.archimedeprojects.arihna'"
+          "$AAPT" dump badging "$APK" | grep -F "sdkVersion:'28'"
+          "$AAPT" dump badging "$APK" | grep -F "targetSdkVersion:'37'"
+          ! "$AAPT" dump permissions "$APK" | grep -Fq 'android.permission.ACCESS_BACKGROUND_LOCATION'
+          ! "$AAPT" dump permissions "$APK" | grep -Fq 'android.permission.USE_EXACT_ALARM'
+          test "$(unzip -p "$APK" assets/geonames/cities.db | sha256sum | cut -d' ' -f1)" = "$GEONAMES_SHA256"
+          test "$(unzip -p "$APK" res/raw/adhan_cc0.ogg | sha256sum | cut -d' ' -f1)" = "$ADHAN_CLASSIC_SHA256"
+          test "$(unzip -p "$APK" res/raw/adhan_beautiful_cc0.ogg | sha256sum | cut -d' ' -f1)" = "$ADHAN_BEAUTIFUL_SHA256"
+          test "$(unzip -p "$APK" res/raw/adhan_short_cc0.ogg | sha256sum | cut -d' ' -f1)" = "$ADHAN_SHORT_SHA256"
+          test "$(unzip -p "$APK" res/raw/adhan_extended_cc_by_sa.ogg | sha256sum | cut -d' ' -f1)" = "$ADHAN_EXTENDED_SHA256"
+          test "$(unzip -p "$APK" res/raw/adhan_compact_pd.ogg | sha256sum | cut -d' ' -f1)" = "$ADHAN_COMPACT_SHA256"
+          test "$(unzip -p "$APK" res/raw/adhan_alternative_cc_by_sa.ogg | sha256sum | cut -d' ' -f1)" = "$ADHAN_ALTERNATIVE_SHA256"
+          echo "GATE_V2_DEBUG_APK_SIZE=$(stat -c '%s' "$APK")"
+          sha256sum "$APK"
+
+  api28-full-instrumentation:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout gate driver to preserve validator
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Preserve validator and checkout exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .github/scripts/validate_connected_xml.py /tmp/validate_connected_xml.py
+          git checkout --detach "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Restore frozen GeoNames
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+
+      - name: Enable KVM
+        shell: bash
+        run: sudo chmod 666 /dev/kvm || true
+
+      - name: Run every instrumentation test on Android API28
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 28
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
+
+      - name: Require real zero-failure zero-error zero-skip XML
+        shell: bash
+        run: python3 /tmp/validate_connected_xml.py
+
+  api36-location-permission-matrix:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: f5478522533962f44ca9f8879f7d6a82d9c35af4
+          fetch-depth: 0
+
+      - name: Verify exact candidate lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Restore frozen GeoNames
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+
+      - name: Prepare Android 16 permission matrix harness
+        shell: bash
+        run: |
+          cat > /tmp/api36-permission-matrix.sh <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          PACKAGE_NAME=com.archimedeprojects.arihna
+          ./gradlew :app:installDebug --stacktrace
+          adb shell pm revoke "$PACKAGE_NAME" android.permission.ACCESS_FINE_LOCATION || true
+          adb shell pm revoke "$PACKAGE_NAME" android.permission.ACCESS_COARSE_LOCATION || true
+          adb shell dumpsys package "$PACKAGE_NAME" | grep -F 'android.permission.ACCESS_FINE_LOCATION:' | head -n 1 | grep -q 'granted=false'
+          adb shell dumpsys package "$PACKAGE_NAME" | grep -F 'android.permission.ACCESS_COARSE_LOCATION:' | head -n 1 | grep -q 'granted=false'
+          adb shell pm grant "$PACKAGE_NAME" android.permission.ACCESS_COARSE_LOCATION
+          adb shell dumpsys package "$PACKAGE_NAME" | grep -F 'android.permission.ACCESS_FINE_LOCATION:' | head -n 1 | grep -q 'granted=false'
+          adb shell dumpsys package "$PACKAGE_NAME" | grep -F 'android.permission.ACCESS_COARSE_LOCATION:' | head -n 1 | grep -q 'granted=true'
+          adb shell pm grant "$PACKAGE_NAME" android.permission.ACCESS_FINE_LOCATION
+          adb shell dumpsys package "$PACKAGE_NAME" | grep -F 'android.permission.ACCESS_FINE_LOCATION:' | head -n 1 | grep -q 'granted=true'
+          adb shell dumpsys package "$PACKAGE_NAME" | grep -F 'android.permission.ACCESS_COARSE_LOCATION:' | head -n 1 | grep -q 'granted=true'
+          adb shell pm revoke "$PACKAGE_NAME" android.permission.ACCESS_FINE_LOCATION
+          adb shell dumpsys package "$PACKAGE_NAME" | grep -F 'android.permission.ACCESS_FINE_LOCATION:' | head -n 1 | grep -q 'granted=false'
+          adb shell dumpsys package "$PACKAGE_NAME" | grep -F 'android.permission.ACCESS_COARSE_LOCATION:' | head -n 1 | grep -q 'granted=true'
+          echo API36_PERMISSION_MATRIX_SUCCESS
+          SH
+          chmod +x /tmp/api36-permission-matrix.sh
+
+      - name: Enable KVM
+        shell: bash
+        run: sudo chmod 666 /dev/kvm || true
+
+      - name: Android 16 API36 location permission matrix
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: bash /tmp/api36-permission-matrix.sh
