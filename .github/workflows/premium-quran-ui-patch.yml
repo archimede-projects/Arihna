@@ -1,0 +1,75 @@
+name: premium-quran-ui-patch
+
+on:
+  push:
+    branches:
+      - premium-quran-ui-patch-driver-20260907
+
+permissions:
+  contents: write
+
+jobs:
+  patch-staging:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout staging implementation
+        uses: actions/checkout@v4
+        with:
+          ref: premium-quran-daily-hijri-v1
+          fetch-depth: 0
+
+      - name: Apply integration fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          home = Path('app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt')
+          text = home.read_text()
+          old = '''    DailyInspirationCard(state.localDate)\n    QuickActions('''
+          new = '''    DailyInspirationCard(state.localDate)\n    DailyActionCard(state.localDate)\n    QuickActions('''
+          if old not in text:
+              raise SystemExit('ReadyContent inspiration anchor missing')
+          text = text.replace(old, new, 1)
+
+          pattern = re.compile(
+              r'''    if \(calendarOpen\) \{.*?\n    \}\n\}\n\n@Composable\nprivate fun NextPrayerHero''',
+              re.S,
+          )
+          replacement = '''    if (calendarOpen) {\n        PremiumCalendarDialog(\n            initialDate = state.localDate,\n            arabic = arabic,\n            onDismiss = { calendarOpen = false },\n        )\n    }\n}\n\n@Composable\nprivate fun NextPrayerHero'''
+          text2, count = pattern.subn(replacement, text, count=1)
+          if count != 1:
+              raise SystemExit(f'Home calendar block replacement count={count}')
+          home.write_text(text2)
+
+          quran = Path('app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt')
+          text = quran.read_text()
+          old_header = '''                    Text(\n                        if (explorerOpen) {\n                            appText("Scegli dove leggere", "اختر موضع القراءة")\n                        } else {\n                            buildString {\n                                if (!surah?.nameArabic.isNullOrBlank()) append(surah?.nameArabic)\n                                if (isNotEmpty()) append("  •  ")\n                                append(appText("pag. ${currentPage + 1}", "صفحة ${toArabicIndic(currentPage + 1)}"))\n                            }\n                        },\n                        color = ArihnaMutedText,'''
+          new_header = '''                    val pageLabel = appText(\n                        "pag. ${currentPage + 1}",\n                        "صفحة ${toArabicIndic(currentPage + 1)}",\n                    )\n                    val readingLocation = if (explorerOpen) {\n                        appText("Scegli dove leggere", "اختر موضع القراءة")\n                    } else {\n                        listOfNotNull(surah?.nameArabic?.takeIf { it.isNotBlank() }, pageLabel)\n                            .joinToString("  •  ")\n                    }\n                    Text(\n                        readingLocation,\n                        color = ArihnaMutedText,'''
+          if old_header not in text:
+              raise SystemExit('Quran header anchor missing')
+          text = text.replace(old_header, new_header, 1)
+
+          old_marker = '''            val marker = buildList {\n                juz?.let { add(appText("Juz $it", "الجزء ${toArabicIndic(it)}")) }\n                hizb?.let { add(appText("Hizb $it", "الحزب ${toArabicIndic(it)}")) }\n            }.joinToString("  •  ")'''
+          new_marker = '''            val markerParts = mutableListOf<String>()\n            if (juz != null) markerParts += appText("Juz $juz", "الجزء ${toArabicIndic(juz)}")\n            if (hizb != null) markerParts += appText("Hizb $hizb", "الحزب ${toArabicIndic(hizb)}")\n            val marker = markerParts.joinToString("  •  ")'''
+          if old_marker not in text:
+              raise SystemExit('Quran marker anchor missing')
+          text = text.replace(old_marker, new_marker, 1)
+          quran.write_text(text)
+          PY
+
+          git diff --check
+          git diff -- app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt
+
+      - name: Commit staging integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt \
+                  app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt
+          git commit -m 'feat: integrate daily action and selectable Hijri calendar'
+          git push origin HEAD:premium-quran-daily-hijri-v1
