@@ -1,0 +1,44 @@
+name: Write parallel Orari and location spec
+
+on:
+  push:
+    branches:
+      - spec-parallel-orari-location-driver-20260907
+
+permissions:
+  contents: write
+
+jobs:
+  write-spec:
+    runs-on: ubuntu-latest
+    env:
+      BASE_SHA: a57da538aca183704e6c3f2731203a73b7016cc1
+      TARGET_BRANCH: spec-parallel-orari-location
+      SPEC_B64: IyMjIDIwMjYtMDktMDcg4oCUIOKAnFBvc2l6aW9uZSBhdHR1YWxl4oCdIGV4cGxpY2l0IHJlZnJlc2ggc2VtYW50aWNzIEFQUFJPVkVECgpSZWFsLWRldmljZSBHYWxheHkgUzI1IHJldmlldyByZXBvcnRzIHRoYXQgdGFwcGluZyAqKlBvc2l6aW9uZSBhdHR1YWxlKiogY2FuIGxlYXZlIEFyaWhuYSBzaG93aW5nIHRoZSBwcmV2aW91c2x5IHN0b3JlZCBkZXZpY2UgbG9jYXRpb24gZXZlbiB0aG91Z2ggVGltemd1aWRhIHJlZnJlc2hlcyBzdWNjZXNzZnVsbHkgaW4gdGhlIHNhbWUgZGV2aWNlIGNvbnRleHQuIEludmVzdGlnYXRpb24gb2YgdGhlIGN1cnJlbnQgcHJvZHVjdGlvbiBwYXRoIGNvbmZpcm1zIHRoYXQgQXJpaG5hIGFscmVhZHkgY2FsbHMgR29vZ2xlIFBsYXkgU2VydmljZXMgYEZ1c2VkTG9jYXRpb25Qcm92aWRlckNsaWVudC5nZXRDdXJyZW50TG9jYXRpb24oUHJpb3JpdHkuUFJJT1JJVFlfSElHSF9BQ0NVUkFDWSwgLi4uKWAsIGJ1dCB0aGUgcmVzdWx0aW5nIHZhbGlkIGZpeCBpcyBzdGlsbCBwYXNzZWQgdGhyb3VnaCB0aGUgZ2VuZXJpYyBgTG9jYXRpb25VcGRhdGVQb2xpY3kuc2hvdWxkQWNjZXB0KC4uLilgIDUga20gc2lnbmlmaWNhbmNlIGZpbHRlci4gVGhlcmVmb3JlIGEgbmV3ZXIgZXhwbGljaXQgdXNlci1yZXF1ZXN0ZWQgZml4IGluc2lkZSA1IGttIGNhbiBiZSBkaXNjYXJkZWQgYW5kIHRoZSBvbGRlciBwZXJzaXN0ZWQgZml4IGNhbiBiZSByZXR1cm5lZCBhcyBgQ0FDSEVEYAuCgoqKkV4cGxpY2l0IHJlZnJlc2ggY29udHJhY3QuKiogQSB1c2VyIHRhcCBvbiAqKlBvc2l6aW9uZSBhdHR1YWxlKiogaXMgYW4gZXhwbGljaXQgcmVmcmVzaCBhbmQgbXVzdCBub3QgdXNlIHRoZSA1IGttIHNpZ25pZmljYW5jZSB0aHJlc2hvbGQgdG8gZGVjaWRlIHdoZXRoZXIgYSB2YWxpZCBuZXdlciBmaXggcmVwbGFjZXMgdGhlIHByZXZpb3VzIHBlcnNpc3RlZCBEZXZpY2UgZml4LiBJZiBhIHZhbGlkIGN1cnJlbnQgZml4IGlzIHJldHVybmVkLCBpdCBtdXN0IGJlIHBlcnNpc3RlZCBhbmQgZXhwb3NlZCBhcyB0aGUgbmV3IERldmljZSBsb2NhdGlvbiBldmVuIHdoZW4gbW92ZW1lbnQgaXMgYmVsb3cgNSBrbS4gVGhlIDUga20gc2lnbmlmaWNhbmNlIHBvbGljeSByZW1haW5zIHZhbGlkIG9ubHkgZm9yIHBhc3NpdmUvYXV0b21hdGljIGZvcmVncm91bmQgdXBkYXRlIGFjY2VwdGFuY2UuCgoqKkZyZXNoIHJlcXVlc3QgcG9saWN5LioqIFRoZSBleHBsaWNpdCByZWZyZXNoIHBhdGggbXVzdCByZXF1ZXN0IGEgZ2VudWluZWx5IGN1cnJlbnQgRnVzZWQgZml4IGFuZCBtdXN0IG5vdCBpbnRlbnRpb25hbGx5IGFjY2VwdCBhbiBhcmJpdHJhcmlseSBvbGQgY2FjaGVkIGZpeCBhcyBgRlJFU0hgLiBDb25maWd1cmUgdGhlIFBsYXkgU2VydmljZXMgY3VycmVudC1sb2NhdGlvbiByZXF1ZXN0IHdpdGggYW4gZXhwbGljaXQgbWF4aW11bSB1cGRhdGUgYWdlIGFwcHJvcHJpYXRlIGZvciBhIG1hbnVhbCByZWZyZXNoIChwcmVmZXIgemVybyAvIGZyZXNoLW9ubHkgd2hlcmUgc3VwcG9ydGVkIGJ5IHRoZSBpbnN0YWxsZWQgUGxheSBTZXJ2aWNlcyBBUEkpLCB3aGlsZSByZXRhaW5pbmcgYFBSSU9SSVRZX0hJR0hfQUNDVVJBQ1lgLCBmb3JlZ3JvdW5kLW9ubHkgcGVybWlzc2lvbnMgYW5kIHRoZSBleGlzdGluZyBib3VuZGVkIHRpbWVvdXQuIEEgZmFsbGJhY2sgdG8gYSByZWFsIGNhY2hlZCBsb2NhdGlvbiBpcyBzdGlsbCBhbGxvd2VkIG9ubHkgd2hlbiB0aGUgY3VycmVudCBhdHRlbXB0IGZhaWxzIG9yIHRpbWVzIG91dCwgYW5kIGl0IG11c3QgcmVtYWluIGxhYmVsZWQgYENBQ0hFRGAgd2l0aCBpdHMgcmVhbCBjYXB0dXJlIHRpbWVzdGFtcC9hZ2UuCgoqKk5vIHJlZ3Jlc3Npb24uKiogS2VlcCBHb29nbGUgRnVzZWQgTG9jYXRpb24sIGBBQ0NFU1NfRklORV9MT0NBVElPTmAgKyBgQUNDRVNTX0NPQVJTRV9MT0NBVElPTmAsIG5vIGJhY2tncm91bmQgbG9jYXRpb24sIG5vIGludmVudGVkIGNvb3JkaW5hdGVzL3RpbWV6b25lLCBhbmQgcHJlc2VydmUgYXV0b21hdGljIHVwZGF0ZSB0aHJvdHRsaW5nL3Bvd2VyIHBvbGljeS4gVGhlIGZpeCBtdXN0IGNvdmVyIHRoZSBTZXR0aW5ncyAqKlBvc2l6aW9uZSBhdHR1YWxlKiogYWN0aW9uIGFuZCBhbnkgSG9tZSByZWZyZXNoIGFjdGlvbiB0aGF0IGludm9rZXMgdGhlIHNhbWUgZXhwbGljaXQgRGV2aWNlIHNlbGVjdGlvbiBwYXRoLgoKKipQYXJhbGxlbCB3b3JrIC8gc2NvcGUgaXNvbGF0aW9uLioqIFRoZSBhbHJlYWR5LWFwcHJvdmVkIE9yYXJpIGZpeGVkLXNjcmVlbi9BZGhhbi1saXN0IHdvcmsgcmVtYWlucyBhY3RpdmUgaW4gcGFyYWxsZWwuIEhvbWUgdmlzdWFsL2xheW91dCB3b3JrIHJlbWFpbnMgZnJvemVuIGV4Y2VwdCBmb3IgaW52b2tpbmcgdGhlIHNoYXJlZCBleHBsaWNpdCBsb2NhdGlvbiByZWZyZXNoIHBhdGggYWxyZWFkeSBwcmVzZW50LiBTdmVnbGllIHNjcmVlbi9lZGl0b3IgcmVtYWlucyBvdXQgb2Ygc2NvcGUuIE9yYXJpIGFuZCBMb2NhdGlvbiBtYXkgYmUgaW1wbGVtZW50ZWQgYW5kIGdhdGVkIG9uIHNlcGFyYXRlIHNpYmxpbmcgY2FuZGlkYXRlcyB0aGF0IGFyZSBkaXJlY3QgY2hpbGRyZW4gb2YgdGhpcyBzYW1lIHNwZWNpZmljYXRpb24gY29tbWl0LiBCZWZvcmUgcHJvbW90aW9uLCB0aGVpciBhcHByb3ZlZCBkZWx0YXMgbXVzdCBiZSBjb21iaW5lZCBpbnRvIGEgbmV3IGNhbmRpZGF0ZSB0aGF0IGlzIGFsc28gYSBkaXJlY3QgY2hpbGQgb2YgdGhpcyBleGFjdCBzcGVjIGNvbW1pdCBhbmQgbXVzdCBwYXNzIHRoZSBmdWxsIGV4YWN0LVNIQSByZWdyZXNzaW9uIGdhdGUuCgoqKlNQRUMtRklSU1QgbGluZWFnZS4qKiBUaGlzIGRvY3VtZW50YXRpb24tb25seSBjb21taXQgaXMgdGhlIHNoYXJlZCBzcGVjaWZpY2F0aW9uIHBhcmVudCBmb3IgdGhlIHBhcmFsbGVsIE9yYXJpIGFuZCBMb2NhdGlvbiB0ZWNobmljYWwgdHJhY2tzLiBFdmVyeSB0cmFjayBjYW5kaWRhdGUgYW5kIGFueSBmaW5hbCBjb21iaW5lZCBjYW5kaWRhdGUgbXVzdCBiZSBhIGRpcmVjdCBjaGlsZCBvZiB0aGlzIGV4YWN0IHNwZWMgY29tbWl0LiBGYWlsZWQgY2FuZGlkYXRlcyBtdXN0IG5ldmVyIGJlIHVzZWQgYXMgcGFyZW50cyBmb3IgcmVwbGFjZW1lbnRzLgo=
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.BASE_SHA }}
+      - name: Verify exact base
+        run: test "$(git rev-parse HEAD)" = "$BASE_SHA"
+      - name: Append approved parallel location spec
+        run: |
+          printf '\n\n' >> PROJECT_SPEC.md
+          printf '%s' "$SPEC_B64" | base64 -d >> PROJECT_SPEC.md
+      - name: Verify spec-only diff
+        run: |
+          test "$(git diff --name-only)" = "PROJECT_SPEC.md"
+          grep -F '“Posizione attuale” explicit refresh semantics APPROVED' PROJECT_SPEC.md
+          grep -F '5 km significance threshold' PROJECT_SPEC.md
+          grep -F 'Orari and Location may be implemented and gated on separate sibling candidates' PROJECT_SPEC.md
+      - name: Commit and push shared spec branch
+        run: |
+          git config user.name 'Arihna Spec Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add PROJECT_SPEC.md
+          git commit -m 'docs(spec): approve explicit location refresh in parallel with Orari'
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          test "$(git diff-tree --no-commit-id --name-only -r HEAD)" = "PROJECT_SPEC.md"
+          git push origin HEAD:refs/heads/$TARGET_BRANCH
+          echo "SPEC_SHA=$(git rev-parse HEAD)"
