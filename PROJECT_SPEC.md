@@ -2233,3 +2233,18 @@ Scope is intentionally narrow. The Home screen remains frozen in its current app
 **Acceptance / scope guard.** The implementation candidate must change only the files needed for Orari audio presentation/selection, the shared model/persistence/playback required to make those Orari choices real, required tests, and explicitly verified new Adhan assets/provenance. Home visual/layout files and the Sveglie screen/editor must remain byte-for-byte unchanged unless a compile-only shared API adjustment is strictly unavoidable and separately justified by the exact-SHA gate.
 
 **SPEC-FIRST lineage.** This commit is the specification parent for the Orari implementation candidate. The technical candidate must be a direct child of this exact spec commit. If that candidate fails its exact-SHA gate, every replacement candidate must again be a direct child of this same spec commit; never chain a replacement onto a failed candidate. Promotion to `main` is allowed only after the existing frozen-asset, package/SDK, API28 instrumentation and API36 modern-permission gate is fully green.
+
+
+### 2026-09-07 — Posizione attuale: refresh esplicito APPROVED
+
+Il test reale su Galaxy S25 mostra che **Posizione attuale** può lasciare visibile il fix precedente, mentre Timzguida nello stesso contesto ottiene la posizione corrente. Il codice Arihna usa già Google `FusedLocationProviderClient.getCurrentLocation(PRIORITY_HIGH_ACCURACY)`, ma il fix restituito passa ancora dalla regola generica di significatività a 5 km.
+
+**Contratto.** Il tap dell'utente su **Posizione attuale** è un refresh esplicito. Un fix corrente valido e più recente deve sostituire e persistere il precedente anche se lo spostamento è inferiore a 5 km. La soglia 5 km resta solo per gli aggiornamenti automatici/passivi.
+
+**Freshness.** La richiesta esplicita deve chiedere un fix Fused realmente corrente, con `PRIORITY_HIGH_ACCURACY` e massimo age esplicito fresh-only/zero quando supportato. Solo se il tentativo corrente fallisce o va in timeout è ammesso il fallback a un fix reale cached, che deve restare marcato `CACHED` con timestamp/età reali. Nessuna coordinata o timezone inventata.
+
+**Vincoli invariati.** Restano Google Fused, `ACCESS_FINE_LOCATION` + `ACCESS_COARSE_LOCATION`, niente background location, timeout bounded e policy energetica degli aggiornamenti automatici. La correzione vale sia per Impostazioni/Posizione attuale sia per il refresh Home che usa lo stesso percorso esplicito.
+
+**Lavoro parallelo.** Il lavoro Orari già approvato continua in parallelo. Home visual/layout e Sveglie/editor restano fuori scope. Orari e Location possono avere candidati sibling separati, entrambi figli diretti di questo spec. Prima della promozione, le due delta approvate devono essere ricombinate in un nuovo candidato, anch'esso figlio diretto di questo stesso spec, e passare il gate exact-SHA completo.
+
+**SPEC-FIRST.** Questo commit documentation-only è il parent condiviso. Nessun candidato fallito può diventare parent di un replacement.
