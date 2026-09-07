@@ -1,0 +1,109 @@
+name: Write Orari v3 direct-child candidate
+
+on:
+  push:
+    branches:
+      - parallel-orari-v3-impl-driver-20260907
+
+permissions:
+  contents: write
+
+jobs:
+  write-orari-v3:
+    runs-on: ubuntu-latest
+    env:
+      SPEC_SHA: 21c7f8763734c2646e24f34c792c58f1816625d2
+      SOURCE_SHA: 6fae23e6976b73df02adf6911a22a5485d12963e
+      TARGET_BRANCH: parallel-orari-v3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Materialize sibling delta on exact spec
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --binary "$SPEC_SHA" "$SOURCE_SHA" > /tmp/orari-v2.patch
+          git checkout --detach "$SPEC_SHA"
+          test "$(git rev-parse HEAD)" = "$SPEC_SHA"
+          git apply /tmp/orari-v2.patch
+      - name: Move weight into valid ColumnScope caller
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt')
+          text = p.read_text()
+          text = text.replace('import androidx.compose.foundation.layout.weight\n', '')
+          old_call = '''                            PrayerReminderRow(
+                                prayer = prayer,
+                                label = label,
+                                time = formatTime(instant, zone),
+                                rule = prayerRules[prayer],
+                                onEnabled = { onEnabled(prayer, it) },
+                                onOpenSound = onOpenSound,
+                            )'''
+          new_call = '''                            PrayerReminderRow(
+                                modifier = Modifier.weight(1f),
+                                prayer = prayer,
+                                label = label,
+                                time = formatTime(instant, zone),
+                                rule = prayerRules[prayer],
+                                onEnabled = { onEnabled(prayer, it) },
+                                onOpenSound = onOpenSound,
+                            )'''
+          assert old_call in text
+          text = text.replace(old_call, new_call, 1)
+          old_sig = '''private fun PrayerReminderRow(
+    prayer: AlarmPrayer,'''
+          new_sig = '''private fun PrayerReminderRow(
+    modifier: Modifier,
+    prayer: AlarmPrayer,'''
+          assert old_sig in text
+          text = text.replace(old_sig, new_sig, 1)
+          old_card = '''        modifier = Modifier
+            .fillMaxWidth()
+            .weight(1f)
+            .testTag("prayer-reminder-${prayer.name.lowercase()}"),'''
+          new_card = '''        modifier = modifier
+            .fillMaxWidth()
+            .testTag("prayer-reminder-${prayer.name.lowercase()}"),'''
+          assert old_card in text
+          text = text.replace(old_card, new_card, 1)
+          p.write_text(text)
+          PY
+      - name: Verify exact replacement scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          test -z "$(grep -F 'import androidx.compose.foundation.layout.weight' app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt || true)"
+          grep -F 'modifier = Modifier.weight(1f),' app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt
+          grep -F 'private fun PrayerReminderRow(' app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt
+          grep -F 'modifier: Modifier,' app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt
+          ! grep -Fq 'LazyColumn' app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt
+          grep -F 'AdhanVariant.entries.forEach' app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt
+          grep -F 'R.raw.adhan_beautiful_cc0' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
+          grep -F 'R.raw.adhan_short_cc0' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
+          test "$(sha256sum app/src/main/res/raw/adhan_beautiful_cc0.ogg | cut -d' ' -f1)" = 35fe06b08fe80505c550c33fed8a783fa9901ddc81ac884958b4be048f5b2a79
+          test "$(sha256sum app/src/main/res/raw/adhan_short_cc0.ogg | cut -d' ' -f1)" = faeb03e4338554fb8b54dba98ed4949648615b58e991bbd560a89f4837dde413
+          test -z "$(git diff --name-only "$SPEC_SHA" -- app/src/main/java/com/archimedeprojects/arihna/feature/home app/src/main/java/com/archimedeprojects/arihna/feature/alarms/AlarmsPlaceholderScreen.kt)"
+      - name: Commit direct child of shared spec
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Arihna Implementation Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add app/src/main/java/com/archimedeprojects/arihna/feature/alarms/AlarmsViewModel.kt \
+                  app/src/main/java/com/archimedeprojects/arihna/feature/alarms/domain/AlarmModels.kt \
+                  app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt \
+                  app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt \
+                  app/src/main/res/raw/adhan_beautiful_cc0.ogg \
+                  app/src/main/res/raw/adhan_short_cc0.ogg \
+                  app/src/test/java/com/archimedeprojects/arihna/feature/alarms/domain/AdhanVariantTest.kt \
+                  docs/audio/ADHAN_SOURCES.md
+          git commit -m 'feat(orari): fixed screen with selectable Adhan list (v3)'
+          test "$(git rev-list --parents -n 1 HEAD | wc -w)" -eq 2
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          git push origin HEAD:refs/heads/$TARGET_BRANCH
+          echo "ORARI_V3_SHA=$(git rev-parse HEAD)"
