@@ -1,0 +1,49 @@
+name: premium-quran-api28-quick-actions-fix
+
+on:
+  push:
+    branches:
+      - premium-quran-api28-quick-actions-fix-driver-20260907
+
+permissions:
+  contents: write
+
+env:
+  SPEC_SHA: 31a2a9f4e86aa5555b87224c9350d7141be5e83a
+  SOURCE_SHA: 6ed30bc467f5d19730cb350a850e0cfb3a3b7d9a
+  TARGET_BRANCH: premium-quran-daily-hijri-candidate-v3-20260907
+
+jobs:
+  create-candidate-v3:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 0
+      - name: Move quick actions next to inspiration anchor
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt')
+          s = p.read_text()
+          old = '''    DailyInspirationCard(state.localDate)\n    DailyActionCard(state.localDate)\n    QuickActions(\n        onOpenQibla = onOpenQibla,\n        onOpenAlarms = onOpenAlarms,\n        onOpenQuran = onOpenQuran,\n    )\n'''
+          new = '''    DailyInspirationCard(state.localDate)\n    QuickActions(\n        onOpenQibla = onOpenQibla,\n        onOpenAlarms = onOpenAlarms,\n        onOpenQuran = onOpenQuran,\n    )\n    DailyActionCard(state.localDate)\n'''
+          if old not in s:
+              raise SystemExit('expected ReadyContent ordering not found')
+          p.write_text(s.replace(old, new, 1))
+          PY
+          grep -n -A9 'DailyInspirationCard(state.localDate)' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+      - name: Create direct child of SPEC
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          git add app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+          tree="$(git write-tree)"
+          candidate="$(printf '%s\n' 'fix: keep quick actions visible with inspiration anchor' | git commit-tree "$tree" -p "$SPEC_SHA")"
+          test "$(git rev-parse "$candidate^")" = "$SPEC_SHA"
+          git push origin "$candidate:refs/heads/$TARGET_BRANCH"
+          echo "CANDIDATE_V3_SHA=$candidate"
