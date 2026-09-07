@@ -1,0 +1,265 @@
+name: Premium Quran Daily Hijri v3 S25 prerelease
+
+on:
+  push:
+    branches:
+      - premium-quran-daily-hijri-v3-release-driver-20260907
+    paths:
+      - .github/workflows/premium-quran-daily-hijri-v3-release.yml
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  build-verify-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      RUNTIME_SHA: e3350b74e927d5dbc411f85be86be95cf652e93c
+      SPEC_SHA: 31a2a9f4e86aa5555b87224c9350d7141be5e83a
+      VERIFIED_GATE_RUN: '34139701738'
+      VERIFIED_STATIC_JOB: '101798673437'
+      VERIFIED_API28_JOB: '101798673286'
+      VERIFIED_API36_JOB: '101798673695'
+      SIGNING_SOURCE_SHA: ce23a7f78695be95c7f8dfd2bcedbe22544da94c
+      DEBUG_CERT_SHA256: 13:97:00:8C:1F:96:2D:BB:D3:6D:D8:A8:EA:02:16:AF:DD:06:E4:B2:B3:E0:8B:C0:F6:D4:B5:43:44:D7:B0:FA
+      DEBUG_CERT_SHA256_COMPACT: 1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa
+      DEBUG_KEYSTORE_SHA256: bc9057f26ad6de7efb70a5df06effb1ed259f1d015c3f062d0f757b3f0983b72
+      GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
+      FROZEN_ASSET_RELEASE: settings-s25-premium-3f28b6f0-20260906
+      FROZEN_ASSET_APK: arihna-settings-s25-premium.apk
+      QURAN_SOURCE_SHA: a5284b17034d36567e4a4bac982a17ba56837448
+      QURAN_SVG_SHA: 78d97544bfdc57e9f04bc97ace3f857ed972d772
+      QURAN_METADATA_SHA: 052b515f3a24dfacbe4cafc3b89f0681a447f462
+      PACKAGE_NAME: com.archimedeprojects.arihna
+      RELEASE_TAG: premium-quran-s25-e3350b74-20260907
+      APK_NAME: arihna-premium-quran-daily-hijri.apk
+
+    steps:
+      - name: Checkout exact promoted runtime
+        uses: actions/checkout@v4
+        with:
+          ref: e3350b74e927d5dbc411f85be86be95cf652e93c
+          fetch-depth: 0
+
+      - name: Verify exact promoted runtime and definitive gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RUNTIME_SHA"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          test "$(git rev-list --parents -n 1 HEAD | wc -w)" -eq 2
+          git fetch origin main --force
+          test "$(git rev-parse origin/main)" = "$RUNTIME_SHA"
+          for JOB in "$VERIFIED_STATIC_JOB" "$VERIFIED_API28_JOB" "$VERIFIED_API36_JOB"; do
+            ACTUAL_JOB="$(gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$JOB" --jq '[(.id|tostring),(.run_id|tostring),.status,.conclusion] | join(" ")')"
+            test "$ACTUAL_JOB" = "$JOB $VERIFIED_GATE_RUN completed success"
+          done
+          RUN_STATE="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$VERIFIED_GATE_RUN" --jq '[.status,.conclusion] | join(" ")')"
+          test "$RUN_STATE" = 'completed success'
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release tag already exists: $RELEASE_TAG" >&2
+            exit 1
+          fi
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Restore frozen GeoNames
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+
+      - name: Verify frozen and premium contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'applicationId = "com.archimedeprojects.arihna"' app/build.gradle.kts
+          grep -Fq 'minSdk = 28' app/build.gradle.kts
+          grep -Fq 'compileSdk = 37' app/build.gradle.kts
+          grep -Fq 'targetSdk = 37' app/build.gradle.kts
+          grep -Fq "$QURAN_SOURCE_SHA" app/build.gradle.kts
+          grep -Fq "$QURAN_SVG_SHA" app/build.gradle.kts
+          grep -Fq "$QURAN_METADATA_SHA" app/build.gradle.kts
+          grep -Fq 'check(mushafPages == 604)' app/build.gradle.kts
+          grep -Fq 'implementation("com.caverock:androidsvg:1.4")' app/build.gradle.kts
+          grep -Fq 'home-inspiration-arabic' app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspiration.kt
+          grep -Fq 'home-daily-action' app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspiration.kt
+          grep -Fq 'Tocca per leggere e condividere' app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspiration.kt
+          grep -Fq 'home-hijri-month-grid' app/src/main/java/com/archimedeprojects/arihna/feature/home/PremiumCalendarDialog.kt
+          grep -Fq 'quran-mushaf-page-' app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt
+          grep -Fq 'quran-bookmark-toggle' app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt
+          grep -Fq 'settings-language-arabic' app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
+          grep -Fq 'settings-alarm-volume-slider' app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
+          grep -Fq 'LayoutDirection.Rtl' app/src/main/java/com/archimedeprojects/arihna/app/ArihnaApp.kt
+          ! grep -Fq 'android.permission.ACCESS_BACKGROUND_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -Fq 'android.permission.USE_EXACT_ALARM' app/src/main/AndroidManifest.xml
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt').read_text()
+          assert s.index('DailyInspirationCard(state.localDate)') < s.index('QuickActions(') < s.index('DailyActionCard(state.localDate)')
+          PY
+
+      - name: Restore persistent Arihna debug signing identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin location-step5-device-test
+          mkdir -p "$HOME/.android"
+          git show "$SIGNING_SOURCE_SHA:.github/test-signing/arihna-debug.keystore.b64" | base64 --decode > "$HOME/.android/debug.keystore"
+          ACTUAL_KEYSTORE_SHA="$(sha256sum "$HOME/.android/debug.keystore" | awk '{print $1}')"
+          test "$ACTUAL_KEYSTORE_SHA" = "$DEBUG_KEYSTORE_SHA256"
+          keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | tee /tmp/keytool.txt
+          grep -F "$DEBUG_CERT_SHA256" /tmp/keytool.txt
+
+      - name: Apply transient persistent debug signing configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('app/build.gradle.kts')
+          text = path.read_text()
+          marker = '    buildFeatures {\n'
+          block = '''    signingConfigs {\n        getByName("debug") {\n            storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")\n            storePassword = "android"\n            keyAlias = "androiddebugkey"\n            keyPassword = "android"\n        }\n    }\n\n'''
+          if marker not in text:
+              raise SystemExit('buildFeatures marker not found')
+          path.write_text(text.replace(marker, block + marker, 1))
+          PY
+          git diff --check -- app/build.gradle.kts
+          test "$(git diff --name-only)" = "app/build.gradle.kts"
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+
+      - name: Build exact promoted runtime with persistent signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew :app:assembleDebug --stacktrace
+
+      - name: Verify Quran corpus Mushaf and packaged source bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          root=Path('app/build/generated/quranAssets')
+          p=root/'quran'
+          verses=[]
+          for line in (p/'quran-uthmani.txt').read_text(encoding='utf-8').splitlines():
+              a=line.split('|',2)
+              if len(a)==3 and a[0].isdigit() and a[1].isdigit(): verses.append(a)
+          assert len(verses)==6236
+          assert len({v[0] for v in verses})==114
+          juz=json.loads((p/'juz-info.json').read_text(encoding='utf-8'))
+          hizb=json.loads((p/'hizb-info.json').read_text(encoding='utf-8'))
+          assert len(juz)==30
+          assert len(hizb)>=60
+          assert 'Creative Commons Attribution 3.0' in (p/'TANZIL_TEXT_README.md').read_text(encoding='utf-8')
+          assert len(list((root/'mushaf').glob('*.svg')))==604
+          assert len(json.loads((root/'mushaf-surah.json').read_text(encoding='utf-8')))==114
+          assert 'MIT' in (root/'QURAN_SVG_LICENSE.txt').read_text(encoding='utf-8')
+          PY
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          for F in quran-uthmani.txt juz-info.json hizb-info.json TANZIL_TEXT_README.md; do
+            GENERATED_SHA="$(sha256sum "app/build/generated/quranAssets/quran/$F" | awk '{print $1}')"
+            PACKAGED_SHA="$(unzip -p "$APK" "assets/quran/$F" | sha256sum | awk '{print $1}')"
+            test "$GENERATED_SHA" = "$PACKAGED_SHA"
+          done
+          test "$(unzip -l "$APK" 'assets/mushaf/*.svg' | awk '$4 ~ /^assets\/mushaf\/[0-9][0-9][0-9]\.svg$/ {c++} END{print c+0}')" -eq 604
+          unzip -p "$APK" assets/QURAN_SVG_LICENSE.txt | grep -Fq MIT
+
+      - name: Verify APK package SDK signer assets and digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          test -x "$APKSIGNER"
+          test -x "$AAPT"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee /tmp/apksigner.txt
+          tr '[:upper:]' '[:lower:]' < /tmp/apksigner.txt | tr -d ':' | grep -F "$DEBUG_CERT_SHA256_COMPACT"
+          "$AAPT" dump badging "$APK" | tee /tmp/badging.txt
+          grep -F "package: name='$PACKAGE_NAME'" /tmp/badging.txt
+          grep -F "sdkVersion:'28'" /tmp/badging.txt
+          grep -F "targetSdkVersion:'37'" /tmp/badging.txt
+          grep -F "compileSdkVersion='37'" /tmp/badging.txt
+          test "$(unzip -p "$APK" assets/geonames/cities.db | sha256sum | awk '{print $1}')" = "$GEONAMES_SHA256"
+          test "$(unzip -l "$APK" 'assets/mushaf/*.svg' | awk '$4 ~ /^assets\/mushaf\/[0-9][0-9][0-9]\.svg$/ {c++} END{print c+0}')" -eq 604
+          cp "$APK" "$APK_NAME"
+          APK_SHA="$(sha256sum "$APK_NAME" | awk '{print $1}')"
+          APK_SIZE="$(stat -c '%s' "$APK_NAME")"
+          echo "$APK_SHA" > /tmp/apk-sha256.txt
+          echo "$APK_SIZE" > /tmp/apk-size.txt
+          echo "FINAL_APK_SHA256=$APK_SHA"
+          echo "FINAL_APK_SIZE=$APK_SIZE"
+
+      - name: Publish Galaxy S25 prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK_SHA="$(cat /tmp/apk-sha256.txt)"
+          APK_SIZE="$(cat /tmp/apk-size.txt)"
+          gh release create "$RELEASE_TAG" "$APK_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$RUNTIME_SHA" \
+            --title 'S25 validation — Premium Quran + Hijri — e3350b74' \
+            --prerelease \
+            --notes "GALAXY S25 VALIDATION BUILD. SPEC-first lineage: specification $SPEC_SHA, approved runtime $RUNTIME_SHA as its direct single-parent child. Exact-SHA gate $VERIFIED_GATE_RUN: static/JVM/build PASS, API28 full instrumentation PASS with zero failures/errors/skips, API36 location-permission matrix PASS. Premium redesign includes emerald/cream visual identity, Arabic daily inspiration with sourced Quran/sahih hadith and Italian translation, daily action, premium Hijri calendar, offline Quran easy/Hafs plus printed Mushaf-style viewer, bookmarks/recents, and 604 pinned SVG Mushaf pages. Quran text source $QURAN_SOURCE_SHA; SVG source $QURAN_SVG_SHA; metadata $QURAN_METADATA_SHA. Corpus verified: 6236 verses, 114 suras, 30 juz, at least 60 hizb, Tanzil CC BY 3.0 notice, 604 Mushaf pages and MIT license. Package $PACKAGE_NAME; minSdk 28; compileSdk 37; targetSdk 37. Persistent Arihna debug certificate SHA-256 $DEBUG_CERT_SHA256; keystore SHA-256 $DEBUG_KEYSTORE_SHA256. Frozen GeoNames SHA-256 $GEONAMES_SHA256. APK bytes $APK_SIZE. APK SHA-256 $APK_SHA. Physical Galaxy S25 validation remains required."
+
+      - name: Verify published prerelease downloaded bytes and signer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_SHA="$(cat /tmp/apk-sha256.txt)"
+          git fetch origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse "$RELEASE_TAG^{commit}")" = "$RUNTIME_SHA"
+          RELEASE_JSON="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")"
+          test "$(jq -r '.draft' <<<"$RELEASE_JSON")" = "false"
+          test "$(jq -r '.prerelease' <<<"$RELEASE_JSON")" = "true"
+          test "$(jq -r '.tag_name' <<<"$RELEASE_JSON")" = "$RELEASE_TAG"
+          test "$(jq -r '.target_commitish' <<<"$RELEASE_JSON")" = "$RUNTIME_SHA"
+          test "$(jq '.assets | length' <<<"$RELEASE_JSON")" = "1"
+          test "$(jq -r '.assets[0].name' <<<"$RELEASE_JSON")" = "$APK_NAME"
+          test "$(jq -r '.assets[0].state' <<<"$RELEASE_JSON")" = "uploaded"
+          rm -rf /tmp/releasecheck
+          mkdir -p /tmp/releasecheck
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "$APK_NAME" --dir /tmp/releasecheck
+          DOWNLOADED=/tmp/releasecheck/$APK_NAME
+          DOWNLOADED_SHA="$(sha256sum "$DOWNLOADED" | awk '{print $1}')"
+          test "$DOWNLOADED_SHA" = "$EXPECTED_SHA"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          "$APKSIGNER" verify --verbose --print-certs "$DOWNLOADED" | tee /tmp/release-apksigner.txt
+          tr '[:upper:]' '[:lower:]' < /tmp/release-apksigner.txt | tr -d ':' | grep -F "$DEBUG_CERT_SHA256_COMPACT"
+          DIRECT_URL="$(jq -r '.assets[0].browser_download_url' <<<"$RELEASE_JSON")"
+          test -n "$DIRECT_URL"
+          echo "VERIFIED_RELEASE_TAG=$RELEASE_TAG"
+          echo "VERIFIED_APK_SHA256=$DOWNLOADED_SHA"
+          echo "DIRECT_APK_URL=$DIRECT_URL"
