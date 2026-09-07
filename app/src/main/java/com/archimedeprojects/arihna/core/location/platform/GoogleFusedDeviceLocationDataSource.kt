@@ -17,6 +17,7 @@ import com.archimedeprojects.arihna.core.location.model.LocationFailure
 import com.archimedeprojects.arihna.core.location.model.LocationFreshness
 import com.archimedeprojects.arihna.core.prayer.model.Coordinates
 import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.CurrentLocationRequest
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
@@ -121,7 +122,11 @@ class GoogleFusedDeviceLocationDataSource(
         val cancellation = CancellationTokenSource()
         continuation.invokeOnCancellation { cancellation.cancel() }
         try {
-            fusedClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cancellation.token)
+            val request = CurrentLocationRequest.Builder()
+                .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
+                .setMaxUpdateAgeMillis(0L)
+                .build()
+            fusedClient.getCurrentLocation(request, cancellation.token)
                 .addOnSuccessListener { location ->
                     if (continuation.isActive) continuation.resume(location)
                 }

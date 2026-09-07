@@ -60,7 +60,7 @@ class LocationCoordinator(
         if (!persist { preferencesRepository.selectDevice() }) {
             return LocationResolutionState.Unavailable(LocationFailure.PERSISTENCE_ERROR, null)
         }
-        return resolveDevice(permissionState, locationServicesEnabled)
+        return resolveDevice(permissionState, locationServicesEnabled, explicitRefresh = true)
     }
 
     suspend fun selectManual(city: ManualCity): LocationResolutionState {
@@ -123,6 +123,7 @@ class LocationCoordinator(
     suspend fun resolveDevice(
         permissionState: LocationPermissionState,
         locationServicesEnabled: Boolean,
+        explicitRefresh: Boolean = false,
     ): LocationResolutionState {
         val cachedFix = readCachedDeviceFix()?.takeIf { it.isValid }
         val cachedLocation = cachedFix?.let { toSelectedDeviceLocation(it, LocationFreshness.CACHED) }
@@ -167,6 +168,7 @@ class LocationCoordinator(
                 result = result,
                 previous = cachedFix,
                 forceCached = timeoutOccurred,
+                forceAccept = explicitRefresh,
             )
             is DeviceLocationResult.Cached -> handleRawCachedFallback(
                 raw = result.location,
@@ -198,6 +200,7 @@ class LocationCoordinator(
         result: DeviceLocationResult.Success,
         previous: DeviceLocationFix?,
         forceCached: Boolean,
+        forceAccept: Boolean,
     ): LocationResolutionState {
         val freshness = if (forceCached) LocationFreshness.CACHED else result.freshness
         val candidate = if (freshness == LocationFreshness.CACHED && previous != null) {
@@ -205,7 +208,7 @@ class LocationCoordinator(
         } else {
             result.fix
         }
-        return handleDeviceFix(candidate, previous, freshness)
+        return handleDeviceFix(candidate, previous, freshness, forceAccept = forceAccept)
     }
 
     private suspend fun handleRawCachedFallback(
@@ -248,6 +251,7 @@ class LocationCoordinator(
         candidate: DeviceLocationFix,
         previous: DeviceLocationFix?,
         freshness: LocationFreshness,
+        forceAccept: Boolean = false,
     ): LocationResolutionState {
         if (!candidate.isValid) {
             return LocationResolutionState.Unavailable(
@@ -256,7 +260,7 @@ class LocationCoordinator(
             )
         }
 
-        if (!updatePolicy.shouldAccept(previous, candidate) && previous != null) {
+        if (!forceAccept && !updatePolicy.shouldAccept(previous, candidate) && previous != null) {
             return LocationResolutionState.Ready(
                 toSelectedDeviceLocation(previous, LocationFreshness.CACHED),
             )
