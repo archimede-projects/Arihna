@@ -222,7 +222,7 @@ internal fun DailyInspirationCard(localDate: LocalDate) {
                         modifier = Modifier.size(15.dp),
                     )
                     Text(
-                        appText("Leggi e condividi", "اقرأ وشارك"),
+                        appText("Tocca per leggere e condividere", "اقرأ وشارك"),
                         style = MaterialTheme.typography.labelSmall,
                         color = ArihnaDawnGold,
                     )
