@@ -27,6 +27,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.archimedeprojects.arihna.core.i18n.appText
 import com.archimedeprojects.arihna.core.location.model.LocationPermissionState
 import com.archimedeprojects.arihna.core.location.platform.AndroidLocationEnvironment
 import com.archimedeprojects.arihna.core.location.platform.AndroidLocationPermissionStateResolver
@@ -60,6 +61,17 @@ private enum class Destination(
     Quran("quran", "Corano", Icons.Rounded.MenuBook),
     Alarms("alarms", "Sveglie", Icons.Rounded.Alarm),
     Settings("settings", "Impostazioni", Icons.Rounded.Settings),
+}
+
+
+@Composable
+private fun Destination.localizedLabel(): String = when (this) {
+    Destination.Home -> appText("Home", "الرئيسية")
+    Destination.Prayers -> appText("Orari", "مواقيت الصلاة")
+    Destination.Qibla -> appText("Qibla", "القبلة")
+    Destination.Quran -> appText("Corano", "القرآن")
+    Destination.Alarms -> appText("Sveglie", "المنبهات")
+    Destination.Settings -> appText("Impostazioni", "الإعدادات")
 }
 
 @Composable
@@ -98,7 +110,7 @@ fun ArihnaNavHost(
                         icon = {
                             Icon(
                                 imageVector = destination.icon,
-                                contentDescription = destination.label,
+                                contentDescription = destination.localizedLabel(),
                             )
                         },
                         label = null,
@@ -130,6 +142,9 @@ fun ArihnaNavHost(
                     },
                     onOpenAlarms = {
                         navController.navigateTopLevel(Destination.Alarms.route, Destination.Home.route)
+                    },
+                    onOpenQuran = {
+                        navController.navigateTopLevel(Destination.Quran.route, Destination.Home.route)
                     },
                     onRefreshLocation = {
                         val permissionState = locationPermissionStateResolver.resolve(

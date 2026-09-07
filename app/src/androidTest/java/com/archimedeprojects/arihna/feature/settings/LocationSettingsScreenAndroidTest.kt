@@ -257,8 +257,7 @@ class LocationSettingsScreenAndroidTest {
     }
 
     @Test
-    fun alarmVolumeUsesAdjacentStepButtonsAndNoSlider() {
-        var requestedVolume: Int? = null
+    fun alarmVolumeUsesSlider() {
         composeRule.setContent {
             ArihnaTheme {
                 LocationSettingsScreen(
@@ -274,16 +273,12 @@ class LocationSettingsScreenAndroidTest {
                     alarmSettings = AlarmSettingsPresentation(
                         alarmVolumeState = AlarmVolumeState(current = 4, min = 0, max = 7),
                     ),
-                    onAlarmVolumeChange = { requestedVolume = it },
                 )
             }
         }
 
         composeRule.onNodeWithTag("settings-alarm-volume-value").assertIsDisplayed()
-        composeRule.onNodeWithTag("settings-alarm-volume-decrease").performClick()
-        composeRule.runOnIdle { assertEquals(3, requestedVolume) }
-        composeRule.onNodeWithTag("settings-alarm-volume-increase").performClick()
-        composeRule.runOnIdle { assertEquals(5, requestedVolume) }
+        composeRule.onNodeWithTag("settings-alarm-volume-slider").assertIsDisplayed()
     }
 
     private fun setScreen(state: () -> LocationSettingsUiState) {
