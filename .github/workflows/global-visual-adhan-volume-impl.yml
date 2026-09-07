@@ -44,6 +44,7 @@ jobs:
               'https://commons.wikimedia.org/wiki/File:Muslim_calling_to_prayer.ogg': 'https://commons.wikimedia.org/wiki/File:Azan.ogg',
               '"original": "Muslim calling to prayer.ogg"': '"original": "Azan.ogg"',
               '"author": "Aishatu98",\n        "license": "CC0 1.0 Universal",\n    },\n    "adhan_compact_pd.ogg"': '"author": "Andrewler",\n        "license": "CC BY-SA 4.0",\n    },\n    "adhan_compact_pd.ogg"',
+              "old = '''            AdhanVariant.CLASSIC -> R.raw.adhan_cc0\n            AdhanVariant.BEAUTIFUL -> R.raw.adhan_beautiful_cc0\n            AdhanVariant.SHORT -> R.raw.adhan_short_cc0\n'''": "old = '''          AdhanVariant.CLASSIC -> R.raw.adhan_cc0\n          AdhanVariant.BEAUTIFUL -> R.raw.adhan_beautiful_cc0\n          AdhanVariant.SHORT -> R.raw.adhan_short_cc0\n'''",
           }
           for old, new in replacements.items():
               count = text.count(old)
