@@ -1,0 +1,234 @@
+name: Premium Quran Daily Hijri exact-SHA gate
+
+on:
+  push:
+    branches: [premium-quran-daily-hijri-gate-driver-20260907]
+
+permissions:
+  contents: read
+
+env:
+  SPEC_SHA: 31a2a9f4e86aa5555b87224c9350d7141be5e83a
+  CANDIDATE_SHA: c3c123e4872360433a48aac2ee47f18df5f59f9a
+  GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
+  FROZEN_ASSET_RELEASE: settings-s25-premium-3f28b6f0-20260906
+  FROZEN_ASSET_APK: arihna-settings-s25-premium.apk
+
+jobs:
+  static-jvm-build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: c3c123e4872360433a48aac2ee47f18df5f59f9a
+          fetch-depth: 0
+      - name: Verify exact lineage and redesign contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          test "$(git rev-list --parents -n 1 HEAD | wc -w)" -eq 2
+
+          COLOR=app/src/main/java/com/archimedeprojects/arihna/core/ui/theme/Color.kt
+          grep -Fq 'Color(0xFFFCF8F0)' "$COLOR"
+          grep -Fq 'Color(0xFF0E654B)' "$COLOR"
+          grep -Fq 'Color(0xFF064A37)' "$COLOR"
+          grep -Fq 'Color(0xFFE8F0EA)' "$COLOR"
+          grep -Fq 'Color(0xFFD4AA46)' "$COLOR"
+          grep -Fq 'Color(0xFF202824)' "$COLOR"
+
+          grep -Fq 'quranSvgCommit = "78d97544bfdc57e9f04bc97ace3f857ed972d772"' app/build.gradle.kts
+          grep -Fq 'check(mushafPages == 604)' app/build.gradle.kts
+          grep -Fq 'implementation("com.caverock:androidsvg:1.4")' app/build.gradle.kts
+
+          QURAN=app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt
+          grep -Fq 'quran-mode-hafs' "$QURAN"
+          grep -Fq 'quran-mode-easy' "$QURAN"
+          grep -Fq 'quran-surah-selector' "$QURAN"
+          grep -Fq 'quran-mushaf-page-' "$QURAN"
+          grep -Fq 'quran-bookmark-page-' "$QURAN"
+          grep -Fq 'HorizontalPager' "$QURAN"
+
+          PREFS=app/src/main/java/com/archimedeprojects/arihna/feature/quran/MushafRepository.kt
+          grep -Fq 'mushaf_bookmarks_v1' "$PREFS"
+          grep -Fq 'recent_mushaf_pages_v1' "$PREFS"
+          grep -Fq 'last_mushaf_page_v1' "$PREFS"
+
+          DAILY=app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspiration.kt
+          grep -Fq 'home-inspiration-arabic' "$DAILY"
+          grep -Fq 'home-inspiration-source' "$DAILY"
+          grep -Fq 'home-daily-action' "$DAILY"
+          grep -Fq 'home-daily-action-arabic' "$DAILY"
+
+          CAL=app/src/main/java/com/archimedeprojects/arihna/feature/home/PremiumCalendarDialog.kt
+          grep -Fq 'home-calendar-hijri' "$CAL"
+          grep -Fq 'home-calendar-gregorian' "$CAL"
+          grep -Fq 'home-hijri-month-grid' "$CAL"
+          grep -Fq 'IslamicCalendar' "$CAL"
+
+          SETTINGS=app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
+          grep -Fq 'settings-alarm-volume-slider' "$SETTINGS"
+          grep -Fq 'thumbColor = SettingsAccent' "$SETTINGS"
+          grep -Fq 'settings-language-arabic' "$SETTINGS"
+
+          grep -Fq 'LayoutDirection.Rtl' app/src/main/java/com/archimedeprojects/arihna/app/ArihnaApp.kt
+          grep -F 'applicationId = "com.archimedeprojects.arihna"' app/build.gradle.kts
+          grep -F 'minSdk = 28' app/build.gradle.kts
+          grep -F 'compileSdk = 37' app/build.gradle.kts
+          grep -F 'targetSdk = 37' app/build.gradle.kts
+          ! grep -Fq 'android.permission.ACCESS_BACKGROUND_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -Fq 'android.permission.USE_EXACT_ALARM' app/src/main/AndroidManifest.xml
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+      - name: Restore frozen GeoNames
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+      - name: Unit tests, Android-test compile and APK
+        run: ./gradlew :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:assembleDebug --stacktrace
+      - name: Verify generated Quran and Mushaf package
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          root=Path('app/build/generated/quranAssets')
+          q=root/'quran'
+          verses=[]
+          for line in (q/'quran-uthmani.txt').read_text(encoding='utf-8').splitlines():
+              a=line.split('|',2)
+              if len(a)==3 and a[0].isdigit() and a[1].isdigit(): verses.append(a)
+          assert len(verses)==6236
+          assert len({v[0] for v in verses})==114
+          assert len(list((root/'mushaf').glob('*.svg')))==604
+          assert (root/'mushaf-surah.json').is_file()
+          assert len(json.loads((root/'mushaf-surah.json').read_text(encoding='utf-8')))==114
+          assert 'MIT' in (root/'QURAN_SVG_LICENSE.txt').read_text(encoding='utf-8')
+          assert 'Creative Commons Attribution 3.0' in (q/'TANZIL_TEXT_README.md').read_text(encoding='utf-8')
+          PY
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n1)"
+          "$AAPT" dump badging "$APK" | grep -F "package: name='com.archimedeprojects.arihna'"
+          "$AAPT" dump badging "$APK" | grep -F "sdkVersion:'28'"
+          "$AAPT" dump badging "$APK" | grep -F "targetSdkVersion:'37'"
+          test "$(unzip -p "$APK" assets/geonames/cities.db | sha256sum | cut -d' ' -f1)" = "$GEONAMES_SHA256"
+          test "$(unzip -l "$APK" 'assets/mushaf/*.svg' | awk '$4 ~ /^assets\/mushaf\/[0-9][0-9][0-9]\.svg$/ {c++} END{print c+0}')" -eq 604
+
+  api28-full-suite:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Checkout exact candidate and preserve validator
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .github/scripts/validate_connected_xml.py /tmp/validate_connected_xml.py
+          git checkout --detach "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+      - name: Restore frozen GeoNames
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+      - run: sudo chmod 666 /dev/kvm || true
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 28
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
+      - name: Require zero instrumentation failures/errors/skips
+        run: python3 /tmp/validate_connected_xml.py
+
+  api36-location-permission-matrix:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: c3c123e4872360433a48aac2ee47f18df5f59f9a
+          fetch-depth: 0
+      - name: Verify exact lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+      - name: Restore frozen GeoNames
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+      - run: sudo chmod 666 /dev/kvm || true
+      - name: Prepare location permission matrix
+        shell: bash
+        run: |
+          cat >/tmp/matrix.sh <<'SH'
+          #!/bin/bash
+          set -euo pipefail
+          P=com.archimedeprojects.arihna
+          ./gradlew :app:installDebug --stacktrace
+          adb shell pm revoke "$P" android.permission.ACCESS_FINE_LOCATION || true
+          adb shell pm revoke "$P" android.permission.ACCESS_COARSE_LOCATION || true
+          adb shell pm grant "$P" android.permission.ACCESS_COARSE_LOCATION
+          adb shell dumpsys package "$P" | grep -F 'android.permission.ACCESS_FINE_LOCATION:' | head -1 | grep -q 'granted=false'
+          adb shell dumpsys package "$P" | grep -F 'android.permission.ACCESS_COARSE_LOCATION:' | head -1 | grep -q 'granted=true'
+          adb shell pm grant "$P" android.permission.ACCESS_FINE_LOCATION
+          adb shell dumpsys package "$P" | grep -F 'android.permission.ACCESS_FINE_LOCATION:' | head -1 | grep -q 'granted=true'
+          adb shell pm revoke "$P" android.permission.ACCESS_FINE_LOCATION
+          adb shell dumpsys package "$P" | grep -F 'android.permission.ACCESS_COARSE_LOCATION:' | head -1 | grep -q 'granted=true'
+          echo API36_PERMISSION_MATRIX_SUCCESS
+          SH
+          chmod +x /tmp/matrix.sh
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: bash /tmp/matrix.sh
