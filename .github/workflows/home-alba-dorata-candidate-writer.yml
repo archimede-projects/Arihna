@@ -1,0 +1,296 @@
+name: Home Alba dorata candidate writer
+
+on:
+  push:
+    branches:
+      - home-alba-dorata-impl-driver-20260907
+
+permissions:
+  contents: write
+
+env:
+  SPEC_SHA: 2d94e3055990706ad23b938a87931214cd823a23
+  CANDIDATE_BRANCH: home-alba-dorata-v1
+
+jobs:
+  write-candidate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create exact child candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$SPEC_SHA"
+          git checkout -B "$CANDIDATE_BRANCH" "$SPEC_SHA"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          home = Path('app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt')
+          text = home.read_text()
+          old = '''private val HomeBackgroundTop = Color(0xFF030B08)
+          private val HomeBackgroundBottom = Color(0xFF071610)
+          private val HomeSurface = Color(0xFF0C1A15)
+          private val HomeSurfaceRaised = Color(0xFF11251D)
+          private val HomeHero = Color(0xFF123327)
+          private val HomeHeroDeep = Color(0xFF0B241B)
+          private val HomeText = Color(0xFFF7F2E7)
+          private val HomeMuted = Color(0xFFA8B4AC)
+          private val HomeAccent = Color(0xFFD8B95A)
+          private val HomeOutline = Color(0xFF29483B)'''.replace('          ', '')
+          new = '''private val HomeBackgroundTop = Color(0xFFFFF7E6)
+          private val HomeBackgroundMiddle = Color(0xFFF8F0DC)
+          private val HomeBackgroundBottom = Color(0xFFE7ECD7)
+          private val HomeSurface = Color(0xFFFFF9ED)
+          private val HomeSurfaceRaised = Color(0xFFFFFCF4)
+          private val HomeHero = Color(0xFF1D5A43)
+          private val HomeHeroDeep = Color(0xFF0F3D2E)
+          private val HomeText = Color(0xFF183E31)
+          private val HomeMuted = Color(0xFF6B786F)
+          private val HomeHeroText = Color(0xFFFFF9EC)
+          private val HomeAccent = Color(0xFFB68A25)
+          private val HomeAccentSoft = Color(0xFFF0D78B)
+          private val HomeOutline = Color(0xFFD6C993)'''.replace('          ', '')
+          assert old in text
+          text = text.replace(old, new, 1)
+          old_gradient = '.background(Brush.verticalGradient(listOf(HomeBackgroundTop, HomeBackgroundBottom)))'
+          new_gradient = '.background(Brush.verticalGradient(listOf(HomeBackgroundTop, HomeBackgroundMiddle, HomeBackgroundBottom)))'
+          assert old_gradient in text
+          text = text.replace(old_gradient, new_gradient, 1)
+          assert 'contentColor = HomeBackgroundTop' in text
+          text = text.replace('contentColor = HomeBackgroundTop', 'contentColor = HomeHeroDeep', 1)
+          start = text.index('private fun NextPrayerHero')
+          end = text.index('private fun TodayPrayerStrip')
+          hero = text[start:end]
+          assert hero.count('color = HomeText') >= 3
+          hero = hero.replace('color = HomeText', 'color = HomeHeroText')
+          text = text[:start] + hero + text[end:]
+          assert 'if (highlighted) HomeAccent.copy(alpha = 0.16f) else HomeSurface' in text
+          text = text.replace('if (highlighted) HomeAccent.copy(alpha = 0.16f) else HomeSurface', 'if (highlighted) HomeAccentSoft else HomeSurface', 1)
+          assert 'color = if (highlighted) HomeAccent else HomeMuted' in text
+          text = text.replace('color = if (highlighted) HomeAccent else HomeMuted', 'color = if (highlighted) HomeHeroDeep else HomeMuted', 1)
+          assert 'if (isToday) HomeAccent else HomeSurface' in text
+          text = text.replace('if (isToday) HomeAccent else HomeSurface', 'if (isToday) HomeAccentSoft else HomeSurface', 1)
+          assert text.count('if (isToday) HomeBackgroundTop') == 2
+          text = text.replace('if (isToday) HomeBackgroundTop', 'if (isToday) HomeHeroDeep')
+          old_button = 'colors = ButtonDefaults.outlinedButtonColors(contentColor = HomeText),'
+          new_button = '''colors = ButtonDefaults.outlinedButtonColors(
+                      containerColor = HomeSurfaceRaised,
+                      contentColor = HomeText,
+                  ),'''
+          assert old_button in text
+          text = text.replace(old_button, new_button, 1)
+          home.write_text(text)
+
+          inspiration = Path('app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspiration.kt')
+          text = inspiration.read_text()
+          replacements = {
+              'Color(0xFF11251D)': 'Color(0xFFFFFCF4)',
+              'Color(0xFF10241C)': 'Color(0xFFFFF8E9)',
+              'Color(0xFFF7F2E7)': 'Color(0xFF183E31)',
+              'Color(0xFFA8B4AC)': 'Color(0xFF6B786F)',
+              'Color(0xFFD8B95A)': 'Color(0xFFB68A25)',
+          }
+          for old_value, new_value in replacements.items():
+              assert old_value in text
+              text = text.replace(old_value, new_value)
+          inspiration.write_text(text)
+
+          nav = Path('app/src/main/java/com/archimedeprojects/arihna/app/ArihnaNavHost.kt')
+          text = nav.read_text()
+          anchor = 'import androidx.compose.material3.NavigationBarItem\n'
+          assert anchor in text
+          text = text.replace(anchor, anchor + 'import androidx.compose.material3.NavigationBarItemDefaults\n', 1)
+          anchor = 'import androidx.compose.ui.Modifier\n'
+          assert anchor in text
+          text = text.replace(anchor, anchor + 'import androidx.compose.ui.graphics.Color\n', 1)
+          enum_anchor = 'private enum class Destination(\n'
+          colors = '''private val AlbaNavBar = Color(0xFFFFFAEF)
+          private val AlbaNavIcon = Color(0xFF52705F)
+          private val AlbaNavSelectedIcon = Color(0xFF173C30)
+          private val AlbaNavIndicator = Color(0xFFDDE6C9)
+
+          '''.replace('          ', '')
+          assert enum_anchor in text
+          text = text.replace(enum_anchor, colors + enum_anchor, 1)
+          assert 'NavigationBar {' in text
+          text = text.replace('NavigationBar {', 'NavigationBar(containerColor = AlbaNavBar, contentColor = AlbaNavIcon) {', 1)
+          old_item_tail = '''                        label = null,
+                                  alwaysShowLabel = false,
+                              )'''.replace('          ', '')
+          new_item_tail = '''                        label = null,
+                                  alwaysShowLabel = false,
+                                  colors = NavigationBarItemDefaults.colors(
+                                      selectedIconColor = AlbaNavSelectedIcon,
+                                      unselectedIconColor = AlbaNavIcon,
+                                      indicatorColor = AlbaNavIndicator,
+                                  ),
+                              )'''.replace('          ', '')
+          assert old_item_tail in text
+          text = text.replace(old_item_tail, new_item_tail, 1)
+          nav.write_text(text)
+
+          backdrop = Path('app/src/main/java/com/archimedeprojects/arihna/feature/home/IslamicBackdrop.kt')
+          backdrop.write_text('''package com.archimedeprojects.arihna.feature.home
+
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.draw.drawBehind
+          import androidx.compose.ui.geometry.Offset
+          import androidx.compose.ui.geometry.Size
+          import androidx.compose.ui.graphics.Brush
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.graphics.Path
+          import androidx.compose.ui.graphics.drawscope.Stroke
+          import androidx.compose.ui.unit.dp
+          import kotlin.math.PI
+          import kotlin.math.cos
+          import kotlin.math.min
+          import kotlin.math.sin
+
+          private val BackdropGold = Color(0xFFC9A43F)
+          private val BackdropGreen = Color(0xFF567764)
+          private val BackdropSun = Color(0xFFFFD979)
+
+          internal fun Modifier.islamicBackdrop(): Modifier = drawBehind {
+              drawRect(
+                  brush = Brush.radialGradient(
+                      colors = listOf(
+                          BackdropSun.copy(alpha = 0.30f),
+                          BackdropGold.copy(alpha = 0.10f),
+                          Color.Transparent,
+                      ),
+                      center = Offset(size.width * 0.82f, size.height * 0.055f),
+                      radius = size.width * 0.72f,
+                  ),
+              )
+              drawRect(
+                  brush = Brush.radialGradient(
+                      colors = listOf(
+                          BackdropGreen.copy(alpha = 0.10f),
+                          Color.Transparent,
+                      ),
+                      center = Offset(size.width * 0.12f, size.height * 0.66f),
+                      radius = size.width * 0.95f,
+                  ),
+              )
+
+              val cell = 86.dp.toPx()
+              val outerRadius = 18.dp.toPx()
+              val innerRadius = outerRadius * 0.48f
+              val lineWidth = 0.72.dp.toPx()
+              var row = 0
+              var centerY = cell * 0.55f
+              while (centerY < size.height + cell) {
+                  var centerX = if (row % 2 == 0) cell * 0.28f else cell * 0.78f
+                  while (centerX < size.width + cell) {
+                      val star = Path()
+                      repeat(16) { index ->
+                          val angle = -PI / 2.0 + index * PI / 8.0
+                          val radius = if (index % 2 == 0) outerRadius else innerRadius
+                          val x = centerX + cos(angle).toFloat() * radius
+                          val y = centerY + sin(angle).toFloat() * radius
+                          if (index == 0) star.moveTo(x, y) else star.lineTo(x, y)
+                      }
+                      star.close()
+                      drawPath(
+                          star,
+                          BackdropGreen.copy(alpha = 0.075f),
+                          style = Stroke(width = lineWidth),
+                      )
+                      drawCircle(
+                          BackdropGold.copy(alpha = 0.075f),
+                          radius = innerRadius * 0.40f,
+                          center = Offset(centerX, centerY),
+                          style = Stroke(width = lineWidth),
+                      )
+                      centerX += cell
+                  }
+                  centerY += cell * 0.86f
+                  row += 1
+              }
+
+              val archBottom = min(size.height * 0.34f, 270.dp.toPx())
+              val archTop = 24.dp.toPx()
+              val middle = size.width / 2f
+              val left = size.width * 0.06f
+              val right = size.width * 0.94f
+              val shoulder = 84.dp.toPx()
+              val arch = Path().apply {
+                  moveTo(left, archBottom)
+                  cubicTo(left, archBottom * 0.50f, middle - shoulder, archTop + shoulder, middle, archTop)
+                  cubicTo(middle + shoulder, archTop + shoulder, right, archBottom * 0.50f, right, archBottom)
+              }
+              drawPath(
+                  arch,
+                  BackdropGold.copy(alpha = 0.17f),
+                  style = Stroke(width = 1.15.dp.toPx()),
+              )
+
+              val skyline = BackdropGreen.copy(alpha = 0.055f)
+              val horizon = min(size.height * 0.22f, 178.dp.toPx())
+              val minaretX = size.width * 0.79f
+              drawRect(
+                  color = skyline,
+                  topLeft = Offset(minaretX, horizon - 64.dp.toPx()),
+                  size = Size(8.dp.toPx(), 64.dp.toPx()),
+              )
+              drawCircle(
+                  color = skyline,
+                  radius = 6.dp.toPx(),
+                  center = Offset(minaretX + 4.dp.toPx(), horizon - 66.dp.toPx()),
+              )
+              val domeCenter = Offset(size.width * 0.69f, horizon - 18.dp.toPx())
+              drawCircle(color = skyline, radius = 22.dp.toPx(), center = domeCenter)
+              drawRect(
+                  color = skyline,
+                  topLeft = Offset(domeCenter.x - 24.dp.toPx(), domeCenter.y),
+                  size = Size(48.dp.toPx(), 22.dp.toPx()),
+              )
+              drawLine(
+                  color = BackdropGold.copy(alpha = 0.12f),
+                  start = Offset(size.width * 0.60f, horizon),
+                  end = Offset(size.width * 0.93f, horizon),
+                  strokeWidth = 0.8.dp.toPx(),
+              )
+          }
+          '''.replace('          ', ''))
+          PY
+
+          git diff --check
+          git diff --name-only | sort > /tmp/actual-files
+          cat > /tmp/expected-files <<'EOF'
+          app/src/main/java/com/archimedeprojects/arihna/app/ArihnaNavHost.kt
+          app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspiration.kt
+          app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+          app/src/main/java/com/archimedeprojects/arihna/feature/home/IslamicBackdrop.kt
+          EOF
+          sort -o /tmp/expected-files /tmp/expected-files
+          diff -u /tmp/expected-files /tmp/actual-files
+          grep -F 'HomeBackgroundTop = Color(0xFFFFF7E6)' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+          grep -F 'HomeAccentSoft = Color(0xFFF0D78B)' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+          grep -F 'NavigationBarItemDefaults.colors' app/src/main/java/com/archimedeprojects/arihna/app/ArihnaNavHost.kt
+          grep -F 'BackdropSun = Color(0xFFFFD979)' app/src/main/java/com/archimedeprojects/arihna/feature/home/IslamicBackdrop.kt
+          grep -F 'Intent.ACTION_SEND' app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspiration.kt
+          git config user.name "Arihna Implementation Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add app/src/main/java/com/archimedeprojects/arihna/app/ArihnaNavHost.kt \
+                  app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspiration.kt \
+                  app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt \
+                  app/src/main/java/com/archimedeprojects/arihna/feature/home/IslamicBackdrop.kt
+          git commit -m "feat(home): apply Alba dorata visual direction"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          test "$(git rev-list --parents -n 1 HEAD | wc -w)" -eq 2
+          git push origin "$CANDIDATE_BRANCH"
+          echo "CANDIDATE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Report exact candidate SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "CANDIDATE_SHA=$CANDIDATE_SHA"
+          git show --stat --oneline "$CANDIDATE_SHA"
