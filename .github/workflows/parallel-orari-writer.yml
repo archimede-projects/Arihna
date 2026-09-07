@@ -15,15 +15,16 @@ jobs:
       SPEC_SHA: 21c7f8763734c2646e24f34c792c58f1816625d2
       TARGET_BRANCH: parallel-orari-v1
       GH_TOKEN: ${{ github.token }}
-      PRAYER_SCREEN_B64: cGFja2FnZSBjb20uYXJjaGltZWRlcHJvamVjdHMuYXJpaG5hLmZlYXR1cmUucHJheWVycwoKaW1wb3J0IGFuZHJvaWQuYXBwLkFjdGl2aXR5CmltcG9ydCBhbmRyb2lkeC5hY3Rpdml0eS5jb21wb3NlLnJlbWVtYmVyTGF1bmNoZXJGb3JBY3Rpdml0eVJlc3VsdAppbXBvcnQgYW5kcm9pZHguYWN0aXZpdHkucmVzdWx0LmNvbnRyYWN0LkFjdGl2aXR5UmVzdWx0Q29udHJhY3RzCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLmZvdW5kYXRpb24uYmFja2dyb3VuZAppbXBvcnQgYW5kcm9pZHguY29tcG9zZS5mb3VuZGF0aW9uLmNsaWNrYWJsZQppbXBvcnQgYW5kcm9pZHguY29tcG9zZS5mb3VuZGF0aW9uLmxheW91dC5BcnJhbmdlbWVudAppbXBvcnQgYW5kcm9pZHguY29tcG9zZS5mb3VuZGF0aW9uLmxheW91dC5Cb3gKaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UuZm91bmRhdGlvbi5sYXlvdXQuQ29sdW1uCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLmZvdW5kYXRpb24ubGF5b3V0LlBhZGRpbmdWYWx1ZXMKaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UuZm91bmRhdGlvbi5sYXlvdXQuUm93CmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLmZvdW5kYXRpb24ubGF5b3V0LmZpbGxNYXhTaXplCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLmZvdW5kYXRpb24ubGF5b3V0LmZpbGxNYXhXaWR0aAppbXBvcnQgYW5kcm9pZHguY29tcG9zZS5mb3VuZGF0aW9uLmxheW91dC5wYWRkaW5nCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLmZvdW5kYXRpb24ubGF5b3V0LnNpemUKaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UuZm91bmRhdGlvbi5sYXlvdXQud2VpZ2h0CmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLmZvdW5kYXRpb24uc2hhcGUuQ2lyY2xlU2hhcGUKaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UuZm91bmRhdGlvbi5zaGFwZS5Sb3VuZGVkQ29ybmVyU2hhcGUKaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UubWF0ZXJpYWwuaWNvbnMuSWNvbnMKaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UubWF0ZXJpYWwuaWNvbnMucm91bmRlZC5Nb3NxdWUKaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UubWF0ZXJpYWwuaWNvbnMucm91bmRlZC5Ob3RpZmljYXRpb25zCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLm1hdGVyaWFsLmljb25zLnJvdW5kZWQuVm9sdW1lT2ZmCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLm1hdGVyaWFsMy5BbGVydERpYWxvZwppbXBvcnQgYW5kcm9pZHguY29tcG9zZS5tYXRlcmlhbDMuQnV0dG9uCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLm1hdGVyaWFsMy5DYXJkCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLm1hdGVyaWFsMy5DYXJkRGVmYXVsdHMKaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UubWF0ZXJpYWwzLkNpcmN1bGFyUHJvZ3Jlc3NJbmRpY2F0b3IKaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UubWF0ZXJpYWwzLkV4cG9zZWREcm9wZG93bk1lbnUKaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UubWF0ZXJpYWwzLkV4cG9zZWREcm9wZG93bk1lbnVCb3gKaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UubWF0ZXJpYWwzLkV4cG9zZWREcm9wZG93bk1lbnVEZWZhdWx0cwppbXBvcnQgYW5kcm9pZHguY29tcG9zZS5tYXRlcmlhbDMuRHJvcGRvd25NZW51SXRlbQppbXBvcnQgYW5kcm9pZHguY29tcG9zZS5tYXRlcmlhbDMuSWNvbgppbXBvcnQgYW5kcm9pZHguY29tcG9zZS5tYXRlcmlhbDMuTWF0ZXJpYWxUaGVtZQppbXBvcnQgYW5kcm9pZHguY29tcG9zZS5tYXRlcmlhbDMuU3VyZmFjZQppbXBvcnQgYW5kcm9pZHguY29tcG9zZS5tYXRlcmlhbDMuU3dpdGNoCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLm1hdGVyaWFsMy5UZXh0CmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLm1hdGVyaWFsMy5UZXh0QnV0dG9uCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLnJ1bnRpbWUuQ29tcG9zYWJsZQppbXBvcnQgYW5kcm9pZHguY29tcG9zZS5ydW50aW1lLmNvbGxlY3RBc1N0YXRlCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLnJ1bnRpbWUuZ2V0VmFsdWUKaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UucnVudGltZS5tdXRhYmxlU3RhdGVPZgppbXBvcnQgYW5kcm9pZHguY29tcG9zZS5ydW50aW1lLnJlbWVtYmVyCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLnJ1bnRpbWUuc2V0VmFsdWUKaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UudWkuQWxpZ25tZW50CmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLnVpLk1vZGlmaWVyCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLnVpLmdyYXBoaWNzLkJydXNoCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLnVpLmdyYXBoaWNzLkNvbG9yCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLnVpLmdyYXBoaWNzLnZlY3Rvci5JbWFnZVZlY3RvcgppbXBvcnQgYW5kcm9pZHguY29tcG9zZS51aS5wbGF0Zm9ybS5Mb2NhbENvbnRleHQKaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UudWkucGxhdGZvcm0udGVzdFRhZwppbXBvcnQgYW5kcm9pZHguY29tcG9zZS51aS50ZXh0LmZvbnQuRm9udFdlaWdodAppbXBvcnQgYW5kcm9pZHguY29tcG9zZS51aS50ZXh0LnN0eWxlLlRleHRPdmVyZmxvdwppbXBvcnQgYW5kcm9pZHguY29tcG9zZS51aS51bml0LmRwCmltcG9ydCBhbmRyb2lkeC5jb21wb3NlLnVpLnVuaXQuc3AKaW1wb3J0IGNvbS5hcmNoaW1lZGVwcm9qZWN0cy5hcmJobmEuZmVhdHVyZS5hbGFybXMuQWxhcm1zVmlld01vZGVsCmltcG9ydCBjb20uYXJjaGltZWRlcHJvamVjdHMuYXJpaG5hLmZlYXR1cmUuYWxhcm1zLmRvbWFpbi5BZGhhblZhcmlhbnQKaW1wb3J0IGNvbS5hcmNoaW1lZGVwcm9qZWN0cy5hcmJobmEuZmVhdHVyZS5hbGFybXMuZG9tYWluLkFsYXJtRGVmaW5pdGlvbgppbXBvcnQgY29tLmFyY2hpbWVkZXByb2plY3RzLmFyaWhuYS5mZWF0dXJlLmFsYXJtcy5kb21haW4uQWxhcm1QcmF5ZXIKaW1wb3J0IGNvbS5hcmNoaW1lZGVwcm9qZWN0cy5hcmJobmEuZmVhdHVyZS5hbGFybXMuZG9tYWluLkFsYXJtUnVsZQppbXBvcnQgY29tLmFyY2hpbWVkZXByb2plY3RzLmFyaWhuYS5mZWF0dXJlLmFsYXJtcy5kb21haW4uQWxhcm1Tb3VuZFByb2ZpbGUKaW1wb3J0IGNvbS5hcmNoaW1lZGVwcm9qZWN0cy5hcmJobmEuZmVhdHVyZS5hbGFybXMucGxhdGZvcm0uQWxhcm1SaW5ndG9uZVBpY2tlcgppbXBvcnQgY29tLmFyY2hpbWVkZXByb2plY3RzLmFyaWhuYS5mZWF0dXJlLnByYXllcnNjaGVkdWxlLnByZXNlbnRhdGlvbi5QcmF5ZXJTY2hlZHVsZVVpU3RhdGUKaW1wb3J0IGNvbS5hcmNoaW1lZGVwcm9qZWN0cy5hcmJobmEuZmVhdHVyZS5wcmF5ZXJzY2hlZHVsZS5wcmVzZW50YXRpb24uUHJheWVyU2NoZWR1bGVWaWV3TW9kZWwKaW1wb3J0IGphdmEudGltZS5JbnN0YW50CmltcG9ydCBqYXZhLnRpbWUuWm9uZUlkCmltcG9ydCBqYXZhLnRpbWUuZm9ybWF0LkRhdGVUaW1lRm9ybWF0dGVyCmltcG9ydCBqYXZhLnV0aWwuTG9jYWxlCgpwcml2YXRlIHZhbCBPcmFyaUl2b3J5ID0gQ29sb3IoMHhGRkZGRjhFQSkKcHJpdmF0ZSB2YWwgT3JhcmlDcmVhbSA9IENvbG9yKDB4RkZGRkZDRjQpCnByaXZhdGUgdmFsIE9yYXJpU2FnZSA9IENvbG9yKDB4RkZFNkVBRDcpCnByaXZhdGUgdmFsIE9yYXJpU2FnZVN0cm9uZyA9IENvbG9yKDB4RkZEN0RGQzIpCnByaXZhdGUgdmFsIE9yYXJpRm9yZXN0ID0gQ29sb3IoMHhGRjE3M0MzMCkKcHJpdmF0ZSB2YWwgT3JhcmlHcmVlbiA9IENvbG9yKDB4RkYwRjUxMzIpCnByaXZhdGUgdmFsIE9yYXJpR29sZCA9IENvbG9yKDB4RkZDNzlCM0IpCgpAQ29tcG9zYWJsZQpmdW4gUHJheWVyVGltZXNSb3V0ZSgKICAgIGNvbnRlbnRQYWRkaW5nOiBQYWRkaW5nVmFsdWVzLAogICAgcHJheWVyU2NoZWR1bGVWaWV3TW9kZWw6IFByYXllclNjaGVkdWxlVmlld01vZGVsLAogICAgYWxhcm1zVmlld01vZGVsOiBBbGFybXNWaWV3TW9kZWwsCikgewogICAgdmFsIHNjaGVkdWxlU3RhdGUgYnkgcHJheWVyU2NoZWR1bGVWaWV3TW9kZWwudWlTdGF0ZS5jb2xsZWN0QXNTdGF0ZSgpCiAgICB2YWwgYWxhcm1zU3RhdGUgYnkgYWxhcm1zVmlld01vZGVsLnVpU3RhdGUuY29sbGVjdEFzU3RhdGUoKQogICAgdmFyIHNvdW5kUnVsZSBieSByZW1lbWJlciB7IG11dGFibGVTdGF0ZU9mPEFsYXJtUnVsZT8+KG51bGwpIH0KCiAgICBQcmF5ZXJUaW1lc1NjcmVlbigKICAgICAgICBjb250ZW50UGFkZGluZyA9IGNvbnRlbnRQYWRkaW5nLAogICAgICAgIHNjaGVkdWxlU3RhdGUgPSBzY2hlZHVsZVN0YXRlLAogICAgICAgIHJ1bGVzID0gYWxhcm1zU3RhdGUucnVsZXMsCiAgICAgICAgb25FbmFibGVkID0gYWxhcm1zVmlld01vZGVsOjpzZXRQcmF5ZXJFbmFibGVkLAogICAgICAgIG9uT3BlblNvdW5kID0geyBzb3VuZFJ1bGUgPSBpdCB9LAogICAgKQoKICAgIHNvdW5kUnVsZT8ubGV0IHsgcnVsZSAtPgogICAgICAgIFByYXllclNvdW5kRGlhbG9nKAogICAgICAgICAgICBydWxlID0gcnVsZSwKICAgICAgICAgICAgb25EaXNtaXNzID0geyBzb3VuZFJ1bGUgPSBudWxsIH0sCiAgICAgICAgICAgIG9uU2F2ZSA9IHsgcHJvZmlsZSwgdXJpLCB0aXRsZSAtPgogICAgICAgICAgICAgICAgYWxhcm1zVmlld01vZGVsLnNldFNvdW5kKHJ1bGUsIHByb2ZpbGUsIHVyaSwgdGl0bGUpCiAgICAgICAgICAgICAgICBzb3VuZFJ1bGUgPSBudWxsCiAgICAgICAgICAgIH0sCiAgICAgICAgKQogICAgfQp9CgpAQ29tcG9zYWJsZQpwcml2YXRlIGZ1biBQcmF5ZXJUaW1lc1NjcmVlbigKICAgIGNvbnRlbnRQYWRkaW5nOiBQYWRkaW5nVmFsdWVzLAogICAgc2NoZWR1bGVTdGF0ZTogUHJheWVyU2NoZWR1bGVVaVN0YXRlLAogICAgcnVsZXM6IExpc3Q8QWxhcm1SdWxlPiwKICAgIG9uRW5hYmxlZDogKEFsYXJtUHJheWVyLCBCb29sZWFuKSAtPiBVbml0LAogICAgb25PcGVuU291bmQ6IChBbGFybVJ1bGUpIC0+IFVuaXQsCikgewogICAgdmFsIHByYXllclJ1bGVzID0gcnVsZXMubWFwTm90TnVsbCB7IHJ1bGUgLT4KICAgICAgICB2YWwgZGVmaW5pdGlvbiA9IHJ1bGUuZGVmaW5pdGlvbiBhcz8gQWxhcm1EZWZpbml0aW9uLlByYXllckxpbmtlZCA/OiByZXR1cm5AbWFwTm90TnVsbCBudWxsCiAgICAgICAgZGVmaW5pdGlvbi5wcmF5ZXIgdG8gcnVsZQogICAgfS50b01hcCgpCgogICAgQm94KAogICAgICAgIG1vZGlmaWVyID0gTW9kaWZpZXIKICAgICAgICAgICAgLmZpbGxNYXhTaXplKCkKICAgICAgICAgICAgLmJhY2tncm91bmQoCiAgICAgICAgICAgICAgICBCcnVzaC52ZXJ0aWNhbEdyYWRpZW50KAogICAgICAgICAgICAgICAgICAgIGxpc3RPZihPcmFyaUl2b3J5LCBPcmFyaUNyZWFtLCBPcmFyaVNhZ2UuY29weShhbHBoYSA9IDAuNTVmKSksCiAgICAgICAgICAgICAgICApLAogICAgICAgICAgICApCiAgICAgICAgICAgIC50ZXN0VGFnKCJwcmF5ZXItdGltZXMtc2NyZWVuIiksCiAgICApIHsKICAgICAgICBDb2x1bW4oCiAgICAgICAgICAgIG1vZGlmaWVyID0gTW9kaWZpZXIKICAgICAgICAgICAgICAgIC5maWxsTWF4U2l6ZSgpCiAgICAgICAgICAgICAgICAucGFkZGluZygKICAgICAgICAgICAgICAgICAgICBzdGFydCA9IDE4LmRwLAogICAgICAgICAgICAgICAgICAgIHRvcCA9IGNvbnRlbnRQYWRkaW5nLmNhbGN1bGF0ZVRvcFBhZGRpbmcoKSArIDE0LmRwLAogICAgICAgICAgICAgICAgICAgIGVuZCA9IDE4LmRwLAogICAgICAgICAgICAgICAgICAgIGJvdHRvbSA9IGNvbnRlbnRQYWRkaW5nLmNhbGN1bGF0ZUJvdHRvbVBhZGRpbmcoKSArIDEwLmRwLAogICAgICAgICAgICAgICAgKSwKICAgICAgICAgICAgdmVydGljYWxBcnJhbmdlbWVudCA9IEFycmFuZ2VtZW50LnNwYWNlZEJ5KDEwLmRwKSwKICAgICAgICApIHsKICAgICAgICAgICAgQ29sdW1uKHZlcnRpY2FsQXJyYW5nZW1lbnQgPSBBcnJhbmdlbWVudC5zcGFjZWRCeSgyLmRwKSkgewogICAgICAgICAgICAgICAgVGV4dCgKICAgICAgICAgICAgICAgICAgICAiT3JhcmkiLAogICAgICAgICAgICAgICAgICAgIGNvbG9yID0gT3JhcmlGb3Jlc3QsCiAgICAgICAgICAgICAgICAgICAgZm9udFNpemUgPSAzMi5zcCwKICAgICAgICAgICAgICAgICAgICBmb250V2VpZ2h0ID0gRm9udFdlaWdodC5FeHRyYUJvbGQsCiAgICAgICAgICAgICAgICApCiAgICAgICAgICAgICAgICBUZXh0KAogICAgICAgICAgICAgICAgICAgICJPcmFyaSBkaSBwcmVnaGllcmEgZSBwcm9tZW1vcmlhIiwKICAgICAgICAgICAgICAgICAgICBjb2xvciA9IE9yYXJpRm9yZXN0LmNvcHkoYWxwaGEgPSAwLjY4ZiksCiAgICAgICAgICAgICAgICAgICAgc3R5bGUgPSBNYXRlcmlhbFRoZW1lLnR5cG9ncmFwaHkuYm9keU1lZGl1bSwKICAgICAgICAgICAgICAgICkKICAgICAgICAgICAgfQoKICAgICAgICAgICAgd2hlbiAoc2NoZWR1bGVTdGF0ZSkgewogICAgICAgICAgICAgICAgUHJheWVyU2NoZWR1bGVVaVN0YXRlLkxvYWRpbmcgLT4gQm94KAogICAgICAgICAgICAgICAgICAgIG1vZGlmaWVyID0gTW9kaWZpZXIud2VpZ2h0KDFmKS5maWxsTWF4V2lkdGgoKSwKICAgICAgICAgICAgICAgICAgICBjb250ZW50QWxpZ25tZW50ID0gQWxpZ25tZW50LkNlbnRlciwKICAgICAgICAgICAgICAgICkgeyBDaXJjdWxhclByb2dyZXNzSW5kaWNhdG9yKGNvbG9yID0gT3JhcmlHcmVlbikgfQoKICAgICAgICAgICAgICAgIGlzIFByYXllclNjaGVkdWxlVWlTdGF0ZS5Ob0xvY2F0aW9uIC0+IFN0YXR1c0NhcmQoc2NoZWR1bGVTdGF0ZS5tZXNzYWdlKQogICAgICAgICAgICAgICAgaXMgUHJheWVyU2NoZWR1bGVVaVN0YXRlLkNhbGN1bGF0aW9uVW5hdmFpbGFibGUgLT4gU3RhdHVzQ2FyZChzY2hlZHVsZVN0YXRlLm1lc3NhZ2UpCgogICAgICAgICAgICAgICAgaXMgUHJheWVyU2NoZWR1bGVVaVN0YXRlLlJlYWR5IC0+IHsKICAgICAgICAgICAgICAgICAgICBTdXJmYWNlKAogICAgICAgICAgICAgICAgICAgICAgICBzaGFwZSA9IFJvdW5kZWRDb3JuZXJTaGFwZSg5OTkuZHApLAogICAgICAgICAgICAgICAgICAgICAgICBjb2xvciA9IE9yYXJpU2FnZSwKICAgICAgICAgICAgICAgICAgICApIHsKICAgICAgICAgICAgICAgICAgICAgICAgVGV4dCgKICAgICAgICAgICAgICAgICAgICAgICAgICAgICJPZ2dpIMKAwrYgJHtzY2hlZHVsZVN0YXRlLmxvY2F0aW9uLmRpc3BsYXlOYW1lfSIsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICBjb2xvciA9IE9yYXJpRm9yZXN0LAogICAgICAgICAgICAgICAgICAgICAgICAgICAgbW9kaWZpZXIgPSBNb2RpZmllci5wYWRkaW5nKGhvcml6b250YWwgPSAxNC5kcCwgdmVydGljYWwgPSA3LmRwKSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgIGZvbnRXZWlnaHQgPSBGb250V2VpZ2h0LlNlbWlCb2xkLAogICAgICAgICAgICAgICAgICAgICAgICApCiAgICAgICAgICAgICAgICAgICAgfQoKICAgICAgICAgICAgICAgICAgICB2YWwgem9uZSA9IHNjaGVkdWxlU3RhdGUudG9kYXkuem9uZUlkCiAgICAgICAgICAgICAgICAgICAgdmFsIHJvd3MgPSBsaXN0T2YoCiAgICAgICAgICAgICAgICAgICAgICAgIFRyaXBsZShBbGFybVByYXllci5GQUpSLCAiRmFqciIsIHNjaGVkdWxlU3RhdGUudG9kYXkudGltZXMuZmFqciksCiAgICAgICAgICAgICAgICAgICAgICAgIFRyaXBsZShBbGFybVByYXllci5ESFVIUiwgIkRodWhyIiwgc2NoZWR1bGVTdGF0ZS50b2RheS50aW1lcy5kaHVo ciksCiAgICAgICAgICAgICAgICAgICAgICAgIFRyaXBsZShBbGFybVByYXllci5BU1IsICJBc3IiLCBzY2hlZHVsZVN0YXRlLnRvZGF5LnRpbWVzLmFzciksCiAgICAgICAgICAgICAgICAgICAgICAgIFRyaXBsZShBbGFybVByYXllci5NQUdIUklCLCAiTWFnaHJpYiIsIHNjaGVkdWxlU3RhdGUudG9kYXkudGltZXMubWFnaHJpYiksCiAgICAgICAgICAgICAgICAgICAgICAgIFRyaXBsZShBbGFybVByYXllci5JU0hBLCAiSXNoYSIsIHNjaGVkdWxlU3RhdGUudG9kYXkudGltZXMuaXNoYSksCiAgICAgICAgICAgICAgICAgICAgKQoKICAgICAgICAgICAgICAgICAgICBDb2x1bW4oCiAgICAgICAgICAgICAgICAgICAgICAgIG1vZGlmaWVyID0gTW9kaWZpZXIud2VpZ2h0KDFmKS5maWxsTWF4V2lkdGgoKSwKICAgICAgICAgICAgICAgICAgICAgICAgdmVydGljYWxBcnJhbmdlbWVudCA9IEFycmFuZ2VtZW50LnNwYWNlZEJ5KDYuZHApLAogICAgICAgICAgICAgICAgICAgICkgewogICAgICAgICAgICAgICAgICAgICAgICByb3dzLmZvckVhY2ggeyAocHJheWVyLCBsYWJlbCwgaW5zdGFudCkgLT4KICAgICAgICAgICAgICAgICAgICAgICAgICAgIFByYXllclJlbWluZGVyUm93KAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHByYXllciA9IHByYXllciwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBsYWJlbCA9IGxhYmVsLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHRpbWUgPSBmb3JtYXRUaW1lKGluc3RhbnQsIHpvbmUpLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHJ1bGUgPSBwcmF5ZXJSdWxlc1twcmF5ZXJdLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIG9uRW5hYmxlZCA9IHsgb25FbmFibGVkKHByYXllciwgaXQpIH0sCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgb25PcGVuU291bmQgPSBvbk9wZW5Tb3VuZCwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICApCiAgICAgICAgICAgICAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICAgICAgfQogICAgICAgICAgICAgICAgfQogICAgICAgICAgICB9CiAgICB9Cn0KCkBDb21wb3NhYmxlCnByaXZhdGUgZnVuIFN0YXR1c0NhcmQobWVzc2FnZTogU3RyaW5nKSB7CiAgICBDYXJkKAogICAgICAgIG1vZGlmaWVyID0gTW9kaWZpZXIuZmlsbE1heFdpZHRoKCksCiAgICAgIHNoYXBlID0gUm91bmRlZENvcm5lclNoYXBlKDI0LmRwKSwKICAgICAgICBjb2xvcnMgPSBDYXJkRGVmYXVsdHMuY2FyZENvbG9ycyhjb250YWluZXJDb2xvciA9IE9yYXJpQ3JlYW0pLAogICAgKSB7CiAgICAgICAgVGV4dCgKICAgICAgICAgICAgbWVzc2FnZSwKICAgICAgICAgICAgbW9kaWZpZXIgPSBNb2RpZmllci5wYWRkaW5nKDIwLmRwKSwKICAgICAgICAgICAgY29sb3IgPSBPcmFyaUZvcmVzdCwKICAgICAgICApCiAgICB9Cn0KCkBDb21wb3NhYmxlCnByaXZhdGUgZnVuIFByYXllclJlbWluZGVyUm93KAogICAgcHJheWVyOiBBbGFybVByYXllciwKICAgIGxhYmVsOiBTdHJpbmcsCiAgICB0aW1lOiBTdHJpbmcsCiAgICBydWxlOiBBbGFybVJ1bGU/LAogICAgb25FbmFibGVkOiAoQm9vbGVhbikgLT4gVW5pdCwKICAgIG9uT3BlblNvdW5kOiAoQWxhcm1SdWxlKSAtPiBVbml0LAopIHsKICAgIHZhbCBlbmFibGVkID0gcnVsZT8uZW5hYmxlZCA9PSB0cnVlCiAgICBDYXJkKAogICAgICAgIG1vZGlmaWVyID0gTW9kaWZpZXIKICAgICAgICAgICAgLmZpbGxNYXhXaWR0aCgpCiAgICAgICAgICAgIC53ZWlnaHQoMWYpCiAgICAgICAgICAgIC50ZXN0VGFnKCJwcmF5ZXItcmVtaW5kZXItJHtwcmF5ZXIubmFtZS5sb3dlcmNhc2UoKX0iKSwKICAgICAgICBzaGFwZSA9IFJvdW5kZWRDb3JuZXJTaGFwZSgxOC5kcCksCiAgICAgICAgY29sb3JzID0gQ2FyZERlZmF1bHRzLmNhcmRDb2xvcnMoCiAgICAgICAgICAgIGNvbnRhaW5lckNvbG9yID0gaWYgKGVuYWJsZWQpIE9yYXJpU2FnZVN0cm9uZyBlbHNlIE9yYXJpQ3JlYW0sCiAgICAgICAgKSwKICAgICkgewogICAgICAgIFJvdygKICAgICAgICAgICAgbW9kaWZpZXIgPSBNb2RpZmllci5maWxsTWF4U2l6ZSgpLnBhZGRpbmcoaG9yaXpvbnRhbCA9IDE0LmRwLCB2ZXJ0aWNhbCA9IDguZHApLAogICAgICAgICAgICB2ZXJ0aWNhbEFsaWdubWVudCA9IEFsaWdubWVudC5DZW50ZXJWZXJ0aWNhbGx5LAogICAgICAgICAgICBob3Jpem9udGFsQXJyYW5nZW1lbnQgPSBBcnJhbmdlbWVudC5zcGFjZWRCeSgxMC5kcCksCiAgICAgICkgewogICAgICAgICAgICBDb2x1bW4oTW9kaWZpZXIud2VpZ2h0KDFmKSkgewogICAgICAgICAgICAgICAgVGV4dChsYWJlbCwgY29sb3IgPSBPcmFyaUZvcmVzdCwgZm9udFdlaWdodCA9IEZvbnRXZWlnaHQuRXh0cmFCb2xkKQogICAgICAgICAgICAgICAgVGV4dCgKICAgICAgICAgICAgICAgICAgICB0aW1lLAogICAgICAgICAgICAgICAgICAgIGNvbG9yID0gT3JhcmlHcmVlbiwKICAgICAgICAgICAgICAgICAgICBmb250U2l6ZSA9IDI0LnNwLAogICAgICAgICAgICAgICAgICAgIGZvbnRXZWlnaHQgPSBGb250V2VpZ2h0LkJvbGQsCiAgICAgICAgICAgICAgICApCiAgICAgICAgICAgIH0KICAgICAgICAgICAgaWYgKHJ1bGUgIT0gbnVsbCkgewogICAgICAgICAgICAgICAgU291bmRJY29uQnV0dG9uKAogICAgICAgICAgICAgICAgICAgIHJ1bGUgPSBydWxlLAogICAgICAgICAgICAgICAgICAgIG9uQ2xpY2sgPSB7IG9uT3BlblNvdW5kKHJ1bGUpIH0sCiAgICAgICAgICAgICAgICApCiAgICAgICAgICAgIH0KICAgICAgICAgICAgU3dpdGNoKAogICAgICAgICAgICAgICAgY2hlY2tlZCA9IGVuYWJsZWQsCiAgICAgICAgICAgICAgICBvbkNoZWNrZWRDaGFuZ2UgPSBvbkVuYWJsZWQsCiAgICAgICAgICAgICAgICBtb2RpZmllciA9IE1vZGlmaWVyLnRlc3RUYWcoInByYXllci1yZW1pbmRlci0ke3ByYXllci5uYW1lLmxvd2VyY2FzZSgpfS1zd2l0Y2giKSwKICAgICAgICAgICAgKQogICAgICAgIH0KICAgIH0KfQoKQENvbXBvc2FibGUKcHJpdmF0ZSBmdW4gU291bmRJY29uQnV0dG9uKAogICAgcnVsZTogQWxhcm1SdWxlLAogICAgb25DbGljazogKCkgLT4gVW5pdCwKKSB7CiAgICB2YWwgKGljb24sIGRlc2NyaXB0aW9uKSA9IHdoZW4gKHJ1bGUuc291bmRQcm9maWxlKSB7CiAgICAgICAgQWxhcm1Tb3VuZFByb2ZpbGUuQURIQU4gLT4gSWNvbnMuUm91bmRlZC5Nb3NxdWUgdG8gIkFkaGFuOiAke0FkaGFuVmFyaWFudC5mcm9tU3RvcmFnZShydWxlLnJpbmd0b25lVXJpKS5kaXNwbGF5TmFtZX0iCiAgICAgICAgQWxhcm1Tb3VuZFByb2ZpbGUuU1lTVEVNX0RFRkFVTFQgLT4gSWNvbnMuUm91bmRlZC5Ob3RpZmljYXRpb25zIHRvICJTdW9uZXJpYTogJHtydWxlLnJpbmd0b25lVGl0bGUgPzogInByZWRlZmluaXRhIn0iCiAgICAgICAgQWxhcm1Tb3VuZFByb2ZpbGUuU0lMRU5UIC0+IEljb25zLlJvdW5kZWQuVm9sdW1lT2ZmIHRvICJTaWxlbnppb3NvIgogICAgfQogICAgU3VyZmFjZSgKICAgICAgICBzaGFwZSA9IENpcmNsZVNoYXBlLAogICAgICAgIGNvbG9yID0gaWYgKHJ1bGUuZW5hYmxlZCkgT3JhcmlHcmVlbiBlbHNlIE9yYXJpU2FnZVN0cm9uZywKICAgICAgICBjb250ZW50Q29sb3IgPSBpZiAocnVsZS5lbmFibGVkKSBPcmFyaUNyZWFtIGVsc2UgT3JhcmlGb3Jlc3QsCiAgICAgICAgbW9kaWZpZXIgPSBNb2RpZmllcgogICAgICAgICAgICAuc2l6ZSg0NC5kcCkKICAgICAgICAgICAgLmNsaWNrYWJsZShvbkNsaWNrID0gb25DbGljayksCiAgICApIHsKICAgICAgICBCb3goTW9kaWZpZXIuZmlsbE1heFNpemUoKSwgY29udGVudEFsaWdubWVudCA9IEFsaWdubWVudC5DZW50ZXIpIHsKICAgICAgICAgICAgSWNvbihpbWFnZVZlY3RvciA9IGljb24sIGNvbnRlbnREZXNjcmlwdGlvbiA9IGRlc2NyaXB0aW9uKQogICAgICAgIH0KICAgIH0KfQoKQENvbXBvc2FibGUKcHJpdmF0ZSBmdW4gUHJheWVyU291bmREaWFsb2coCiAgICBydWxlOiBBbGFybVJ1bGUsCiAgICBvbkRpc21pc3M6ICgpIC0+IFVuaXQsCiAgICBvblNhdmU6IChBbGFybVNvdW5kUHJvZmlsZSwgU3RyaW5nPywgU3RyaW5nPykgLT4gVW5pdCwKKSB7CiAgICB2YWwgY29udGV4dCA9IExvY2FsQ29udGV4dC5jdXJyZW50CiAgICB2YXIgcHJvZmlsZSBieSByZW1lbWJlcihydWxlLmFsYXJtSWQsIHJ1bGUucmV2aXNpb24pIHsgbXV0YWJsZVN0YXRlT2YocnVsZS5zb3VuZFByb2ZpbGUpIH0KICAgIHZhciBhZGhhblZhcmlhbnQgYnkgcmVtZW1iZXIocnVsZS5hbGFybUlkLCBydWxlLnJldmlzaW9uKSB7CiAgICAgICAgbXV0YWJsZVN0YXRlT2YoQWRoYW5WYXJpYW50LmZyb21TdG9yYWdlKHJ1bGUucmluZ3RvbmVVcmkpKQogICAgfQogICAgdmFyIHJpbmd0b25lVXJpIGJ5IHJlbWVtYmVyKHJ1bGUuYWxhcm1JZCwgcnVsZS5yZXZpc2lvbikgeyBtdXRhYmxlU3RhdGVPZihydWxlLnJpbmd0b25lVXJpKSB9CiAgICB2YXIgcmluZ3RvbmVUaXRsZSBieSByZW1lbWJlcihydWxlLmFsYXJtSWQsIHJ1bGUucmV2aXNpb24pIHsgbXV0YWJsZVN0YXRlT2YocnVsZS5yaW5ndG9uZVRpdGxlKSB9CiAgICB2YWwgcm luZ3RvbmVMYXVuY2hlciA9IHJlbWVtYmVyTGF1bmNoZXJGb3JBY3Rpdml0eVJlc3VsdChBY3Rpdml0eVJlc3VsdENvbnRyYWN0cy5TdGFydEFjdGl2aXR5Rm9yUmVzdWx0KCkpIHsgcmVzdWx0IC0+CiAgICAgICAgaWYgKHJlc3VsdC5yZXN1bHRDb2RlID09IEFjdGl2aXR5LlJFU1VMVF9PSykgewogICAgICAgICAgICBBbGFybVJpbmd0b25lUGlja2VyLnBpY2tlZFVyaShyZXN1bHQuZGF0YSk/LmxldCB7IHVyaSAtPgogICAgICAgICAgICAgICAgcmluZ3RvbmVVcmkgPSB1cmkudG9TdHJpbmcoKQogICAgICAgICAgICAgICAgcmluZ3RvbmVUaXRsZSA9IEFsYXJtUmluZ3RvbmVQaWNrZXIudGl0bGUoY29udGV4dCwgdXJpKSA/OiAiU3VvbmVyaWEgdGVsZWZvbm8iCiAgICAgICAgICAgICAgICBwcm9maWxlID0gQWxhcm1Tb3VuZFByb2ZpbGUuU1lTVEVNX0RFRkFVTFQKICAgICAgICAgICAgfQogICAgICAgIH0KICAgIH0KCiAgICBBbGVydERpYWxvZygKICAgICAgICBvbkRpc21pc3NSZXF1ZXN0ID0gb25EaXNtaXNzLAogICAgICAgIHRpdGxlID0geyBUZXh0KCJTdW9ubyBwcm9tZW1vcmlhIiwgY29sb3IgPSBPcmFyaUZvcmVzdCkgfSwKICAgICAgICBjb250YWluZXJDb2xvciA9IE9yYXJpQ3JlYW0sCiAgICAgICAgdGV4dCA9IHsKICAgICAgICAgICAgQ29sdW1uKHZlcnRpY2FsQXJyYW5nZW1lbnQgPSBBcnJhbmdlbWVudC5zcGFjZWRCeSg4LmRwKSkgewogICAgICAgICAgICAgICAgVGV4dCgiQWRoYW4iLCBmb250V2VpZ2h0ID0gRm9udFdlaWdodC5FeHRyYUJvbGQsIGNvbG9yID0gT3JhcmlGb3Jlc3QpCiAgICAgICAgICAgICAgICBBZGhhblZhcmlhbnQuZW50cmllcy5mb3JFYWNoIHsgdmFyaWFudCAtPgogICAgICAgICAgICAgICAgICAgIFNvdW5kTGlzdFJvdygKICAgICAgICAgICAgICAgICAgICAgICAgdGl0bGUgPSB2YXJpYW50LmRpc3BsYXlOYW1lLAogICAgICAgICAgICAgICAgICAgICAgICBpY29uID0gSWNvbnMuUm91bmRlZC5Nb3NxdWUsCiAgICAgICAgICAgICAgICAgICAgICAgIHNlbGVjdGVkID0gcHJvZmlsZSA9PSBBbGFybVNvdW5kUHJvZmlsZS5BREhBTiAmJiBhZGhhblZhcmlhbnQgPT0gdmFyaWFudCwKICAgICAgICAgICAgICAgICAgICApIHsKICAgICAgICAgICAgICAgICAgICAgICAgcHJvZmlsZSA9IEFsYXJtU291bmRQcm9maWxlLkFESEFOCiAgICAgICAgICAgICAgICAgICAgICAgIGFkaGFuVmFyaWFudCA9IHZhcmlhbnQKICAgICAgICAgICAgICAgICAgICAgICAgcmluZ3RvbmVVcmkgPSB2YXJpYW50LnN0b3JhZ2VWYWx1ZQogICAgICAgICAgICAgICAgICAgICAgICByaW5ndG9uZVRpdGxlID0gdmFyaWFudC5kaXNwbGF5TmFtZQogICAgICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgIFNvdW5kTGlzdFJvdygKICAgICAgICAgICAgICAgICAgICB0aXRsZSA9ICJTdW9uZXJpYSB0ZWxlZm9ubyIsCiAgICAgICAgICAgICAgICAgICAgaWNvbiA9IEljb25zLlJvdW5kZWQuTm90aWZpY2F0aW9ucywKICAgICAgICAgICAgICAgICAgICBzZWxlY3RlZCA9IHByb2ZpbGUgPT0gQWxhcm1Tb3VuZFByb2ZpbGUuU1lTVEVNX0RFRkFVTFQsCiAgICAgICAgICAgICAgICApIHsKICAgICAgICAgICAgICAgICAgICBwcm9maWxlID0gQWxhcm1Tb3VuZFByb2ZpbGUuU1lTVEVNX0RFRkFVTFQKICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgIGlmIChwcm9maWxlID09IEFsYXJtU291bmRQcm9maWxlLlNZU1RFTV9ERUZBVUxUKSB7CiAgICAgICAgICAgICAgICAgICAgVGV4dEJ1dHRvbigKICAgICAgICAgICAgICAgICAgICAgICAgb25DbGljayA9IHsgcmluZ3RvbmVMYXVuY2hlci5sYXVuY2goQWxhcm1SaW5ndG9uZVBpY2tlci5jcmVhdGVJbnRlbnQocmluZ3RvbmVVcmkpKSB9LAogICAgICAgICAgICAgICAgICAgICkgeyBUZXh0KHJpbmd0b25lVGl0bGUgPzogIlNjZWdsaSBzdW9uZXJpYSIpIH0KICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgIFNvdW5kTGlzdFJvdygKICAgICAgICAgICAgICAgICAgICB0aXRsZSA9ICJTaWxlbnppb3NvIiwKICAgICAgICAgICAgICAgICAgICBpY29uID0gSWNvbnMuUm91bmRlZC5Wb2x1bWVPZmYsCiAgICAgICAgICAgICAgICAgICAgc2VsZWN0ZWQgPSBwcm9maWxlID09IEFsYXJtU291bmRQcm9maWxlLlNJTEVOVCwKICAgICAgICAgICAgICAgICkgewogICAgICAgICAgICAgICAgICAgIHByb2ZpbGUgPSBBbGFybVNvdW5kUHJvZmlsZS5TSUxFTlQKICAgICAgICAgICAgICAgICAgICByaW5ndG9uZVVyaSA9IG51bGwKICAgICAgICAgICAgICAgICAgICByaW5ndG9uZVRpdGxlID0gbnVsbAogICAgICAgICAgICAgICAgfQogICAgICAgICAgICB9CiAgICAgICAgfSwKICAgICAgICBjb25maXJtQnV0dG9uID0gewogICAgICAgICAgICBCdXR0b24oCiAgICAgICAgICAgICAgICBvbkNsaWNrID0gewogICAgICAgICAgICAgICAgICAgIHZhbCBzdG9yZWRVcmlJZiBBZGhhbiA9IGlmIChwcm9maWxlID09IEFsYXJtU291bmRQcm9maWxlLkFESEFOKSBhZGhhblZhcmlhbnQuc3RvcmFnZVZhbHVlIGVsc2UgcmluZ3RvbmVVcmkKICAgICAgICAgICAgICAgICAgICB2YWwgc3RvcmVkVGl0bGUgPSBpZiAocHJvZmlsZSA9PSBBbGFybVNvdW5kUHJvZmlsZS5BREhBTikgYWRoYW5WYXJpYW50LmRpc3BsYXlOYW1lIGVsc2UgcmluZ3RvbmVUaXRsZQogICAgICAgICAgICAgICAgICAgIG9uU2F2ZShwcm9maWxlLCBzdG9yZWRVcmksIHN0b3JlZFRpdGxlKQogICAgICAgICAgICAgICAgfSwKICAgICAgICAgICAgKSB7IFRleHQoIkNvbmZlcm1hIikgfQogICAgICAgIH0sCiAgICAgICAgZGlzbWlzc0J1dHRvbiA9IHsgVGV4dEJ1dHRvbihvbkNsaWNrID0gb25EaXNtaXNzKSB7IFRleHQoIkNoaXVkaSIpIH0gfSwKICAgICkKfQoKQENvbXBvc2FibGUKcHJpdmF0ZSBmdW4gU291bmRMaXN0Um93KAogICAgdGl0bGU6IFN0cmluZywKICAgIGljb246IEltYWdlVmVjdG9yLAogICAgc2VsZWN0ZWQ6IEJvb2xlYW4sCiAgICBvbkNsaWNrOiAoKSAtPiBVbml0LAopIHsKICAgIFN1cmZhY2UoCiAgICAgICAgbW9kaWZpZXIgPSBNb2RpZmllci5maWxsTWF4V2lkdGgoKS5jbGlja2FibGUob25DbGljayA9IG9uQ2xpY2spLAogICAgICAgIHNoYXBlID0gUm91bmRlZENvcm5lclNoYXBlKDE0LmRwKSwKICAgICAgICBjb2xvciA9IGlmIChzZWxlY3RlZCkgT3JhcmlTYWdlU3Ryb25nIGVsc2BDb2xvci5UcmFuc3BhcmVudCwKICAgICkgewogICAgICAgIFJvdygKICAgICAgICAgICAgbW9kaWZpZXIgPSBNb2RpZmllci5maWxsTWF4V2lkdGgoKS5wYWRkaW5nKGhvcml6b250YWwgPSAxMC5kcCwgdmVydGljYWwgPSA4LmRwKSwKICAgICAgICAgICAgdmVydGljYWxBbGlnbm1lbnQgPSBBbGlnbm1lbnQuQ2VudGVyVmVydGljYWxseSwKICAgICAgICAgICAgaG9yaXpvbnRhbEFycmFuZ2VtZW50ID0gQXJyYW5nZW1lbnQuc3BhY2VkQnkoMTIuZHApLAogICAgICAgICkgewogICAgICAgICAgICBJY29uKGljb24sIGNvbnRlbnREZXNjcmlwdGlvbiA9IG51bGwsIHRpbnQgPSBPcmFyaUZvcmVzdCkKICAgICAgICAgICAgVGV4dCh0aXRsZSwgbW9kaWZpZXIgPSBNb2RpZmllci53ZWlnaHQoMWYpLCBjb2xvciA9IE9yYXJpRm9yZXN0LCBmb250V2VpZ2h0ID0gRm9udFdlaWdodC5TZW1pQm9sZCkKICAgICAgICAgICAgaWYgKHNlbGVjdGVkKSB7CiAgICAgICAgICAgICAgICBTdXJmYWNlKHNoYXBlID0gQ2lyY2xlU2hhcGUsIGNvbG9yID0gT3JhcmlHb2xkLCBtb2RpZmllciA9IE1vZGlmaWVyLnNpemUoMTAuZHApKSB7fQogICAgICAgICAgICB9CiAgICAgICAgfQogICAgfQp9Cgpwcml2YXRlIGZ1biBmb3JtYXRUaW1lKGluc3RhbnQ6IEluc3RhbnQsIHpvbmVJZDogWm9uZUlkKTogU3RyaW5nID0KICAgIFRJTUVfRk9STUFUVEVSLndpdGhab25lKHpvbmVJZCkuZm9ybWF0KGluc3RhbnQpCgpwcml2YXRlIHZhbCBUSU1FX0ZPUk1BVFRFUiA9IERhdGVUaW1lRm9ybWF0dGVyLm9mUGF0dGVybigiSEg6bW0iLCBMb2NhbGUuSVRBTElBTik=
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ env.SPEC_SHA }}
-      - name: Verify exact shared spec
-        run: test "$(git rev-parse HEAD)" = "$SPEC_SHA"
-      - name: Restore frozen GeoNames and verify existing Adhan
+      - name: Preserve driver payload and return to exact spec
+        run: |
+          cp .github/payloads/PrayerTimesPlaceholderScreen.kt /tmp/PrayerTimesPlaceholderScreen.kt
+          git checkout --detach "$SPEC_SHA"
+          test "$(git rev-parse HEAD)" = "$SPEC_SHA"
+      - name: Restore frozen assets
         env:
           GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
           ADHAN_SHA256: 3b350bc210d657727578ed977e32323c06b63c2088c3ebcea9fc9afb7d487702
@@ -33,89 +34,89 @@ jobs:
           unzip -p /tmp/geonames/arihna-settings-s25-premium.apk assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
           echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
           echo "$ADHAN_SHA256  app/src/main/res/raw/adhan_cc0.ogg" | sha256sum -c -
-      - name: Download two additional CC0 Adhan recordings
+      - name: Download distinct CC0 Adhan recordings
         run: |
-          curl -L --fail --retry 3 --retry-delay 2 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Beautiful%20adhan.ogg' -o app/src/main/res/raw/adhan_beautiful_cc0.ogg
-          curl -L --fail --retry 3 --retry-delay 2 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Adhan.ogg' -o app/src/main/res/raw/adhan_short_cc0.ogg
+          curl -L --fail --retry 3 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Beautiful%20adhan.ogg' -o app/src/main/res/raw/adhan_beautiful_cc0.ogg
+          curl -L --fail --retry 3 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Adhan.ogg' -o app/src/main/res/raw/adhan_short_cc0.ogg
           test -s app/src/main/res/raw/adhan_beautiful_cc0.ogg
           test -s app/src/main/res/raw/adhan_short_cc0.ogg
           file app/src/main/res/raw/adhan_beautiful_cc0.ogg | grep -Ei 'Ogg|Vorbis'
           file app/src/main/res/raw/adhan_short_cc0.ogg | grep -Ei 'Ogg|Vorbis'
-      - name: Write Orari screen and audio plumbing
+      - name: Apply Orari implementation
         run: |
-          printf '%s' "$PRAYER_SCREEN_B64" | base64 -d > app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt
+          cp /tmp/PrayerTimesPlaceholderScreen.kt app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt
           python3 - <<'PY'
           from pathlib import Path
 
           models = Path('app/src/main/java/com/archimedeprojects/arihna/feature/alarms/domain/AlarmModels.kt')
           text = models.read_text()
-          marker = """enum class AlarmSoundProfile {
-    ADHAN,
-    SYSTEM_DEFAULT,
-    SILENT,
-}
-"""
-          addition = marker + """
-enum class AdhanVariant(
-    val storageId: String,
-    val displayName: String,
-) {
-    CLASSIC("classic", "Adhan classico"),
-    BEAUTIFUL("beautiful", "Adhan armonioso"),
-    SHORT("short", "Adhan breve"),
-    ;
+          marker = '''enum class AlarmSoundProfile {
+              ADHAN,
+              SYSTEM_DEFAULT,
+              SILENT,
+          }
+          '''.replace('          ', '')
+          addition = marker + '''
+          enum class AdhanVariant(
+              val storageId: String,
+              val displayName: String,
+          ) {
+              CLASSIC("classic", "Adhan classico"),
+              BEAUTIFUL("beautiful", "Adhan armonioso"),
+              SHORT("short", "Adhan breve"),
+              ;
 
-    val storageValue: String = "arihna://adhan/$storageId"
+              val storageValue: String = "arihna://adhan/$storageId"
 
-    companion object {
-        fun fromStorage(value: String?): AdhanVariant =
-            entries.firstOrNull { it.storageValue == value } ?: CLASSIC
-    }
-}
-"""
+              companion object {
+                  fun fromStorage(value: String?): AdhanVariant =
+                      entries.firstOrNull { it.storageValue == value } ?: CLASSIC
+              }
+          }
+          '''.replace('          ', '')
           assert marker in text and 'enum class AdhanVariant' not in text
           models.write_text(text.replace(marker, addition, 1))
 
           vm = Path('app/src/main/java/com/archimedeprojects/arihna/feature/alarms/AlarmsViewModel.kt')
           text = vm.read_text()
-          old = """        val targetUri = if (soundProfile == AlarmSoundProfile.SYSTEM_DEFAULT) ringtoneUri else null
-        val targetTitle = if (soundProfile == AlarmSoundProfile.SYSTEM_DEFAULT) ringtoneTitle else null
-"""
-          new = """        val keepSelectionMetadata = soundProfile != AlarmSoundProfile.SILENT
-        val targetUri = if (keepSelectionMetadata) ringtoneUri else null
-        val targetTitle = if (keepSelectionMetadata) ringtoneTitle else null
-"""
+          old = '''        val targetUri = if (soundProfile == AlarmSoundProfile.SYSTEM_DEFAULT) ringtoneUri else null
+          val targetTitle = if (soundProfile == AlarmSoundProfile.SYSTEM_DEFAULT) ringtoneTitle else null
+          '''.replace('          ', '')
+          new = '''        val keepSelectionMetadata = soundProfile != AlarmSoundProfile.SILENT
+          val targetUri = if (keepSelectionMetadata) ringtoneUri else null
+          val targetTitle = if (keepSelectionMetadata) ringtoneTitle else null
+          '''.replace('          ', '')
           assert old in text
           vm.write_text(text.replace(old, new, 1))
 
           service = Path('app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt')
           text = service.read_text()
-          import_marker = 'import com.archimedeprojects.arihna.feature.alarms.domain.AlarmDefinition\n'
-          assert import_marker in text and 'domain.AdhanVariant' not in text
-          text = text.replace(import_marker, 'import com.archimedeprojects.arihna.feature.alarms.domain.AdhanVariant\n' + import_marker, 1)
-          old = """                resources.openRawResourceFd(R.raw.adhan_cc0).use { descriptor ->
-                    player.setDataSource(
-                        descriptor.fileDescriptor,
-                        descriptor.startOffset,
-                        descriptor.length,
-                    )
-                }"""
-          new = """                val rawResource = when (AdhanVariant.fromStorage(selectedRingtoneUri)) {
-                    AdhanVariant.CLASSIC -> R.raw.adhan_cc0
-                    AdhanVariant.BEAUTIFUL -> R.raw.adhan_beautiful_cc0
-                    AdhanVariant.SHORT -> R.raw.adhan_short_cc0
-                }
-                resources.openRawResourceFd(rawResource).use { descriptor ->
-                    player.setDataSource(
-                        descriptor.fileDescriptor,
-                        descriptor.startOffset,
-                        descriptor.length,
-                    )
-                }"""
+          marker = 'import com.archimedeprojects.arihna.feature.alarms.domain.AlarmDefinition\n'
+          assert marker in text and 'domain.AdhanVariant' not in text
+          text = text.replace(marker, 'import com.archimedeprojects.arihna.feature.alarms.domain.AdhanVariant\n' + marker, 1)
+          old = '''                resources.openRawResourceFd(R.raw.adhan_cc0).use { descriptor ->
+                      player.setDataSource(
+                          descriptor.fileDescriptor,
+                          descriptor.startOffset,
+                          descriptor.length,
+                      )
+                  }'''.replace('                  ', '')
+          new = '''                val rawResource = when (AdhanVariant.fromStorage(selectedRingtoneUri)) {
+                      AdhanVariant.CLASSIC -> R.raw.adhan_cc0
+                      AdhanVariant.BEAUTIFUL -> R.raw.adhan_beautiful_cc0
+                      AdhanVariant.SHORT -> R.raw.adhan_short_cc0
+                  }
+                  resources.openRawResourceFd(rawResource).use { descriptor ->
+                      player.setDataSource(
+                          descriptor.fileDescriptor,
+                          descriptor.startOffset,
+                          descriptor.length,
+                      )
+                  }'''.replace('                  ', '')
           assert old in text
           service.write_text(text.replace(old, new, 1))
           PY
-      - name: Add provenance and tests
+      - name: Add provenance and variant tests
         run: |
           mkdir -p docs/audio app/src/test/java/com/archimedeprojects/arihna/feature/alarms/domain
           BEAUTIFUL_SHA=$(sha256sum app/src/main/res/raw/adhan_beautiful_cc0.ogg | awk '{print $1}')
@@ -123,11 +124,9 @@ enum class AdhanVariant(
           cat > docs/audio/ADHAN_SOURCES.md <<EOF
           # Arihna bundled Adhan audio provenance
 
-          - `adhan_cc0.ogg` — existing Arihna frozen/approved Adhan asset. SHA-256: `3b350bc210d657727578ed977e32323c06b63c2088c3ebcea9fc9afb7d487702`.
-          - `adhan_beautiful_cc0.ogg` — Wikimedia Commons, “Beautiful adhan.ogg”, author Adam-synagda, own work, CC0 1.0 Universal, source page: https://commons.wikimedia.org/wiki/File:Beautiful_adhan.ogg. SHA-256: `$BEAUTIFUL_SHA`.
-          - `adhan_short_cc0.ogg` — Wikimedia Commons, “Adhan.ogg”, author Aishatu98, own work, CC0 1.0 Universal, source page: https://commons.wikimedia.org/wiki/File:Adhan.ogg. SHA-256: `$SHORT_SHA`.
-
-          The two Wikimedia recordings are redistributed unmodified as Ogg files. Their source pages explicitly state CC0/public-domain dedication.
+          - \`adhan_cc0.ogg\` — existing Arihna frozen/approved asset. SHA-256 \`3b350bc210d657727578ed977e32323c06b63c2088c3ebcea9fc9afb7d487702\`.
+          - \`adhan_beautiful_cc0.ogg\` — Wikimedia Commons, “Beautiful adhan.ogg”, Adam-synagda, own work, CC0 1.0 Universal. https://commons.wikimedia.org/wiki/File:Beautiful_adhan.ogg — SHA-256 \`$BEAUTIFUL_SHA\`.
+          - \`adhan_short_cc0.ogg\` — Wikimedia Commons, “Adhan.ogg”, Aishatu98, own work, CC0 1.0 Universal. https://commons.wikimedia.org/wiki/File:Adhan.ogg — SHA-256 \`$SHORT_SHA\`.
           EOF
           cat > app/src/test/java/com/archimedeprojects/arihna/feature/alarms/domain/AdhanVariantTest.kt <<'EOF'
           package com.archimedeprojects.arihna.feature.alarms.domain
@@ -158,18 +157,17 @@ enum class AdhanVariant(
               }
           }
           EOF
-      - name: Verify scope and UI contracts
+      - name: Verify narrow scope
         run: |
           git diff --check
           ! grep -F 'LazyColumn' app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt
-          grep -F 'Modifier.weight(1f)' app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt
           grep -F 'Icons.Rounded.Mosque' app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt
           grep -F 'Icons.Rounded.VolumeOff' app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt
           grep -F 'AdhanVariant.entries.forEach' app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt
           grep -F 'R.raw.adhan_beautiful_cc0' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
           grep -F 'R.raw.adhan_short_cc0' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
           test -z "$(git diff --name-only "$SPEC_SHA" -- app/src/main/java/com/archimedeprojects/arihna/feature/home app/src/main/java/com/archimedeprojects/arihna/feature/alarms/AlarmsPlaceholderScreen.kt)"
-      - name: Commit candidate direct from spec
+      - name: Commit sibling candidate
         run: |
           git config user.name 'Arihna Implementation Bot'
           git config user.email 'actions@users.noreply.github.com'
