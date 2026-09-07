@@ -16,6 +16,9 @@ jobs:
       SPEC_SHA: 4fb277b6956f7ca6f777c3badfd044d77b72a42b
       CANDIDATE_BRANCH: global-visual-adhan-volume-v1
       GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
+      CLASSIC_SHA256: 3b350bc210d657727578ed977e32323c06b63c2088c3ebcea9fc9afb7d487702
+      BEAUTIFUL_SHA256: 35fe06b08fe80505c550c33fed8a783fa9901ddc81ac884958b4be048f5b2a79
+      SHORT_SHA256: faeb03e4338554fb8b54dba98ed4949648615b58e991bbd560a89f4837dde413
       FROZEN_ASSET_RELEASE: settings-s25-premium-3f28b6f0-20260906
       FROZEN_ASSET_APK: arihna-settings-s25-premium.apk
     steps:
@@ -24,45 +27,70 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Capture driver script and guard SPEC-FIRST lineage
+      - name: Capture corrected driver script and guard SPEC-FIRST lineage
         shell: bash
         run: |
           set -euo pipefail
           cp .github/arihna-global-revision.py /tmp/arihna-global-revision.py
-          # Correct the exact editor colors present on the approved spec baseline.
-          sed -i \
-            -e 's/0B2117/08150F/g' \
-            -e 's/F5F1E5/F4F1E8/g' \
-            -e 's/111914/15251E/g' \
-            -e 's/F2F0E9/FFFFFFFF/g' \
-            -e 's/182019/102019/g' \
-            -e 's/E7E6DF/EBE8DF/g' \
-            /tmp/arihna-global-revision.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('/tmp/arihna-global-revision.py')
+          text = p.read_text()
+          replacements = {
+              r'Color\(0xFF0B2117\) else Color\(0xFFF5F1E5\)': r'Color\(0xFF08150F\) else Color\(0xFFF4F1E8\)',
+              r'Color\(0xFF111914\) else Color\(0xFFF2F0E9\)': r'Color\(0xFF15251E\) else Color\(0xFFFFFFFF\)',
+              r'Color\(0xFF182019\) else Color\(0xFFE7E6DF\)': r'Color\(0xFF102019\) else Color\(0xFFEBE8DF\)',
+              'adhan_extended_cc0.ogg': 'adhan_extended_cc_by_sa.ogg',
+              'https://commons.wikimedia.org/wiki/File:Muslim_calling_to_prayer.ogg': 'https://commons.wikimedia.org/wiki/File:Azan.ogg',
+              '"original": "Muslim calling to prayer.ogg"': '"original": "Azan.ogg"',
+              '"author": "Aishatu98",\n        "license": "CC0 1.0 Universal",\n    },\n    "adhan_compact_pd.ogg"': '"author": "Andrewler",\n        "license": "CC BY-SA 4.0",\n    },\n    "adhan_compact_pd.ogg"',
+          }
+          for old, new in replacements.items():
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'patch target expected once, found {count}: {old}')
+              text = text.replace(old, new, 1)
+          heading = "'''# Third-party bundled audio license notice\n\n"
+          addition = "'''# Third-party bundled audio license notice\n\n`adhan_extended_cc_by_sa.ogg` is an unmodified copy of **Azan.ogg** by Wikimedia Commons user **Andrewler**, licensed under **Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)**.\n\nSource: https://commons.wikimedia.org/wiki/File:Azan.ogg  \nLicense: https://creativecommons.org/licenses/by-sa/4.0/\n\n"
+          if text.count(heading) != 1:
+              raise SystemExit('license notice heading not unique')
+          text = text.replace(heading, addition, 1)
+          p.write_text(text)
+          PY
           git fetch origin main --force
           test "$(git rev-parse origin/main)" = "$BASE_MAIN_SHA"
           test "$(git rev-parse "$SPEC_SHA^")" = "$BASE_MAIN_SHA"
           git switch -C "$CANDIDATE_BRANCH" "$SPEC_SHA"
           test "$(git rev-parse HEAD)" = "$SPEC_SHA"
 
-      - name: Download verified Adhan additions
+      - name: Download verified distinct Adhan additions
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p app/src/main/res/raw
           UA='Arihna-GitHub-Release/1.0 (https://github.com/archimede-projects/Arihna)'
           curl --fail --location --retry 3 --user-agent "$UA" \
-            'https://commons.wikimedia.org/wiki/Special:Redirect/file/Muslim_calling_to_prayer.ogg' \
-            --output app/src/main/res/raw/adhan_extended_cc0.ogg
+            'https://commons.wikimedia.org/wiki/Special:Redirect/file/Azan.ogg' \
+            --output app/src/main/res/raw/adhan_extended_cc_by_sa.ogg
           curl --fail --location --retry 3 --user-agent "$UA" \
             'https://commons.wikimedia.org/wiki/Special:Redirect/file/Oraci%C3%B3n_Al-Azzan.ogg' \
             --output app/src/main/res/raw/adhan_compact_pd.ogg
           curl --fail --location --retry 3 --user-agent "$UA" \
             'https://commons.wikimedia.org/wiki/Special:Redirect/file/Call_to_prayer.ogg' \
             --output app/src/main/res/raw/adhan_alternative_cc_by_sa.ogg
-          for f in app/src/main/res/raw/adhan_extended_cc0.ogg app/src/main/res/raw/adhan_compact_pd.ogg app/src/main/res/raw/adhan_alternative_cc_by_sa.ogg; do
+          for f in \
+            app/src/main/res/raw/adhan_extended_cc_by_sa.ogg \
+            app/src/main/res/raw/adhan_compact_pd.ogg \
+            app/src/main/res/raw/adhan_alternative_cc_by_sa.ogg; do
             test -s "$f"
             file "$f" | grep -Eqi 'ogg|vorbis'
           done
+          printf '%s\n' \
+            "$CLASSIC_SHA256" "$BEAUTIFUL_SHA256" "$SHORT_SHA256" \
+            "$(sha256sum app/src/main/res/raw/adhan_extended_cc_by_sa.ogg | awk '{print $1}')" \
+            "$(sha256sum app/src/main/res/raw/adhan_compact_pd.ogg | awk '{print $1}')" \
+            "$(sha256sum app/src/main/res/raw/adhan_alternative_cc_by_sa.ogg | awk '{print $1}')" \
+            | sort | uniq | test "$(wc -l)" -eq 6
           sha256sum app/src/main/res/raw/adhan_* | sort
 
       - name: Apply product revision
@@ -70,6 +98,11 @@ jobs:
         run: |
           set -euo pipefail
           python3 /tmp/arihna-global-revision.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('docs/audio/ADHAN_SOURCES.md')
+          p.write_text(p.read_text().replace('\\n', '\n'))
+          PY
           git diff --check
           test ! -e .github/arihna-global-revision.py
           test ! -e .github/workflows/global-visual-adhan-volume-impl.yml
@@ -79,6 +112,8 @@ jobs:
           ! grep -Fq 'settings-alarm-volume-slider' app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
           grep -Fq 'settings-alarm-volume-decrease' app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
           grep -Fq 'settings-alarm-volume-increase' app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
+          grep -Fq 'Azan.ogg' docs/audio/ADHAN_SOURCES.md
+          grep -Fq 'Andrewler' docs/audio/THIRD_PARTY_AUDIO_LICENSES.md
 
       - name: Set up JDK 21
         uses: actions/setup-java@v5
@@ -136,7 +171,7 @@ jobs:
             app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt \
             app/src/main/java/com/archimedeprojects/arihna/feature/alarms/domain/AlarmModels.kt \
             app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt \
-            app/src/main/res/raw/adhan_extended_cc0.ogg \
+            app/src/main/res/raw/adhan_extended_cc_by_sa.ogg \
             app/src/main/res/raw/adhan_compact_pd.ogg \
             app/src/main/res/raw/adhan_alternative_cc_by_sa.ogg \
             app/src/test/java/com/archimedeprojects/arihna/feature/alarms/domain/AdhanVariantTest.kt \
