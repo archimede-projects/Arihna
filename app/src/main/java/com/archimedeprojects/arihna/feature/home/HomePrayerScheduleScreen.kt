@@ -241,6 +241,7 @@ private fun ReadyContent(
         onOpenAlarms = onOpenAlarms,
         onOpenQuran = onOpenQuran,
     )
+    DailyActionCard(state.localDate)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -317,27 +318,11 @@ private fun HomeHeader(state: PrayerScheduleUiState.Ready, onRefreshLocation: ()
     }
 
     if (calendarOpen) {
-        val selectedDate = datePickerState.selectedDateMillis
-            ?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }
-            ?: state.localDate
-        DatePickerDialog(
-            onDismissRequest = { calendarOpen = false },
-            confirmButton = {
-                TextButton(onClick = { calendarOpen = false }) {
-                    Text(appText("Chiudi", "إغلاق"))
-                }
-            },
-        ) {
-            Column(modifier = Modifier.testTag("home-calendar-dialog")) {
-                Text(
-                    text = HijriDateFormatter.format(selectedDate, arabic),
-                    color = HomeAccent,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp),
-                )
-                DatePicker(state = datePickerState)
-            }
-        }
+        PremiumCalendarDialog(
+            initialDate = state.localDate,
+            arabic = arabic,
+            onDismiss = { calendarOpen = false },
+        )
     }
 }
 

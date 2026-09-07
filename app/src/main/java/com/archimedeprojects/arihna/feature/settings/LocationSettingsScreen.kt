@@ -620,24 +620,30 @@ private fun AlarmVolumeSetting(
                 modifier = Modifier.testTag("settings-alarm-volume-value"),
             )
         }
-        Slider(
-            value = current.toFloat(),
-            onValueChange = { requested ->
-                onAlarmVolumeChange(requested.roundToInt().coerceIn(volume.min, volume.max))
-            },
-            valueRange = volume.min.toFloat()..volume.max.toFloat(),
-            steps = (span - 1).coerceAtLeast(0),
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .testTag("settings-alarm-volume-slider"),
-            colors = SliderDefaults.colors(
-                thumbColor = SettingsAccent,
-                activeTrackColor = SettingsAccent,
-                inactiveTrackColor = SettingsSurfaceRaised,
-                activeTickColor = SettingsText.copy(alpha = 0.45f),
-                inactiveTickColor = SettingsMuted.copy(alpha = 0.24f),
-            ),
-        )
+                .background(SettingsSurfaceRaised, RoundedCornerShape(50))
+                .padding(horizontal = 8.dp, vertical = 1.dp),
+        ) {
+            Slider(
+                value = current.toFloat(),
+                onValueChange = { requested ->
+                    onAlarmVolumeChange(requested.roundToInt().coerceIn(volume.min, volume.max))
+                },
+                valueRange = volume.min.toFloat()..volume.max.toFloat(),
+                // Continuous track: no dense notches / shutter-like stepping.
+                steps = 0,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("settings-alarm-volume-slider"),
+                colors = SliderDefaults.colors(
+                    thumbColor = SettingsText,
+                    activeTrackColor = SettingsText,
+                    inactiveTrackColor = SettingsMuted.copy(alpha = 0.16f),
+                ),
+            )
+        }
         Text(
             appText(
                 "Volume globale delle sveglie del telefono",
