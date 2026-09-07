@@ -1,0 +1,47 @@
+name: Home Alba dorata spec writer
+
+on:
+  push:
+    branches:
+      - home-alba-dorata-spec-driver-20260907
+
+permissions:
+  contents: write
+
+jobs:
+  write-spec:
+    runs-on: ubuntu-latest
+    env:
+      BASE_SHA: b5a3ae228bbecc2a9b0d325a55f45a1805a9ddf9
+      SPEC_BRANCH: home-alba-dorata-spec-20260907
+      SPEC_APPEND_B64: CgojIyMgMjAyNi0wOS0wNyDigJQgSG9tZSB2aXN1YWwgZGlyZWN0aW9uIOKAnEFsYmEgZG9yYXRh4oCdIEFQUFJPVkVECgpQaHlzaWNhbC9kZXNpZ24gcmV2aWV3IG9mIHRoZSBIb21lIGFmdGVyIHRoZSBJc2xhbWljLWJhY2tkcm9wIGNvcnJlY3Rpb24gc2VsZWN0ZWQgdGhlICoqZmlyc3QgZ2VuZXJhdGVkIGFsdGVybmF0aXZlLCDigJxBbGJhIGRvcmF0YSzigJ0gYXMgdGhlIGFwcHJvdmVkIHZpc3VhbCB0YXJnZXQqKiBmb3IgdGhlIG5leHQgSG9tZSBwcmVzZW50YXRpb24gaXRlcmF0aW9uLiBUaGlzIGRlY2lzaW9uIHJlZmluZXMgdmlzdWFsIHByZXNlbnRhdGlvbiBvbmx5IGFuZCBkb2VzIG5vdCByZW9wZW4gcHJheWVyIGNhbGN1bGF0aW9uLCBuYXZpZ2F0aW9uIGJlaGF2aW9yLCBkYWlseS1jb250ZW50IGludGVyYWN0aW9uL3NoYXJpbmcsIEZ1c2VkIGxvY2F0aW9uLCBhbGFybXMsIEdlb05hbWVzLCBBZGhhbiwgcGFja2FnZS9TREsgb3Igc2lnbmluZyBkZWNpc2lvbnMuCgoqKkFwcHJvdmVkIGF0bW9zcGhlcmUgYW5kIHBhbGV0dGUuKiogSG9tZSBtdXN0IGJlY29tZSB2aXNpYmx5IGxpZ2h0ZXIsIHdhcm1lciBhbmQgbW9yZSBzZXJlbmUgdGhhbiB0aGUgY3VycmVudCBkYXJrIGVtZXJhbGQgc2NyZWVuLiBUaGUgdGFyZ2V0IGF0bW9zcGhlcmUgaXMgYW4gZWFybHktbW9ybmluZyAvIHN1bnJpc2UgZmVlbGluZyB1c2luZyAqKndhcm0gaXZvcnkvY3JlYW0sIHNvZnQgc2FnZSBncmVlbiBhbmQgcmVzdHJhaW5lZCB3YXJtIGdvbGQqKiwgd2l0aCBkYXJrIGZvcmVzdC9lbWVyYWxkIHJlc2VydmVkIGZvciBoaWdoLWNvbnRyYXN0IHRleHQsIGljb25zIGFuZCBzZWxlY3RlZCBwcmVtaXVtIHN1cmZhY2VzLiBUaGUgcmVzdWx0IHNob3VsZCBmZWVsIHNwaXJpdHVhbCwgY2FsbSwgb3B0aW1pc3RpYyBhbmQgZGlzdGluY3RseSBJc2xhbWljIHJhdGhlciB0aGFuIGRhcmssIGhlYXZ5IG9yIG1lbGFuY2hvbGljLgoKKipCYWNrZ3JvdW5kIGxhbmd1YWdlLioqIFRoZSBIb21lIGJhY2tncm91bmQgc2hvdWxkIHN1Z2dlc3Qgc29mdCBkYXduIGxpZ2h0IHdpdGggYSBnZW50bGUgdmVydGljYWwvcmFkaWFsIGdsb3csIHN1YnRsZSBJc2xhbWljIGFyY2hpdGVjdHVyYWwgYXJjaGVzIGFuZCB2ZXJ5IGxvdy1jb250cmFzdCBnZW9tZXRyaWMvbWFzaHJhYml5YS1pbnNwaXJlZCBvcm5hbWVudC4gQSByZXN0cmFpbmVkIG1vc3F1ZS9taW5hcmV0L3BhbG0gc2lsaG91ZXR0ZSBtYXkgYmUgdXNlZCBvbmx5IGFzIGEgZGVjb3JhdGl2ZSwgbm9uLWludGVyYWN0aXZlLCBub24tc2FjcmVkIHNoYXBlIGxheWVyLiBObyBRdXJhbmljIHRleHQsIGRpdmluZSBuYW1lcywgQXJhYmljIGNhbGxpZ3JhcGh5IG9yIGRlY29yYXRpdmUgcmVsaWdpb3VzIHF1b3RhdGlvbiBtYXkgYmUgdXNlZCBpbiB0aGUgYmFja2dyb3VuZC4KCioqSW1wbGVtZW50YXRpb24gY29uc3RyYWludC4qKiBUaGUgYXBwcm92ZWQgbW9ja3VwIGlzIGEgdmlzdWFsIHJlZmVyZW5jZSwgbm90IGF1dGhvcml6YXRpb24gdG8gc2hpcCBhIHBob3RvZ3JhcGhpYyB3YWxscGFwZXIuIFByb2R1Y3Rpb24gc2hvdWxkIHJlcHJvZHVjZSB0aGUgbG9vayBwcmltYXJpbHkgd2l0aCBDb21wb3NlIGdyYWRpZW50cywgdmVjdG9yL0NhbnZhcyBnZW9tZXRyeSwgc2ltcGxlIHNpbGhvdWV0dGVzIGFuZCBsb3ctY29zdCBwcm9jZWR1cmFsIGRlY29yYXRpb24gc28gZGVuc2l0eSBzY2FsaW5nLCBBUEsgc2l6ZSwgcmVuZGVyaW5nIHF1YWxpdHkgYW5kIHBlcmZvcm1hbmNlIHJlbWFpbiBjb250cm9sbGVkLiBBbnkgZGVjb3JhdGl2ZSByYXN0ZXIgYXNzZXQgd291bGQgcmVxdWlyZSBhIHNlcGFyYXRlIGV4cGxpY2l0IGRlY2lzaW9uIGFuZCBsaWNlbnNpbmcvcHJvdmVuYW5jZSBjaGVjay4KCioqU3VyZmFjZSBoaWVyYXJjaHkuKiogVGhlIG5leHQtcHJheWVyIGhlcm8gbWF5IHJlbWFpbiBhIHJpY2hlciBlbWVyYWxkL2dyZWVuIHByZW1pdW0gc3VyZmFjZSB3aXRoIHdhcm0tZ29sZCBlZGdlIHRyZWF0bWVudCBzbyBpdCBhbmNob3JzIHRoZSBzY3JlZW4gYWdhaW5zdCB0aGUgbGlnaHRlciBiYWNrZ3JvdW5kLiBQcmF5ZXItdGltZSB0aWxlcywgd2VlayB0aWxlcywgaW5zcGlyYXRpb24gc3VyZmFjZSBhbmQgcXVpY2sgYWN0aW9ucyBzaG91bGQgbW92ZSB0b3dhcmQgbGlnaHQgaXZvcnkvc2FnZSBzdXJmYWNlcyB3aXRoIGNsZWFyIGRhcmstZ3JlZW4gdHlwb2dyYXBoeSBhbmQgcmVzdHJhaW5lZCBnb2xkIHNlbGVjdGVkL2hpZ2hsaWdodCBzdGF0ZXMuIFRoZSBIb21lIHNlbGVjdGVkIHN0YXRlIG11c3QgcmVtYWluIGltbWVkaWF0ZWx5IG9idmlvdXMgd2l0aG91dCByZWx5aW5nIG9uIGxvdy1jb250cmFzdCB0ZXh0IGFsb25lLgoKKipCb3R0b20gbmF2aWdhdGlvbi4qKiBUaGUgSG9tZSBib3R0b20gbmF2aWdhdGlvbiBzaG91bGQgdmlzdWFsbHkgaGFybW9uaXplIHdpdGggdGhlIGxpZ2h0ZXIg4oCcQWxiYSBkb3JhdGHigJ0gZGlyZWN0aW9uIHJhdGhlciB0aGFuIHJlYWQgYXMgYSBkZXRhY2hlZCBkYXJrIHNsYWIuIEEgbGlnaHQvaXZvcnkgb3Igc29mdGx5IHRyYW5zbHVjZW50IHdhcm0gc3VyZmFjZSB3aXRoIGZvcmVzdC1ncmVlbiBpY29ucyBhbmQgYSBjbGVhcmx5IGhpZ2hsaWdodGVkIHNlbGVjdGVkIEhvbWUgaXRlbSBpcyBwcmVmZXJyZWQsIHByb3ZpZGVkIGNvbnRyYXN0IGFuZCBBbmRyb2lkIGVkZ2UvaW5zZXQgYmVoYXZpb3IgcmVtYWluIGNvcnJlY3QuCgoqKlJlYWRhYmlsaXR5IGFuZCByZXN0cmFpbnQuKiogRGVjb3JhdGl2ZSBsaWdodCwgYXJjaGVzIGFuZCBnZW9tZXRyeSBtdXN0IG5ldmVyIHJlZHVjZSBsZWdpYmlsaXR5IG9mIGxvY2F0aW9uLCBwcmF5ZXIgbmFtZS90aW1lLCBjb3VudGRvd24sIGRhaWx5IGluc3BpcmF0aW9uLCBxdWljayBhY3Rpb25zIG9yIGJvdHRvbSBuYXZpZ2F0aW9uLiBBdm9pZCB3YXNoZWQtb3V0IHRleHQsIGV4Y2Vzc2l2ZSBibHVyLCBnbG9zc3kgZ29sZCwgbmVvbiBlZmZlY3RzLCBidXN5IHdhbGxwYXBlciwgZmF1eC0zRCBvcm5hbWVudCBhbmQgcGhvdG8tcmVhbGlzdGljIHJlbGlnaW91cyBzY2VuZXJ5LiBUaGUgaW50ZW5kZWQgdG9uZSBpcyBwcmVtaXVtLCBjb250ZW1wb3JhcnkgYW5kIHBlYWNlZnVsLgoKKipBY2NlcHRhbmNlIGFuZCBTUEVDLUZJUlNUIHJ1bGUuKiogVGhpcyBgUFJPSkVDVF9TUEVDLm1kYCBjb21taXQgaXMgdGhlIHNwZWNpZmljYXRpb24gcGFyZW50IGZvciB0aGUgY29ycmVzcG9uZGluZyB0ZWNobmljYWwgY2FuZGlkYXRlLiBUaGUgaW1wbGVtZW50YXRpb24gY2FuZGlkYXRlIG11c3QgYmUgYSBkaXJlY3QgY2hpbGQgb2YgdGhpcyBleGFjdCBzcGVjIGNvbW1pdC4gSWYgYSBjYW5kaWRhdGUgZmFpbHMgaXRzIGV4YWN0LVNIQSBnYXRlLCBhbnkgcmVwbGFjZW1lbnQgbXVzdCBhZ2FpbiBiZSBhIGRpcmVjdCBjaGlsZCBvZiB0aGlzIHNhbWUgc3BlYyBjb21taXQuIE5vIGFwcGxpY2F0aW9uLWNvZGUgY2hhbmdlIGlzIHBhcnQgb2YgdGhpcyBkb2N1bWVudGF0aW9uIGNvbW1pdC4gVGhlIGltcGxlbWVudGF0aW9uIG11c3QgcmV0YWluIHRoZSBhbHJlYWR5LWFwcHJvdmVkIEhvbWUgbmF2aWdhdGlvbiBmaXggYW5kIGRhaWx5IGluc3BpcmF0aW9uIGRldGFpbC9zaGFyZSBiZWhhdmlvciBhbmQgbXVzdCBwYXNzIHRoZSBleGlzdGluZyBmdWxsIHJlZ3Jlc3Npb24vZ2F0ZSBwb2xpY3kgYmVmb3JlIHByb21vdGlvbiBhbmQgR2FsYXh5IFMyNSBwcmVyZWxlYXNlIHZhbGlkYXRpb24uCg==
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create spec-only commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+          git checkout -B "$SPEC_BRANCH" "$BASE_SHA"
+          printf '%s' "$SPEC_APPEND_B64" | base64 -d >> PROJECT_SPEC.md
+          git config user.name "Arihna Spec Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add PROJECT_SPEC.md
+          test "$(git diff --cached --name-only)" = "PROJECT_SPEC.md"
+          git commit -m "spec(home): approve Alba dorata visual direction"
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          git push origin "$SPEC_BRANCH"
+          echo "SPEC_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Verify spec commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git diff --name-only "$BASE_SHA" "$SPEC_SHA")" = "PROJECT_SPEC.md"
+          grep -F 'Home visual direction “Alba dorata” APPROVED' PROJECT_SPEC.md
+          git show --stat --oneline "$SPEC_SHA"
