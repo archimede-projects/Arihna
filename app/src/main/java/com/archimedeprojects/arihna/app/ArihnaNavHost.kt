@@ -45,10 +45,10 @@ import com.archimedeprojects.arihna.feature.quran.QuranPlaceholderScreen
 import com.archimedeprojects.arihna.feature.settings.LocationSettingsRoute
 import com.archimedeprojects.arihna.feature.settings.LocationSettingsViewModel
 
-private val AlbaNavBar = Color(0xFFFFFAEF)
-private val AlbaNavIcon = Color(0xFF52705F)
-private val AlbaNavSelectedIcon = Color(0xFF173C30)
-private val AlbaNavIndicator = Color(0xFFDDE6C9)
+private val AlbaNavBar = Color(0xFFFCF8F0)
+private val AlbaNavIcon = Color(0xFF617067)
+private val AlbaNavSelectedIcon = Color(0xFF064A37)
+private val AlbaNavIndicator = Color(0xFFE8F0EA)
 
 private enum class Destination(
     val route: String,
