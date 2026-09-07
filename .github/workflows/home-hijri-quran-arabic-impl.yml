@@ -51,7 +51,7 @@ jobs:
           grep -Fq 'home-calendar-dialog' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
           grep -Fq 'Icons.Rounded.MenuBook' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
           grep -Fq 'dateBlockShowsHijriDateAndOpensCalendarViewer' app/src/androidTest/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreenAndroidTest.kt
-          grep -Fq 'alarmVolumeUsesSliderAndNoAdjacentStepButtons' app/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreenAndroidTest.kt
+          grep -Fq 'alarmVolumeUsesSlider' app/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreenAndroidTest.kt
           grep -Fq 'arabicSelectionPersistsAndMapsToRtl' app/src/androidTest/java/com/archimedeprojects/arihna/core/i18n/AppLanguageAndroidTest.kt
           grep -Fq 'quran-mode-easy' app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt
           grep -Fq 'quran-mode-hafs' app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt
