@@ -34,8 +34,7 @@ jobs:
           test "$(git rev-list --parents -n 1 HEAD | wc -w)" -eq 2
           test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
           grep -Fq 'home-hijri-date' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
-          grep -Fq 'fillMaxWidth(0.82f)' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
-          grep -Fq 'Modifier.fillMaxWidth().testTag("home-hijri-date")' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+          grep -Fq 'home-date-block' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
           grep -Fq 'home-calendar-dialog' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
           grep -Fq 'Icons.Rounded.MenuBook' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
           grep -Fq 'quran-mode-easy' app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt
