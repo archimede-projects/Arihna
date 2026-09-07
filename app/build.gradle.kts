@@ -9,6 +9,7 @@ plugins {
 
 val quranSourceCommit = "a5284b17034d36567e4a4bac982a17ba56837448"
 val quranSvgCommit = "78d97544bfdc57e9f04bc97ace3f857ed972d772"
+val quranMetadataCommit = "052b515f3a24dfacbe4cafc3b89f0681a447f462"
 val generatedQuranAssets = layout.buildDirectory.dir("generated/quranAssets").get().asFile
 val prepareQuranAssets by tasks.registering {
     outputs.dir(generatedQuranAssets)
@@ -31,6 +32,15 @@ val prepareQuranAssets by tasks.registering {
             }
             check(target.isFile && target.length() > 0L) { "Missing Quran asset: $name" }
         }
+
+        // Pinned Tanzil metadata supplies canonical Page/Juz/Hizb start coordinates.
+        val metadataTarget = quranDir.resolve("quran-data.js")
+        URI(
+            "https://raw.githubusercontent.com/acfatah/tanzil/$quranMetadataCommit/data/quran-data.js",
+        ).toURL().openStream().use { input ->
+            metadataTarget.outputStream().use { output -> input.copyTo(output) }
+        }
+        check(metadataTarget.isFile && metadataTarget.length() > 0L) { "Missing pinned Quran page metadata" }
 
         // Visual Muṣḥaf pages only. The immutable Tarteel/Tanzil corpus above remains
         // Arihna's textual Quran source; these pinned MIT SVGs reproduce a printed page.
