@@ -26,7 +26,9 @@ jobs:
         run: |
           set -euo pipefail
           cp .github/arihna-hijri-quran-revision.py /tmp/revision.py
+          cp .github/patch-hijri-quran-transform.py /tmp/patch-transform.py
           cp .github/arihna-quran-buildassets.py /tmp/quran-buildassets.py
+          python3 /tmp/patch-transform.py
           git fetch origin main --force
           test "$(git rev-parse origin/main)" = "$SPEC_SHA"
           test "$(git rev-parse "$SPEC_SHA^")" = "$SPEC_PARENT"
