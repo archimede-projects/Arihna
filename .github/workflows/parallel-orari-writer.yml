@@ -47,16 +47,12 @@ jobs:
           cp /tmp/PrayerTimesPlaceholderScreen.kt app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt
           python3 - <<'PY'
           from pathlib import Path
+          import re
 
-          models = Path('app/src/main/java/com/archimedeprojects/arihna/feature/alarms/domain/AlarmModels.kt')
+          models = Path("app/src/main/java/com/archimedeprojects/arihna/feature/alarms/domain/AlarmModels.kt")
           text = models.read_text()
-          marker = '''enum class AlarmSoundProfile {
-              ADHAN,
-              SYSTEM_DEFAULT,
-              SILENT,
-          }
-          '''.replace('          ', '')
-          addition = marker + '''
+          marker = "enum class AlarmSoundProfile {\n    ADHAN,\n    SYSTEM_DEFAULT,\n    SILENT,\n}\n"
+          addition = marker + """
           enum class AdhanVariant(
               val storageId: String,
               val displayName: String,
@@ -73,48 +69,58 @@ jobs:
                       entries.firstOrNull { it.storageValue == value } ?: CLASSIC
               }
           }
-          '''.replace('          ', '')
-          assert marker in text and 'enum class AdhanVariant' not in text
+          """
+          addition = "\n".join(line[10:] if line.startswith("          ") else line for line in addition.split("\n"))
+          assert marker in text and "enum class AdhanVariant" not in text
           models.write_text(text.replace(marker, addition, 1))
 
-          vm = Path('app/src/main/java/com/archimedeprojects/arihna/feature/alarms/AlarmsViewModel.kt')
+          vm = Path("app/src/main/java/com/archimedeprojects/arihna/feature/alarms/AlarmsViewModel.kt")
           text = vm.read_text()
-          old = '''        val targetUri = if (soundProfile == AlarmSoundProfile.SYSTEM_DEFAULT) ringtoneUri else null
-          val targetTitle = if (soundProfile == AlarmSoundProfile.SYSTEM_DEFAULT) ringtoneTitle else null
-          '''.replace('          ', '')
-          new = '''        val keepSelectionMetadata = soundProfile != AlarmSoundProfile.SILENT
-          val targetUri = if (keepSelectionMetadata) ringtoneUri else null
-          val targetTitle = if (keepSelectionMetadata) ringtoneTitle else null
-          '''.replace('          ', '')
+          old = (
+              "        val targetUri = if (soundProfile == AlarmSoundProfile.SYSTEM_DEFAULT) ringtoneUri else null\n"
+              "        val targetTitle = if (soundProfile == AlarmSoundProfile.SYSTEM_DEFAULT) ringtoneTitle else null\n"
+          )
+          new = (
+              "        val keepSelectionMetadata = soundProfile != AlarmSoundProfile.SILENT\n"
+              "        val targetUri = if (keepSelectionMetadata) ringtoneUri else null\n"
+              "        val targetTitle = if (keepSelectionMetadata) ringtoneTitle else null\n"
+          )
           assert old in text
           vm.write_text(text.replace(old, new, 1))
 
-          service = Path('app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt')
+          service = Path("app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt")
           text = service.read_text()
-          marker = 'import com.archimedeprojects.arihna.feature.alarms.domain.AlarmDefinition\n'
-          assert marker in text and 'domain.AdhanVariant' not in text
-          text = text.replace(marker, 'import com.archimedeprojects.arihna.feature.alarms.domain.AdhanVariant\n' + marker, 1)
-          old = '''                resources.openRawResourceFd(R.raw.adhan_cc0).use { descriptor ->
-                      player.setDataSource(
-                          descriptor.fileDescriptor,
-                          descriptor.startOffset,
-                          descriptor.length,
-                      )
-                  }'''.replace('                  ', '')
-          new = '''                val rawResource = when (AdhanVariant.fromStorage(selectedRingtoneUri)) {
-                      AdhanVariant.CLASSIC -> R.raw.adhan_cc0
-                      AdhanVariant.BEAUTIFUL -> R.raw.adhan_beautiful_cc0
-                      AdhanVariant.SHORT -> R.raw.adhan_short_cc0
-                  }
-                  resources.openRawResourceFd(rawResource).use { descriptor ->
-                      player.setDataSource(
-                          descriptor.fileDescriptor,
-                          descriptor.startOffset,
-                          descriptor.length,
-                      )
-                  }'''.replace('                  ', '')
-          assert old in text
-          service.write_text(text.replace(old, new, 1))
+          import_marker = "import com.archimedeprojects.arihna.feature.alarms.domain.AlarmDefinition\n"
+          assert import_marker in text and "domain.AdhanVariant" not in text
+          text = text.replace(
+              import_marker,
+              "import com.archimedeprojects.arihna.feature.alarms.domain.AdhanVariant\n" + import_marker,
+              1,
+          )
+          pattern = re.compile(
+              r"                resources\.openRawResourceFd\(R\.raw\.adhan_cc0\)\.use \{ descriptor ->\n"
+              r"                    player\.setDataSource\(\n"
+              r"                        descriptor\.fileDescriptor,\n"
+              r"                        descriptor\.startOffset,\n"
+              r"                        descriptor\.length,\n"
+              r"                    \)\n"
+              r"                \}"
+          )
+          replacement = """                val rawResource = when (AdhanVariant.fromStorage(selectedRingtoneUri)) {
+                    AdhanVariant.CLASSIC -> R.raw.adhan_cc0
+                    AdhanVariant.BEAUTIFUL -> R.raw.adhan_beautiful_cc0
+                    AdhanVariant.SHORT -> R.raw.adhan_short_cc0
+                }
+                resources.openRawResourceFd(rawResource).use { descriptor ->
+                    player.setDataSource(
+                        descriptor.fileDescriptor,
+                        descriptor.startOffset,
+                        descriptor.length,
+                    )
+                }"""
+          text, count = pattern.subn(replacement, text, count=1)
+          assert count == 1
+          service.write_text(text)
           PY
       - name: Add provenance and variant tests
         run: |
@@ -124,9 +130,9 @@ jobs:
           cat > docs/audio/ADHAN_SOURCES.md <<EOF
           # Arihna bundled Adhan audio provenance
 
-          - \`adhan_cc0.ogg\` — existing Arihna frozen/approved asset. SHA-256 \`3b350bc210d657727578ed977e32323c06b63c2088c3ebcea9fc9afb7d487702\`.
-          - \`adhan_beautiful_cc0.ogg\` — Wikimedia Commons, “Beautiful adhan.ogg”, Adam-synagda, own work, CC0 1.0 Universal. https://commons.wikimedia.org/wiki/File:Beautiful_adhan.ogg — SHA-256 \`$BEAUTIFUL_SHA\`.
-          - \`adhan_short_cc0.ogg\` — Wikimedia Commons, “Adhan.ogg”, Aishatu98, own work, CC0 1.0 Universal. https://commons.wikimedia.org/wiki/File:Adhan.ogg — SHA-256 \`$SHORT_SHA\`.
+          - adhan_cc0.ogg — existing Arihna frozen/approved asset. SHA-256: 3b350bc210d657727578ed977e32323c06b63c2088c3ebcea9fc9afb7d487702.
+          - adhan_beautiful_cc0.ogg — Wikimedia Commons, Beautiful adhan.ogg, Adam-synagda, own work, CC0 1.0 Universal. https://commons.wikimedia.org/wiki/File:Beautiful_adhan.ogg — SHA-256: $BEAUTIFUL_SHA.
+          - adhan_short_cc0.ogg — Wikimedia Commons, Adhan.ogg, Aishatu98, own work, CC0 1.0 Universal. https://commons.wikimedia.org/wiki/File:Adhan.ogg — SHA-256: $SHORT_SHA.
           EOF
           cat > app/src/test/java/com/archimedeprojects/arihna/feature/alarms/domain/AdhanVariantTest.kt <<'EOF'
           package com.archimedeprojects.arihna.feature.alarms.domain
