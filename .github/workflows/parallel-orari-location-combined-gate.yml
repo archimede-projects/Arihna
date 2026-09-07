@@ -69,7 +69,7 @@ jobs:
           grep -F '.setMaxUpdateAgeMillis(0L)' "$FUSED"
           grep -F 'fusedClient.lastLocation' "$FUSED"
           grep -F 'requestLocationUpdates' "$FUSED"
-          grep -F 'freshExplicitRefreshBelowFiveKilometersReplacesCache' app/src/test/java/com/archimedeprojects/arihna/core/location/domain/LocationCoordinatorTest.kt
+          grep -F 'explicitSelectDeviceBelowFiveKilometersReplacesCache' app/src/test/java/com/archimedeprojects/arihna/core/location/domain/LocationCoordinatorTest.kt
           ! grep -Fq 'LazyColumn' "$SCREEN"
           ! grep -Fq 'verticalScroll' "$SCREEN"
           ! grep -Fq 'import androidx.compose.foundation.layout.weight' "$SCREEN"
