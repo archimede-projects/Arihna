@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.archimedeprojects.arihna.core.i18n.appText
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaGold
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaCream
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaDawnBottom
@@ -226,7 +227,7 @@ private fun CompactAlarmHeader(onNew: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text(
-            "Sveglie",
+            appText("Sveglie", "المنبهات"),
             modifier = Modifier.weight(1f),
             fontSize = 34.sp,
             lineHeight = 38.sp,
@@ -247,7 +248,7 @@ private fun CompactAlarmHeader(onNew: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Text("＋", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                Text("Nuova", fontWeight = FontWeight.ExtraBold)
+                Text(appText("Nuova", "جديد"), fontWeight = FontWeight.ExtraBold)
             }
         }
     }

@@ -2,14 +2,20 @@ package com.archimedeprojects.arihna.app
 
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.archimedeprojects.arihna.core.i18n.AppLanguage
+import com.archimedeprojects.arihna.core.i18n.AppLanguageController
+import com.archimedeprojects.arihna.core.i18n.LocalAppLanguageController
 import com.archimedeprojects.arihna.core.prayer.calculation.AdhanPrayerTimeCalculator
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaTheme
 import com.archimedeprojects.arihna.feature.alarms.AlarmsViewModel
@@ -116,8 +122,20 @@ fun ArihnaApp(
         }
     }
 
+    val languageController = remember(activity.applicationContext) {
+        AppLanguageController(activity.applicationContext)
+    }
+
     ArihnaTheme {
-        ArihnaNavHost(
+        CompositionLocalProvider(
+            LocalAppLanguageController provides languageController,
+            LocalLayoutDirection provides if (languageController.language == AppLanguage.ARABIC) {
+                LayoutDirection.Rtl
+            } else {
+                LayoutDirection.Ltr
+            },
+        ) {
+            ArihnaNavHost(
             activity = activity,
             locationSettingsViewModel = locationViewModel,
             prayerScheduleViewModel = prayerScheduleViewModel,
@@ -140,5 +158,6 @@ fun ArihnaApp(
             exactAlarmAccessIntentFactory = appContainer.exactAlarmAccessIntentFactory,
             alarmFullScreenAccess = appContainer.alarmFullScreenAccess,
         )
+        }
     }
 }

@@ -87,7 +87,7 @@ class HomePrayerScheduleScreenAndroidTest {
         composeRule.onNodeWithTag("home-quick-actions").assertIsDisplayed()
         composeRule.onNodeWithText("Qibla").assertIsDisplayed()
         composeRule.onNodeWithText("Sveglie").assertIsDisplayed()
-        composeRule.onNodeWithText("Posizione").assertIsDisplayed()
+        composeRule.onNodeWithText("Corano").assertIsDisplayed()
 
         assertTextAbsent("Posizione manuale")
         assertTextAbsent("Posizione dispositivo")
@@ -128,23 +128,31 @@ class HomePrayerScheduleScreenAndroidTest {
     fun quickActionsInvokeTheirDestinations() {
         var qibla = 0
         var alarms = 0
-        var location = 0
+        var quran = 0
         setScreen(
             uiState = readyState(),
             onOpenQibla = { qibla += 1 },
             onOpenAlarms = { alarms += 1 },
-            onOpenLocationSettings = { location += 1 },
+            onOpenQuran = { quran += 1 },
         )
 
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Qibla"))
         composeRule.onNodeWithText("Qibla").performClick()
         composeRule.onNodeWithText("Sveglie").performClick()
-        composeRule.onNodeWithText("Posizione").performClick()
+        composeRule.onNodeWithText("Corano").performClick()
         composeRule.runOnIdle {
             assertEquals(1, qibla)
             assertEquals(1, alarms)
-            assertEquals(1, location)
+            assertEquals(1, quran)
         }
+    }
+
+    @Test
+    fun dateBlockShowsHijriDateAndOpensCalendarViewer() {
+        setScreen(uiState = readyState())
+        composeRule.onNodeWithTag("home-hijri-date").assertIsDisplayed()
+        composeRule.onNodeWithTag("home-date-block").assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag("home-calendar-dialog").assertIsDisplayed()
     }
 
     @Test
@@ -189,6 +197,7 @@ class HomePrayerScheduleScreenAndroidTest {
         onOpenLocationSettings: () -> Unit = {},
         onOpenQibla: () -> Unit = {},
         onOpenAlarms: () -> Unit = {},
+        onOpenQuran: () -> Unit = {},
         onRefreshLocation: () -> Unit = {},
     ) {
         composeRule.setContent {
@@ -199,6 +208,7 @@ class HomePrayerScheduleScreenAndroidTest {
                     onOpenLocationSettings = onOpenLocationSettings,
                     onOpenQibla = onOpenQibla,
                     onOpenAlarms = onOpenAlarms,
+                    onOpenQuran = onOpenQuran,
                     onRefreshLocation = onRefreshLocation,
                 )
             }
