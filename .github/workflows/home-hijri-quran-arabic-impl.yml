@@ -1,4 +1,4 @@
-name: Home Hijri Quran Arabic implementation v2
+name: Home Hijri Quran Arabic implementation v3
 
 on:
   push:
@@ -14,7 +14,7 @@ jobs:
     env:
       SPEC_SHA: 89bef3ff59bebc8e3cf0db3652ff18b9dd056938
       SPEC_PARENT: 3dd4a905369694b79a273a560685af9fee730cd5
-      CANDIDATE_BRANCH: home-hijri-quran-arabic-v2
+      CANDIDATE_BRANCH: home-hijri-quran-arabic-v3
     steps:
       - name: Checkout implementation driver
         uses: actions/checkout@v4
@@ -28,6 +28,7 @@ jobs:
           cp .github/arihna-hijri-quran-revision.py /tmp/revision.py
           cp .github/patch-hijri-quran-transform.py /tmp/patch-transform.py
           cp .github/arihna-quran-buildassets.py /tmp/quran-buildassets.py
+          cp .github/hijri-v3-fix.py /tmp/hijri-v3-fix.py
           python3 /tmp/patch-transform.py
           git fetch origin main --force
           test "$(git rev-parse origin/main)" = "$SPEC_SHA"
@@ -41,6 +42,7 @@ jobs:
           set -euo pipefail
           python3 /tmp/revision.py
           python3 /tmp/quran-buildassets.py
+          python3 /tmp/hijri-v3-fix.py
           git diff --check
           grep -Fq 'settings-alarm-volume-slider' app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
           ! grep -Fq 'settings-alarm-volume-decrease' app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
@@ -48,6 +50,8 @@ jobs:
           grep -Fq 'settings-language-arabic' app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
           grep -Fq 'LayoutDirection.Rtl' app/src/main/java/com/archimedeprojects/arihna/app/ArihnaApp.kt
           grep -Fq 'home-hijri-date' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+          grep -Fq 'fillMaxWidth(0.82f)' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+          grep -Fq 'Modifier.fillMaxWidth().testTag("home-hijri-date")' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
           grep -Fq 'home-calendar-dialog' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
           grep -Fq 'Icons.Rounded.MenuBook' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
           grep -Fq 'dateBlockShowsHijriDateAndOpensCalendarViewer' app/src/androidTest/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreenAndroidTest.kt
@@ -97,7 +101,7 @@ jobs:
           assert 'Creative Commons Attribution 3.0' in (p/'TANZIL_TEXT_README.md').read_text()
           PY
 
-      - name: Commit direct-child candidate v2
+      - name: Commit direct-child candidate v3
         shell: bash
         run: |
           set -euo pipefail
@@ -105,7 +109,7 @@ jobs:
           git config user.email "essalih.idriss.w@gmail.com"
           git add app/build.gradle.kts app/src/main/java app/src/test app/src/androidTest docs/quran
           test -n "$(git diff --cached --name-only)"
-          git commit -m "feat: add Arabic Hijri calendar and offline Quran reader v2"
+          git commit -m "feat: add Arabic Hijri calendar and offline Quran reader v3"
           CANDIDATE_SHA="$(git rev-parse HEAD)"
           test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
           test "$(git rev-list --parents -n 1 HEAD | wc -w)" -eq 2
