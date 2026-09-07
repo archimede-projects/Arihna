@@ -22,6 +22,24 @@ new = '            onSelect = languageController::updateLanguage,'
 if text.count(old) != 1:
     raise SystemExit(f'expected one language mutator reference, found {text.count(old)}')
 text = text.replace(old, new, 1)
+
+# The project already carries JUnit 4 for host tests; generated focused tests
+# must use that dependency instead of kotlin.test, which is not on the classpath.
+old = 'import kotlin.test.Test'
+new = 'import org.junit.Test'
+if text.count(old) != 2:
+    raise SystemExit(f'expected two kotlin.test.Test imports, found {text.count(old)}')
+text = text.replace(old, new)
+old = 'import kotlin.test.assertTrue'
+new = 'import org.junit.Assert.assertTrue'
+if text.count(old) != 1:
+    raise SystemExit(f'expected one kotlin.test.assertTrue import, found {text.count(old)}')
+text = text.replace(old, new, 1)
+old = 'import kotlin.test.assertEquals'
+new = 'import org.junit.Assert.assertEquals'
+if text.count(old) != 1:
+    raise SystemExit(f'expected one kotlin.test.assertEquals import, found {text.count(old)}')
+text = text.replace(old, new, 1)
 p.write_text(text, encoding='utf-8')
 
 # Patch the build-assets transform before it generates app/build.gradle.kts.
@@ -51,4 +69,4 @@ if text.count(old) != 1:
 text = text.replace(old, new, 1)
 
 p.write_text(text, encoding='utf-8')
-print('patched Home ambiguity, language JVM name and Gradle Quran asset generation')
+print('patched Home ambiguity, language JVM name, unit-test imports and Gradle Quran asset generation')
