@@ -64,12 +64,12 @@ jobs:
       - uses: android-actions/setup-android@v3
 
       - name: Install Android API 37
-        run: android sdk install platforms/android-37 --canary || true
+        run: sdkmanager "platforms;android-37"
 
       - name: Compile exact patched tree
         run: |
           git diff --check
-          ./gradlew testDebugUnitTest compileDebugAndroidTest assembleDebug --stacktrace
+          ./gradlew :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:assembleDebug --stacktrace
 
       - name: Create direct-child candidate commit
         run: |
@@ -83,6 +83,6 @@ jobs:
           TREE_SHA="$(git write-tree)"
           CANDIDATE_SHA="$(printf '%s\n' 'fix: S25 Quran real fullscreen and larger touch targets' | git commit-tree "$TREE_SHA" -p "$SPEC_SHA")"
           test "$(git rev-parse "$CANDIDATE_SHA^")" = "$SPEC_SHA"
-          git push --force-with-lease origin "$CANDIDATE_SHA:refs/heads/$CANDIDATE_BRANCH"
+          git push origin "$CANDIDATE_SHA:refs/heads/$CANDIDATE_BRANCH"
           echo "candidate=$CANDIDATE_SHA" >> "$GITHUB_STEP_SUMMARY"
           echo "spec=$SPEC_SHA" >> "$GITHUB_STEP_SUMMARY"
