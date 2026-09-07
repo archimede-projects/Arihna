@@ -8,7 +8,21 @@ old = "text = replace_once(text, '    onOpenAlarms: () -> Unit,\\n    onRefreshL
 new = "text = text.replace('    onOpenAlarms: () -> Unit,\\n    onRefreshLocation: () -> Unit,', '    onOpenAlarms: () -> Unit,\\n    onOpenQuran: () -> Unit = {},\\n    onRefreshLocation: () -> Unit,', 1)"
 if text.count(old) != 1:
     raise SystemExit(f'expected one Home transform source target, found {text.count(old)}')
-p.write_text(text.replace(old, new, 1), encoding='utf-8')
+text = text.replace(old, new, 1)
+
+# Avoid JVM setter collision: Kotlin property `language` already generates a
+# setLanguage signature even with a private setter.
+old = '    fun setLanguage(value: AppLanguage) {'
+new = '    fun updateLanguage(value: AppLanguage) {'
+if text.count(old) != 1:
+    raise SystemExit(f'expected one language mutator declaration, found {text.count(old)}')
+text = text.replace(old, new, 1)
+old = '            onSelect = languageController::setLanguage,'
+new = '            onSelect = languageController::updateLanguage,'
+if text.count(old) != 1:
+    raise SystemExit(f'expected one language mutator reference, found {text.count(old)}')
+text = text.replace(old, new, 1)
+p.write_text(text, encoding='utf-8')
 
 # Patch the build-assets transform before it generates app/build.gradle.kts.
 p = Path('/tmp/quran-buildassets.py')
@@ -37,4 +51,4 @@ if text.count(old) != 1:
 text = text.replace(old, new, 1)
 
 p.write_text(text, encoding='utf-8')
-print('patched Home ambiguity and Gradle Quran asset generation')
+print('patched Home ambiguity, language JVM name and Gradle Quran asset generation')
