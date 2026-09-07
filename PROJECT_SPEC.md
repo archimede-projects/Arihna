@@ -2248,3 +2248,40 @@ Il test reale su Galaxy S25 mostra che **Posizione attuale** può lasciare visib
 **Lavoro parallelo.** Il lavoro Orari già approvato continua in parallelo. Home visual/layout e Sveglie/editor restano fuori scope. Orari e Location possono avere candidati sibling separati, entrambi figli diretti di questo spec. Prima della promozione, le due delta approvate devono essere ricombinate in un nuovo candidato, anch'esso figlio diretto di questo stesso spec, e passare il gate exact-SHA completo.
 
 **SPEC-FIRST.** Questo commit documentation-only è il parent condiviso. Nessun candidato fallito può diventare parent di un replacement.
+
+### 2026-09-07 — Visual harmony, expanded Adhan library and alarm-volume control correction — APPROVEE
+
+Galaxy S25 physical validation of `882e434ea036ef9033608131b428e46b16b64d1e` identified three coherent product corrections. This approval is intentionally limited to visual harmony, bundled Adhan choice and alarm-volume settings UX; prayer calculation, scheduling semantics, location behavior and platform permissions remain unchanged.
+
+#### Unified Ariha visual identity
+
+- All six top-level destinations — Home, Orari, Qibla, Sveglie, Corano and Impostazioni/Posizione — must read as one product rather than independent visual themes.
+- Use one shared Arihna visual foundation derived from the approved dark evergreen/charcoal + Ariha Gold + warm off-white identity. Screen-specific layouts and semantic accents remain allowed, but independent palette identities such as an isolated light cream Orari screen, a default-theme Qibla background, a separate Settings black palette, or a light/dark split unique to Sveglie are not allowed.
+- Provide one reusable screen-level backdrop/surface system in shared UI code and use it across the six destinations. The backdrop should carry the already-approved subtle Islamic geometric/architectural character at low contrast, without Quranic text, divine names, generated Arabic calligraphy or decorative sacred quotations.
+- Cards, section surfaces, outlines, typography contrast, primary/secondary text and gold accents should use a coherent family of shared tokens. Existing information hierarchy and feature-specific layouts may remain where they work well.
+- The visual unification must not reduce touch-target accessibility, readability, scrolling behavior or performance, and must not change navigation semantics.
+
+#### Expanded bundled Adhan library
+
+- Keep the existing three Adhan variants and their storage identifiers unchanged for update/backward compatibility: `classic`, `beautiful` and especially the user-approved `short` / “Adhan breve”.
+- Add at least **two** additional bundled Adhan recordings so the built-in selection exposes at least five genuine Adhan choices.
+- Every newly bundled recording must have independently verified redistribution provenance, preferably CC0/public-domain; document source URL, author/source attribution where applicable, license/status and exact SHA-256 in `docs/audio/ADHAN_SOURCES.md`.
+- Do not label Iqamah, Quran recitation, nasheed or other non-Adhan audio as an Adhan.
+- Every new enum/storage value must map deterministically to its bundled raw resource and remain test-covered. Existing saved values must continue to decode exactly as before.
+
+#### Alarm volume settings UX
+
+- Remove the continuous volume slider from Impostazioni.
+- Replace it with a compact discrete preset control with four user-readable levels: **Basso**, **Medio**, **Alto**, **Massimo**.
+- Presets map deterministically over the real Android `STREAM_ALARM` min/max range; `Massimo` must map exactly to max. The UI should reflect the nearest preset to the current system alarm volume and may show the current percentage as compact secondary information.
+- Selection must continue to use the existing `AlarmVolumeController` / system alarm stream. Do not change alarm playback, scheduling, snooze, ringing overlay/service behavior or diagnostic delay.
+- The old slider and its slider-specific test tag must no longer be present.
+
+#### Scope guard and verification
+
+- Do not change the prayer calculation engine, prayer times semantics, alarm scheduling semantics, location acquisition/cache/permission policy, package name or SDK levels.
+- Keep `com.archimedeprojects.arihna`, minSdk 28, compileSdk 37 and targetSdk 37.
+- Preserve frozen GeoNames and existing frozen Adhan asset hashes; new Adhan assets get their own documented hashes.
+- The technical candidate must be the **direct child of this approved specification commit**.
+- Exact-SHA gate must cover host/unit tests, debug build, full API28 instrumentation with zero failures/errors/skips, modern API36 permission matrix, package/SD/ permission inspection, frozen asset hashes, new Adhan resource/provenance tests, discrete volume-preset mapping/UI tests, and practical checks that the shared visual foundation is used by all six top-level destinations.
+- Only after a green exact-SHA gate may `main` be advanced by non-forced fast-forward. Then build an APK with the persistent Ariha signer, publish a GitHub prerelease and stop for new physical Galaxy S25 validation.
