@@ -1,0 +1,277 @@
+name: Home Alba dorata exact-SHA gate
+
+on:
+  push:
+    branches:
+      - home-alba-dorata-gate-driver-20260907
+
+permissions:
+  contents: read
+
+env:
+  SPEC_SHA: 2d94e3055990706ad23b938a87931214cd823a23
+  CANDIDATE_SHA: ee93fef6ec216590ea51a4ebcfbc0491ab799818
+  PACKAGE_NAME: com.archimedeprojects.arihna
+  GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
+  ADHAN_SHA256: 3b350bc210d657727578ed977e32323c06b63c2088c3ebcea9fc9afb7d487702
+  FROZEN_ASSET_RELEASE: settings-s25-premium-3f28b6f0-20260906
+  FROZEN_ASSET_APK: arihna-settings-s25-premium.apk
+
+jobs:
+  static-jvm-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ee93fef6ec216590ea51a4ebcfbc0491ab799818
+          fetch-depth: 0
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Verify exact SHA lineage and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git rev-list --parents -n 1 HEAD | wc -w)" -eq 2
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          git diff --name-only "$SPEC_SHA" "$CANDIDATE_SHA" | sort > /tmp/actual-files
+          cat > /tmp/expected-files <<'EOF'
+          app/src/main/java/com/archimedeprojects/arihna/app/ArihnaNavHost.kt
+          app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspiration.kt
+          app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+          app/src/main/java/com/archimedeprojects/arihna/feature/home/IslamicBackdrop.kt
+          EOF
+          sort -o /tmp/expected-files /tmp/expected-files
+          diff -u /tmp/expected-files /tmp/actual-files
+
+      - name: Restore and verify frozen assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+          echo "$ADHAN_SHA256  app/src/main/res/raw/adhan_cc0.ogg" | sha256sum -c -
+
+      - name: Verify frozen policy and Alba dorata contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'applicationId = "com.archimedeprojects.arihna"' app/build.gradle.kts
+          grep -F 'minSdk = 28' app/build.gradle.kts
+          grep -F 'compileSdk = 37' app/build.gradle.kts
+          grep -F 'targetSdk = 37' app/build.gradle.kts
+          grep -F 'playServicesLocation = "21.3.0"' gradle/libs.versions.toml
+          grep -F 'android.permission.ACCESS_FINE_LOCATION' app/src/main/AndroidManifest.xml
+          grep -F 'android.permission.ACCESS_COARSE_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -Fq 'android.permission.ACCESS_BACKGROUND_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -Fq 'android.permission.USE_EXACT_ALARM' app/src/main/AndroidManifest.xml
+          grep -F 'GoogleFusedDeviceLocationDataSource' app/src/main/java/com/archimedeprojects/arihna/app/AppContainer.kt
+          grep -F 'FusedLocationProviderClient' app/src/main/java/com/archimedeprojects/arihna/core/location/platform/GoogleFusedDeviceLocationDataSource.kt
+          grep -F 'lastLocation' app/src/main/java/com/archimedeprojects/arihna/core/location/platform/GoogleFusedDeviceLocationDataSource.kt
+          grep -F 'PRIORITY_HIGH_ACCURACY' app/src/main/java/com/archimedeprojects/arihna/core/location/platform/GoogleFusedDeviceLocationDataSource.kt
+          grep -F 'requestLocationUpdates' app/src/main/java/com/archimedeprojects/arihna/core/location/platform/GoogleFusedDeviceLocationDataSource.kt
+          grep -F 'popBackStack(homeRoute, inclusive = false)' app/src/main/java/com/archimedeprojects/arihna/app/TopLevelNavigation.kt
+          grep -F 'navigateTopLevel' app/src/main/java/com/archimedeprojects/arihna/app/ArihnaNavHost.kt
+          grep -F 'Intent.ACTION_SEND' app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspiration.kt
+          grep -F 'text/plain' app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspiration.kt
+          grep -F 'Sahih al-Bukhari 6464' app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspiration.kt
+          grep -F 'Sahih al-Bukhari 2989' app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspiration.kt
+          grep -F 'HomeBackgroundTop = Color(0xFFFFF7E6)' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+          grep -F 'HomeBackgroundMiddle = Color(0xFFF8F0DC)' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+          grep -F 'HomeAccentSoft = Color(0xFFF0D78B)' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+          grep -F 'HomeHeroText = Color(0xFFFFF9EC)' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+          grep -F 'NavigationBar(containerColor = AlbaNavBar' app/src/main/java/com/archimedeprojects/arihna/app/ArihnaNavHost.kt
+          grep -F 'NavigationBarItemDefaults.colors' app/src/main/java/com/archimedeprojects/arihna/app/ArihnaNavHost.kt
+          grep -F 'BackdropSun = Color(0xFFFFD979)' app/src/main/java/com/archimedeprojects/arihna/feature/home/IslamicBackdrop.kt
+          grep -F 'drawBehind' app/src/main/java/com/archimedeprojects/arihna/feature/home/IslamicBackdrop.kt
+          grep -F 'repeat(16)' app/src/main/java/com/archimedeprojects/arihna/feature/home/IslamicBackdrop.kt
+          ! find app/src/main -type f \( -iname '*alba*.png' -o -iname '*alba*.jpg' -o -iname '*alba*.jpeg' -o -iname '*alba*.webp' \) | grep -q .
+          grep -F 'homeRemainsReachableAfterQiblaAlarmsAndSettingsQuickRoutes' app/src/androidTest/java/com/archimedeprojects/arihna/app/TopLevelNavigationAndroidTest.kt
+          grep -F 'home-inspiration-detail' app/src/androidTest/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreenAndroidTest.kt
+
+      - name: Verify manifest permission whitelist
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -o 'android:name="android.permission.[^"]*"' app/src/main/AndroidManifest.xml | sed 's/android:name="//;s/"//' | sort -u > /tmp/actual-permissions
+          cat > /tmp/expected-permissions <<'EOF'
+          android.permission.ACCESS_COARSE_LOCATION
+          android.permission.ACCESS_FINE_LOCATION
+          android.permission.FOREGROUND_SERVICE
+          android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK
+          android.permission.POST_NOTIFICATIONS
+          android.permission.RECEIVE_BOOT_COMPLETED
+          android.permission.SCHEDULE_EXACT_ALARM
+          android.permission.SYSTEM_ALERT_WINDOW
+          android.permission.USE_FULL_SCREEN_INTENT
+          EOF
+          sort -o /tmp/expected-permissions /tmp/expected-permissions
+          diff -u /tmp/expected-permissions /tmp/actual-permissions
+
+      - name: Run host tests compile instrumentation and build APK
+        shell: bash
+        run: ./gradlew testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:assembleDebug --stacktrace
+
+      - name: Inspect built APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -x "$AAPT"
+          "$AAPT" dump badging "$APK" | grep -F "package: name='com.archimedeprojects.arihna'"
+          "$AAPT" dump badging "$APK" | grep -F "sdkVersion:'28'"
+          "$AAPT" dump badging "$APK" | grep -F "targetSdkVersion:'37'"
+          "$AAPT" dump permissions "$APK" | grep -F 'android.permission.ACCESS_FINE_LOCATION'
+          "$AAPT" dump permissions "$APK" | grep -F 'android.permission.ACCESS_COARSE_LOCATION'
+          ! "$AAPT" dump permissions "$APK" | grep -Fq 'android.permission.ACCESS_BACKGROUND_LOCATION'
+          ! "$AAPT" dump permissions "$APK" | grep -Fq 'android.permission.USE_EXACT_ALARM'
+          test "$(unzip -p "$APK" assets/geonames/cities.db | sha256sum | cut -d' ' -f1)" = "$GEONAMES_SHA256"
+          test "$(unzip -p "$APK" res/raw/adhan_cc0.ogg | sha256sum | cut -d' ' -f1)" = "$ADHAN_SHA256"
+          sha256sum "$APK"
+
+  api28-full-instrumentation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout gate driver and preserve XML validator
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Preserve validator and checkout exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .github/scripts/validate_connected_xml.py /tmp/validate_connected_xml.py
+          git checkout --detach "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Restore frozen assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+          echo "$ADHAN_SHA256  app/src/main/res/raw/adhan_cc0.ogg" | sha256sum -c -
+
+      - name: Enable KVM
+        shell: bash
+        run: sudo chmod 666 /dev/kvm || true
+
+      - name: Run every instrumentation test on Android 9 API28
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 28
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
+
+      - name: Require real zero-failure zero-skip XML
+        shell: bash
+        run: python3 /tmp/validate_connected_xml.py
+
+  api36-location-permission-matrix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ee93fef6ec216590ea51a4ebcfbc0491ab799818
+          fetch-depth: 0
+
+      - name: Verify exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Restore frozen assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+
+      - name: Enable KVM
+        shell: bash
+        run: sudo chmod 666 /dev/kvm || true
+
+      - name: Android 16 API36 permission matrix
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: |
+            ./gradlew :app:installDebug --stacktrace
+            adb shell pm revoke "$PACKAGE_NAME" android.permission.ACCESS_FINE_LOCATION || true
+            adb shell pm revoke "$PACKAGE_NAME" android.permission.ACCESS_COARSE_LOCATION || true
+            adb shell dumpsys package "$PACKAGE_NAME" | grep -F 'android.permission.ACCESS_FINE_LOCATION:' | head -n 1 | grep -q 'granted=false'
+            adb shell dumpsys package "$PACKAGE_NAME" | grep -F 'android.permission.ACCESS_COARSE_LOCATION:' | head -n 1 | grep -q 'granted=false'
+            adb shell pm grant "$PACKAGE_NAME" android.permission.ACCESS_COARSE_LOCATION
+            adb shell dumpsys package "$PACKAGE_NAME" | grep -F 'android.permission.ACCESS_FINE_LOCATION:' | head -n 1 | grep -q 'granted=false'
+            adb shell dumpsys package "$PACKAGE_NAME" | grep -F 'android.permission.ACCESS_COARSE_LOCATION:' | head -n 1 | grep -q 'granted=true'
+            adb shell pm grant "$PACKAGE_NAME" android.permission.ACCESS_FINE_LOCATION
+            adb shell dumpsys package "$PACKAGE_NAME" | grep -F 'android.permission.ACCESS_FINE_LOCATION:' | head -n 1 | grep -q 'granted=true'
+            adb shell dumpsys package "$PACKAGE_NAME" | grep -F 'android.permission.ACCESS_COARSE_LOCATION:' | head -n 1 | grep -q 'granted=true'
+            adb shell pm revoke "$PACKAGE_NAME" android.permission.ACCESS_FINE_LOCATION
+            adb shell dumpsys package "$PACKAGE_NAME" | grep -F 'android.permission.ACCESS_FINE_LOCATION:' | head -n 1 | grep -q 'granted=false'
+            adb shell dumpsys package "$PACKAGE_NAME" | grep -F 'android.permission.ACCESS_COARSE_LOCATION:' | head -n 1 | grep -q 'granted=true'
+            adb shell pm revoke "$PACKAGE_NAME" android.permission.ACCESS_COARSE_LOCATION
+            adb shell dumpsys package "$PACKAGE_NAME" | grep -F 'android.permission.ACCESS_FINE_LOCATION:' | head -n 1 | grep -q 'granted=false'
+            adb shell dumpsys package "$PACKAGE_NAME" | grep -F 'android.permission.ACCESS_COARSE_LOCATION:' | head -n 1 | grep -q 'granted=false'
