@@ -1,0 +1,61 @@
+name: premium-quran-ui-polish
+
+on:
+  push:
+    branches:
+      - premium-quran-ui-polish-driver-20260907
+
+permissions:
+  contents: write
+
+jobs:
+  polish-staging:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout staging implementation
+        uses: actions/checkout@v4
+        with:
+          ref: premium-quran-daily-hijri-v1
+          fetch-depth: 0
+
+      - name: Refine volume slider and navigation palette
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          settings = Path('app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt')
+          text = settings.read_text()
+          old = '''        Slider(\n            value = current.toFloat(),\n            onValueChange = { requested ->\n                onAlarmVolumeChange(requested.roundToInt().coerceIn(volume.min, volume.max))\n            },\n            valueRange = volume.min.toFloat()..volume.max.toFloat(),\n            steps = (span - 1).coerceAtLeast(0),\n            modifier = Modifier\n                .fillMaxWidth()\n                .testTag("settings-alarm-volume-slider"),\n            colors = SliderDefaults.colors(\n                thumbColor = SettingsAccent,\n                activeTrackColor = SettingsAccent,\n                inactiveTrackColor = SettingsSurfaceRaised,\n                activeTickColor = SettingsText.copy(alpha = 0.45f),\n                inactiveTickColor = SettingsMuted.copy(alpha = 0.24f),\n            ),\n        )'''
+          new = '''        Box(\n            modifier = Modifier\n                .fillMaxWidth()\n                .background(SettingsSurfaceRaised, RoundedCornerShape(50))\n                .padding(horizontal = 8.dp, vertical = 1.dp),\n        ) {\n            Slider(\n                value = current.toFloat(),\n                onValueChange = { requested ->\n                    onAlarmVolumeChange(requested.roundToInt().coerceIn(volume.min, volume.max))\n                },\n                valueRange = volume.min.toFloat()..volume.max.toFloat(),\n                // Continuous track: no dense notches / shutter-like stepping.\n                steps = 0,\n                modifier = Modifier\n                    .fillMaxWidth()\n                    .testTag("settings-alarm-volume-slider"),\n                colors = SliderDefaults.colors(\n                    thumbColor = SettingsText,\n                    activeTrackColor = SettingsText,\n                    inactiveTrackColor = SettingsMuted.copy(alpha = 0.16f),\n                ),\n            )\n        }'''
+          if old not in text:
+              raise SystemExit('Alarm slider anchor missing')
+          settings.write_text(text.replace(old, new, 1))
+
+          nav = Path('app/src/main/java/com/archimedeprojects/arihna/app/ArihnaNavHost.kt')
+          text = nav.read_text()
+          replacements = {
+              'private val AlbaNavBar = Color(0xFFFFFAEF)': 'private val AlbaNavBar = Color(0xFFFCF8F0)',
+              'private val AlbaNavIcon = Color(0xFF52705F)': 'private val AlbaNavIcon = Color(0xFF617067)',
+              'private val AlbaNavSelectedIcon = Color(0xFF173C30)': 'private val AlbaNavSelectedIcon = Color(0xFF064A37)',
+              'private val AlbaNavIndicator = Color(0xFFDDE6C9)': 'private val AlbaNavIndicator = Color(0xFFE8F0EA)',
+          }
+          for source, target in replacements.items():
+              if source not in text:
+                  raise SystemExit(f'Navigation color anchor missing: {source}')
+              text = text.replace(source, target, 1)
+          nav.write_text(text)
+          PY
+          git diff --check
+
+      - name: Commit staging polish
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt \
+                  app/src/main/java/com/archimedeprojects/arihna/app/ArihnaNavHost.kt
+          git commit -m 'feat: refine alarm volume slider and navigation palette'
+          git push origin HEAD:premium-quran-daily-hijri-v1
