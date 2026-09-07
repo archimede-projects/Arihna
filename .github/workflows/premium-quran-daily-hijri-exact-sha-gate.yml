@@ -69,7 +69,7 @@ jobs:
 
           SETTINGS=app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
           grep -Fq 'settings-alarm-volume-slider' "$SETTINGS"
-          grep -Fq 'thumbColor = SettingsAccent' "$SETTINGS"
+          grep -Fq 'thumbColor = SettingsText' "$SETTINGS"
           grep -Fq 'settings-language-arabic' "$SETTINGS"
 
           grep -Fq 'LayoutDirection.Rtl' app/src/main/java/com/archimedeprojects/arihna/app/ArihnaApp.kt
@@ -138,7 +138,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cp .github/scripts/validate_connected_xml.py /tmp/validate_connected_xml.py
+          git show origin/home-hijri-quran-arabic-v4-gate-driver-20260907:.github/scripts/validate_connected_xml.py > /tmp/validate_connected_xml.py
+          test -s /tmp/validate_connected_xml.py
           git checkout --detach "$CANDIDATE_SHA"
           test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
           test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
