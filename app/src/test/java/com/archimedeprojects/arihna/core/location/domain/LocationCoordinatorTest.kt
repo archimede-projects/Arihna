@@ -68,6 +68,27 @@ class LocationCoordinatorTest {
     }
 
     @Test
+    fun explicitSelectDeviceBelowFiveKilometersReplacesCache() = runBlocking {
+        val cached = romeFix()
+        val nearby = cached.copy(
+            coordinates = Coordinates(41.9200, 12.4964),
+            capturedAt = Instant.parse("2026-08-29T11:00:00Z"),
+        )
+        val device = FakeDeviceLocationDataSource().apply {
+            currentResult = DeviceLocationResult.Success(nearby)
+        }
+        val preferences = FakeLocationPreferencesRepository(LocationPreference.Device, cached)
+        val coordinator = coordinator(device = device, preferences = preferences)
+
+        val state = coordinator.selectDevice(LocationPermissionState.Granted, true)
+
+        val ready = state as LocationResolutionState.Ready
+        assertEquals(LocationFreshness.FRESH, ready.freshness)
+        assertEquals(nearby.coordinates, ready.location.coordinates)
+        assertEquals(nearby, preferences.cachedState.value)
+    }
+
+    @Test
     fun freshFixAboveFiveKilometersReplacesCache() = runBlocking {
         val cached = romeFix()
         val moved = cached.copy(

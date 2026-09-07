@@ -18,6 +18,7 @@ import android.os.IBinder
 import android.os.Looper
 import androidx.core.app.NotificationCompat
 import com.archimedeprojects.arihna.R
+import com.archimedeprojects.arihna.feature.alarms.domain.AdhanVariant
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmDefinition
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmOccurrence
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmPrayer
@@ -270,13 +271,18 @@ class AlarmRingingService : Service() {
             val player = MediaPlayer()
             try {
                 player.setAudioAttributes(attributes)
-                resources.openRawResourceFd(R.raw.adhan_cc0).use { descriptor ->
-                    player.setDataSource(
-                        descriptor.fileDescriptor,
-                        descriptor.startOffset,
-                        descriptor.length,
-                    )
-                }
+                val rawResource = when (AdhanVariant.fromStorage(selectedRingtoneUri)) {
+          AdhanVariant.CLASSIC -> R.raw.adhan_cc0
+          AdhanVariant.BEAUTIFUL -> R.raw.adhan_beautiful_cc0
+          AdhanVariant.SHORT -> R.raw.adhan_short_cc0
+      }
+      resources.openRawResourceFd(rawResource).use { descriptor ->
+          player.setDataSource(
+              descriptor.fileDescriptor,
+              descriptor.startOffset,
+              descriptor.length,
+          )
+      }
                 player.isLooping = false
                 player.prepare()
                 player.start()
