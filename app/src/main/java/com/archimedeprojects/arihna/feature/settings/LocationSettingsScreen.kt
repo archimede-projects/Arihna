@@ -37,6 +37,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -55,6 +57,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.PopupProperties
+import com.archimedeprojects.arihna.core.i18n.AppLanguage
+import com.archimedeprojects.arihna.core.i18n.LocalAppLanguageController
+import com.archimedeprojects.arihna.core.i18n.appText
 import com.archimedeprojects.arihna.core.location.model.CitySearchResult
 import com.archimedeprojects.arihna.core.location.model.LocationPermissionState
 import com.archimedeprojects.arihna.core.location.model.LocationResolutionState
@@ -77,6 +82,7 @@ import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeChangeRes
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeController
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeState
 import com.archimedeprojects.arihna.feature.alarms.platform.ExactAlarmAccessIntentFactory
+import kotlin.math.roundToInt
 
 private val SettingsBackgroundTop = ArihnaDawnTop
 private val SettingsBackgroundBottom = ArihnaDawnBottom
@@ -218,6 +224,7 @@ fun LocationSettingsScreen(
 ) {
     val presentation = uiState.resolutionState.toPresentation()
     val ready = uiState.resolutionState is LocationResolutionState.Ready
+    val languageController = LocalAppLanguageController.current
 
     Column(
         modifier = Modifier
@@ -246,7 +253,7 @@ fun LocationSettingsScreen(
                     letterSpacing = 2.4.sp,
                 )
                 Text(
-                    text = "Impostazioni",
+                    text = appText("Impostazioni", "الإعدادات"),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = SettingsText,
@@ -254,7 +261,13 @@ fun LocationSettingsScreen(
             }
         }
 
-        SettingsSectionTitle("Posizione", "settings-section-location")
+        SettingsSectionTitle(appText("Lingua", "اللغة"), "settings-section-language")
+        LanguageSettingsCard(
+            selected = languageController.language,
+            onSelect = languageController::updateLanguage,
+        )
+
+        SettingsSectionTitle(appText("Posizione", "الموقع"), "settings-section-location")
         LocationControlCard(
             uiState = uiState,
             presentation = presentation,
@@ -266,10 +279,10 @@ fun LocationSettingsScreen(
             onOpenLocationSettings = onOpenLocationSettings,
         )
 
-        SettingsSectionTitle("Sveglia", "settings-section-alarms")
+        SettingsSectionTitle(appText("Sveglia", "المنبه"), "settings-section-alarms")
         AlarmVolumeCard(state = alarmSettings, onAlarmVolumeChange = onAlarmVolumeChange)
 
-        SettingsSectionTitle("Test rapidi", "settings-section-tests")
+        SettingsSectionTitle(appText("Test rapidi", "اختبارات سريعة"), "settings-section-tests")
         AlarmDiagnosticCard(
             state = alarmSettings,
             onTestAlarm = onTestAlarm,
@@ -505,6 +518,50 @@ data class AlarmSettingsPresentation(
     val diagnosticMessage: String? = null,
 )
 
+
+@Composable
+private fun LanguageSettingsCard(
+    selected: AppLanguage,
+    onSelect: (AppLanguage) -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("settings-language-card"),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = SettingsSurface),
+        border = BorderStroke(1.dp, SettingsOutline),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            TextButton(
+                onClick = { onSelect(AppLanguage.ITALIAN) },
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("settings-language-italian"),
+                colors = ButtonDefaults.textButtonColors(
+                    containerColor = if (selected == AppLanguage.ITALIAN) SettingsAccent.copy(alpha = 0.18f) else Color.Transparent,
+                    contentColor = SettingsText,
+                ),
+            ) { Text("Italiano", fontWeight = FontWeight.Bold) }
+            TextButton(
+                onClick = { onSelect(AppLanguage.ARABIC) },
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("settings-language-arabic"),
+                colors = ButtonDefaults.textButtonColors(
+                    containerColor = if (selected == AppLanguage.ARABIC) SettingsAccent.copy(alpha = 0.18f) else Color.Transparent,
+                    contentColor = SettingsText,
+                ),
+            ) { Text("العربية", fontWeight = FontWeight.Bold) }
+        }
+    }
+}
+
 @Composable
 private fun AlarmVolumeCard(
     state: AlarmSettingsPresentation,
@@ -529,88 +586,63 @@ private fun AlarmVolumeSetting(
 ) {
     val volume = state.alarmVolumeState
     val current = volume.current.coerceIn(volume.min, volume.max)
-    val canDecrease = current > volume.min
-    val canIncrease = current < volume.max
+    val span = (volume.max - volume.min).coerceAtLeast(1)
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 14.dp, vertical = 10.dp)
             .testTag("settings-alarm-volume"),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
+            Icon(
+                Icons.Rounded.Alarm,
+                contentDescription = null,
+                tint = SettingsAccent,
+                modifier = Modifier.size(18.dp),
+            )
+            Text(
+                appText("Volume sveglia", "مستوى صوت المنبه"),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = SettingsText,
                 modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    Icons.Rounded.Alarm,
-                    contentDescription = null,
-                    tint = SettingsAccent,
-                    modifier = Modifier.size(18.dp),
-                )
-                Text(
-                    "Volume sveglia",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = SettingsText,
-                )
-            }
+            )
             Text(
                 "${volume.percent}%",
                 style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.ExtraBold,
                 color = SettingsAccent,
                 modifier = Modifier.testTag("settings-alarm-volume-value"),
             )
         }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(
-                onClick = { onAlarmVolumeChange(current - 1) },
-                enabled = canDecrease,
-                modifier = Modifier
-                    .background(SettingsSurfaceRaised, RoundedCornerShape(14.dp))
-                    .testTag("settings-alarm-volume-decrease"),
-            ) {
-                Text(
-                    "−",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = if (canDecrease) SettingsText else SettingsMuted.copy(alpha = 0.45f),
-                )
-            }
-            Text(
-                "$current / ${volume.max}",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = SettingsMuted,
-            )
-            IconButton(
-                onClick = { onAlarmVolumeChange(current + 1) },
-                enabled = canIncrease,
-                modifier = Modifier
-                    .background(SettingsSurfaceRaised, RoundedCornerShape(14.dp))
-                    .testTag("settings-alarm-volume-increase"),
-            ) {
-                Text(
-                    "+",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = if (canIncrease) SettingsText else SettingsMuted.copy(alpha = 0.45f),
-                )
-            }
-        }
+        Slider(
+            value = current.toFloat(),
+            onValueChange = { requested ->
+                onAlarmVolumeChange(requested.roundToInt().coerceIn(volume.min, volume.max))
+            },
+            valueRange = volume.min.toFloat()..volume.max.toFloat(),
+            steps = (span - 1).coerceAtLeast(0),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("settings-alarm-volume-slider"),
+            colors = SliderDefaults.colors(
+                thumbColor = SettingsAccent,
+                activeTrackColor = SettingsAccent,
+                inactiveTrackColor = SettingsSurfaceRaised,
+                activeTickColor = SettingsText.copy(alpha = 0.45f),
+                inactiveTickColor = SettingsMuted.copy(alpha = 0.24f),
+            ),
+        )
         Text(
-            "Volume globale delle sveglie del telefono",
+            appText(
+                "Volume globale delle sveglie del telefono",
+                "هذا يغيّر مستوى صوت المنبهات في الهاتف بالكامل",
+            ),
             style = MaterialTheme.typography.bodySmall,
             color = SettingsMuted,
         )

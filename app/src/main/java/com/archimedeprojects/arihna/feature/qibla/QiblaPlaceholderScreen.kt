@@ -42,6 +42,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.archimedeprojects.arihna.core.i18n.appText
 import com.archimedeprojects.arihna.core.location.model.LocationFreshness
 import com.archimedeprojects.arihna.core.location.model.LocationResolutionState
 import com.archimedeprojects.arihna.core.location.model.LocationSource
@@ -78,8 +79,8 @@ fun QiblaScreen(contentPadding: PaddingValues, state: QiblaState, onOpenLocation
             .testTag("qibla-single-viewport"),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("Qibla", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-        Text("Direzione verso la Kaaba · nord vero", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(appText("Qibla", "القبلة"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+        Text(appText("Direzione verso la Kaaba · nord vero", "اتجاه الكعبة · الشمال الحقيقي"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(8.dp))
         when (state) {
             is QiblaState.NoLocation -> NoLocationContent(onOpenLocationSettings)

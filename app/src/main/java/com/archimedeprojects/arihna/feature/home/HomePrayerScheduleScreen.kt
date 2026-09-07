@@ -2,6 +2,7 @@ package com.archimedeprojects.arihna.feature.home
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,8 +21,12 @@ import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.MyLocation
+import androidx.compose.material.icons.rounded.MenuBook
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -30,9 +35,14 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -41,6 +51,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.archimedeprojects.arihna.core.calendar.HijriDateFormatter
+import com.archimedeprojects.arihna.core.i18n.appText
+import com.archimedeprojects.arihna.core.i18n.isArabicLanguage
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaCream
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaDawnBottom
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaDawnGold
@@ -59,6 +72,7 @@ import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 import java.util.Locale
@@ -84,6 +98,7 @@ fun HomePrayerScheduleRoute(
     onOpenLocationSettings: () -> Unit,
     onOpenQibla: () -> Unit,
     onOpenAlarms: () -> Unit,
+    onOpenQuran: () -> Unit = {},
     onRefreshLocation: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -93,6 +108,7 @@ fun HomePrayerScheduleRoute(
         onOpenLocationSettings = onOpenLocationSettings,
         onOpenQibla = onOpenQibla,
         onOpenAlarms = onOpenAlarms,
+        onOpenQuran = onOpenQuran,
         onRefreshLocation = onRefreshLocation,
     )
 }
@@ -104,6 +120,7 @@ fun HomePrayerScheduleScreen(
     onOpenLocationSettings: () -> Unit,
     onOpenQibla: () -> Unit = {},
     onOpenAlarms: () -> Unit = {},
+    onOpenQuran: () -> Unit = {},
     onRefreshLocation: () -> Unit = {},
 ) {
     Column(
@@ -126,6 +143,7 @@ fun HomePrayerScheduleScreen(
                 onOpenLocationSettings = onOpenLocationSettings,
                 onOpenQibla = onOpenQibla,
                 onOpenAlarms = onOpenAlarms,
+                onOpenQuran = onOpenQuran,
                 onRefreshLocation = onRefreshLocation,
             )
         }
@@ -208,6 +226,7 @@ private fun ReadyContent(
     onOpenLocationSettings: () -> Unit,
     onOpenQibla: () -> Unit,
     onOpenAlarms: () -> Unit,
+    onOpenQuran: () -> Unit,
     onRefreshLocation: () -> Unit,
 ) {
     val zoneId = state.today.zoneId
@@ -220,12 +239,18 @@ private fun ReadyContent(
     QuickActions(
         onOpenQibla = onOpenQibla,
         onOpenAlarms = onOpenAlarms,
-        onOpenLocationSettings = onOpenLocationSettings,
+        onOpenQuran = onOpenQuran,
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HomeHeader(state: PrayerScheduleUiState.Ready, onRefreshLocation: () -> Unit) {
+    val arabic = isArabicLanguage()
+    var calendarOpen by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = state.localDate.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+    )
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -256,12 +281,26 @@ private fun HomeHeader(state: PrayerScheduleUiState.Ready, onRefreshLocation: ()
                     modifier = Modifier.testTag("home-location"),
                 )
             }
-            Text(
-                text = formatDate(state.localDate),
-                style = MaterialTheme.typography.bodySmall,
-                color = HomeMuted,
-                modifier = Modifier.testTag("home-current-date"),
-            )
+            Column(
+                modifier = Modifier
+                    .clickable { calendarOpen = true }
+                    .testTag("home-date-block"),
+                verticalArrangement = Arrangement.spacedBy(1.dp),
+            ) {
+                Text(
+                    text = formatDate(state.localDate, arabic),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = HomeMuted,
+                    modifier = Modifier.testTag("home-current-date"),
+                )
+                Text(
+                    text = HijriDateFormatter.format(state.localDate, arabic),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = HomeAccent,
+                    modifier = Modifier.testTag("home-hijri-date"),
+                )
+            }
         }
         IconButton(
             onClick = onRefreshLocation,
@@ -269,9 +308,33 @@ private fun HomeHeader(state: PrayerScheduleUiState.Ready, onRefreshLocation: ()
         ) {
             Icon(
                 imageVector = Icons.Rounded.MyLocation,
-                contentDescription = "Aggiorna posizione",
+                contentDescription = appText("Aggiorna posizione", "تحديث الموقع"),
                 tint = HomeAccent,
             )
+        }
+    }
+
+    if (calendarOpen) {
+        val selectedDate = datePickerState.selectedDateMillis
+            ?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }
+            ?: state.localDate
+        DatePickerDialog(
+            onDismissRequest = { calendarOpen = false },
+            confirmButton = {
+                TextButton(onClick = { calendarOpen = false }) {
+                    Text(appText("Chiudi", "إغلاق"))
+                }
+            },
+        ) {
+            Column(modifier = Modifier.testTag("home-calendar-dialog")) {
+                Text(
+                    text = HijriDateFormatter.format(selectedDate, arabic),
+                    color = HomeAccent,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp),
+                )
+                DatePicker(state = datePickerState)
+            }
         }
     }
 }
@@ -294,7 +357,7 @@ private fun NextPrayerHero(state: PrayerScheduleUiState.Ready, zoneId: ZoneId) {
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                 Text(
-                    text = "PROSSIMA PREGHIERA",
+                    text = appText("PROSSIMA PREGHIERA", "الصلاة القادمة"),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.3.sp,
@@ -332,7 +395,7 @@ private fun NextPrayerHero(state: PrayerScheduleUiState.Ready, zoneId: ZoneId) {
                             .testTag("home-next-prayer-countdown"),
                     ) {
                         Text(
-                            text = "Tra ${formatCountdown(nextPrayer.remaining)}",
+                            text = "${appText("Tra", "بعد")} ${formatCountdown(nextPrayer.remaining)}",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                             color = HomeAccent,
@@ -349,7 +412,7 @@ private fun TodayPrayerStrip(state: PrayerScheduleUiState.Ready, zoneId: ZoneId)
     val next = state.nextPrayer?.prayer
     Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
         Text(
-            text = "OGGI",
+            text = appText("OGGI", "اليوم"),
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Bold,
             letterSpacing = 1.2.sp,
@@ -362,7 +425,7 @@ private fun TodayPrayerStrip(state: PrayerScheduleUiState.Ready, zoneId: ZoneId)
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             PrayerStripTile("Fajr", state.today.times.fajr, zoneId, next == PrayerName.FAJR, Modifier.weight(1f))
-            PrayerStripTile("Alba", state.today.times.sunrise, zoneId, false, Modifier.weight(1f))
+            PrayerStripTile(appText("Alba", "الشروق"), state.today.times.sunrise, zoneId, false, Modifier.weight(1f))
             PrayerStripTile("Dhuhr", state.today.times.dhuhr, zoneId, next == PrayerName.DHUHR, Modifier.weight(1f))
             PrayerStripTile("Asr", state.today.times.asr, zoneId, next == PrayerName.ASR, Modifier.weight(1f))
             PrayerStripTile("Maghrib", state.today.times.maghrib, zoneId, next == PrayerName.MAGHRIB, Modifier.weight(1f))
@@ -409,12 +472,13 @@ private fun PrayerStripTile(
 
 @Composable
 private fun WeekStrip(localDate: LocalDate) {
+    val arabic = isArabicLanguage()
     val monday = localDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
     val days = (0L..6L).map(monday::plusDays)
 
     Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
         Text(
-            text = "SETTIMANA",
+            text = appText("SETTIMANA", "الأسبوع"),
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Bold,
             letterSpacing = 1.2.sp,
@@ -441,7 +505,7 @@ private fun WeekStrip(localDate: LocalDate) {
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
                     Text(
-                        text = dayInitial(day.dayOfWeek),
+                        text = dayInitial(day.dayOfWeek, arabic),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = if (isToday) HomeHeroDeep else HomeMuted,
@@ -462,7 +526,7 @@ private fun WeekStrip(localDate: LocalDate) {
 private fun QuickActions(
     onOpenQibla: () -> Unit,
     onOpenAlarms: () -> Unit,
-    onOpenLocationSettings: () -> Unit,
+    onOpenQuran: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -470,9 +534,9 @@ private fun QuickActions(
             .testTag("home-quick-actions"),
         horizontalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        QuickActionButton("Qibla", Icons.Rounded.Explore, onOpenQibla, Modifier.weight(1f))
-        QuickActionButton("Sveglie", Icons.Rounded.Alarm, onOpenAlarms, Modifier.weight(1f))
-        QuickActionButton("Posizione", Icons.Rounded.LocationOn, onOpenLocationSettings, Modifier.weight(1f))
+        QuickActionButton(appText("Qibla", "القبلة"), Icons.Rounded.Explore, onOpenQibla, Modifier.weight(1f))
+        QuickActionButton(appText("Sveglie", "المنبهات"), Icons.Rounded.Alarm, onOpenAlarms, Modifier.weight(1f))
+        QuickActionButton(appText("Corano", "القرآن"), Icons.Rounded.MenuBook, onOpenQuran, Modifier.weight(1f))
     }
 }
 
@@ -509,17 +573,30 @@ private fun prayerLabel(prayer: PrayerName): String = when (prayer) {
     PrayerName.ISHA -> "Isha"
 }
 
-private fun dayInitial(day: DayOfWeek): String = when (day) {
-    DayOfWeek.MONDAY -> "L"
-    DayOfWeek.TUESDAY -> "M"
-    DayOfWeek.WEDNESDAY -> "M"
-    DayOfWeek.THURSDAY -> "G"
-    DayOfWeek.FRIDAY -> "V"
-    DayOfWeek.SATURDAY -> "S"
-    DayOfWeek.SUNDAY -> "D"
+private fun dayInitial(day: DayOfWeek, arabic: Boolean): String = if (arabic) {
+    when (day) {
+        DayOfWeek.MONDAY -> "ن"
+        DayOfWeek.TUESDAY -> "ث"
+        DayOfWeek.WEDNESDAY -> "ر"
+        DayOfWeek.THURSDAY -> "خ"
+        DayOfWeek.FRIDAY -> "ج"
+        DayOfWeek.SATURDAY -> "س"
+        DayOfWeek.SUNDAY -> "ح"
+    }
+} else {
+    when (day) {
+        DayOfWeek.MONDAY -> "L"
+        DayOfWeek.TUESDAY -> "M"
+        DayOfWeek.WEDNESDAY -> "M"
+        DayOfWeek.THURSDAY -> "G"
+        DayOfWeek.FRIDAY -> "V"
+        DayOfWeek.SATURDAY -> "S"
+        DayOfWeek.SUNDAY -> "D"
+    }
 }
 
-private fun formatDate(date: LocalDate): String = DATE_FORMATTER.format(date)
+private fun formatDate(date: LocalDate, arabic: Boolean): String =
+    DateTimeFormatter.ofPattern("EEEE d MMMM", if (arabic) Locale("ar") else Locale.ITALIAN).format(date)
 
 private fun formatTime(time: Instant, zoneId: ZoneId): String =
     TIME_FORMATTER.withZone(zoneId).format(time)
@@ -533,4 +610,3 @@ private fun formatCountdown(duration: Duration): String {
 }
 
 private val TIME_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.ITALIAN)
-private val DATE_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.ITALIAN)
