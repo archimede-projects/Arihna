@@ -6,10 +6,18 @@ import org.junit.Test
 
 class AdhanVariantTest {
     @Test
-    fun eachVariantHasStableDistinctStorageValue() {
+    fun catalogueContainsSixStableDistinctVariants() {
         val values = AdhanVariant.entries.map { it.storageValue }
+        assertEquals(6, values.size)
         assertEquals(values.size, values.toSet().size)
         assertNotEquals(AdhanVariant.CLASSIC.storageValue, AdhanVariant.BEAUTIFUL.storageValue)
+    }
+
+    @Test
+    fun establishedStorageIdsStayMigrationSafe() {
+        assertEquals("arihna://adhan/classic", AdhanVariant.CLASSIC.storageValue)
+        assertEquals("arihna://adhan/beautiful", AdhanVariant.BEAUTIFUL.storageValue)
+        assertEquals("arihna://adhan/short", AdhanVariant.SHORT.storageValue)
     }
 
     @Test

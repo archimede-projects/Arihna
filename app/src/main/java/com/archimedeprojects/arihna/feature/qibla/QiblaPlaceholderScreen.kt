@@ -49,6 +49,8 @@ import com.archimedeprojects.arihna.core.location.model.SelectedLocation
 import com.archimedeprojects.arihna.core.qibla.heading.HeadingQuality
 import com.archimedeprojects.arihna.core.qibla.heading.HeadingSource
 import com.archimedeprojects.arihna.core.qibla.heading.HeadingUnavailableReason
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaDawnBottom
+import com.archimedeprojects.arihna.core.ui.theme.ArihnaDawnTop
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaGold
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaGreen
 import com.archimedeprojects.arihna.feature.qibla.domain.QiblaBearingUnavailableReason
@@ -68,7 +70,12 @@ fun QiblaRoute(contentPadding: PaddingValues, states: Flow<QiblaState>, onOpenLo
 @Composable
 fun QiblaScreen(contentPadding: PaddingValues, state: QiblaState, onOpenLocationSettings: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(contentPadding).padding(horizontal = 16.dp, vertical = 8.dp).testTag("qibla-single-viewport"),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Brush.verticalGradient(listOf(ArihnaDawnTop, ArihnaDawnBottom)))
+            .padding(contentPadding)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .testTag("qibla-single-viewport"),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text("Qibla", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)

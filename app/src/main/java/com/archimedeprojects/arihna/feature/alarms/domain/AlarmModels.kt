@@ -25,6 +25,9 @@ enum class AdhanVariant(
     CLASSIC("classic", "Adhan classico"),
     BEAUTIFUL("beautiful", "Adhan armonioso"),
     SHORT("short", "Adhan breve"),
+    EXTENDED("extended", "Adhan disteso"),
+    COMPACT("compact", "Adhan compatto"),
+    ALTERNATIVE("alternative", "Adhan alternativo"),
     ;
 
     val storageValue: String = "arihna://adhan/$storageId"

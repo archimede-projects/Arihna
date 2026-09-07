@@ -272,9 +272,12 @@ class AlarmRingingService : Service() {
             try {
                 player.setAudioAttributes(attributes)
                 val rawResource = when (AdhanVariant.fromStorage(selectedRingtoneUri)) {
-          AdhanVariant.CLASSIC -> R.raw.adhan_cc0
-          AdhanVariant.BEAUTIFUL -> R.raw.adhan_beautiful_cc0
-          AdhanVariant.SHORT -> R.raw.adhan_short_cc0
+            AdhanVariant.CLASSIC -> R.raw.adhan_cc0
+            AdhanVariant.BEAUTIFUL -> R.raw.adhan_beautiful_cc0
+            AdhanVariant.SHORT -> R.raw.adhan_short_cc0
+            AdhanVariant.EXTENDED -> R.raw.adhan_extended_cc_by_sa
+            AdhanVariant.COMPACT -> R.raw.adhan_compact_pd
+            AdhanVariant.ALTERNATIVE -> R.raw.adhan_alternative_cc_by_sa
       }
       resources.openRawResourceFd(rawResource).use { descriptor ->
           player.setDataSource(
