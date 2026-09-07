@@ -1,0 +1,155 @@
+name: Home Hijri Quran Arabic implementation v3
+
+on:
+  push:
+    branches:
+      - home-hijri-quran-arabic-impl-driver-20260907
+    paths:
+      - .github/workflows/home-hijri-quran-arabic-impl-v3.yml
+
+permissions:
+  contents: write
+
+jobs:
+  implement:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      SPEC_SHA: 3dd4a905369694b79a273a560685af9fee730cd5
+      BASE_RUNTIME_SHA: f5478522533962f44ca9f8879f7d6a82d9c35af4
+      CANDIDATE_BRANCH: home-hijri-quran-arabic-v1
+      TANZIL_SHA: 052b515f3a24dfacbe4cafc3b89f0681a447f462
+      GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
+      FROZEN_ASSET_RELEASE: settings-s25-premium-3f28b6f0-20260906
+      FROZEN_ASSET_APK: arihna-settings-s25-premium.apk
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Capture corrected writer and guard SPEC-FIRST lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .github/arihna-home-hijri-quran-arabic-revision.py /tmp/revision.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('/tmp/revision.py')
+          text = p.read_text()
+          patches = [
+              (
+                  'add_import_after(path, "import androidx.compose.runtime.getValue\\n", "import androidx.compose.runtime.mutableStateOf\\n")',
+                  'add_import_after(path, "import androidx.compose.runtime.remember\\n", "import androidx.compose.runtime.getValue\\nimport androidx.compose.runtime.mutableStateOf\\n")',
+              ),
+              (
+                  "'''    onOpenAlarms: () -> Unit,\\n    onRefreshLocation: () -> Unit,\\n) {''',\\n    '''    onOpenAlarms: () -> Unit,\\n    onOpenQuran: () -> Unit,\\n    onRefreshLocation: () -> Unit,\\n) {''',",
+                  "'''    onOpenQibla: () -> Unit,\\n    onOpenAlarms: () -> Unit,\\n    onRefreshLocation: () -> Unit,\\n) {\\n    val uiState by viewModel.uiState.collectAsState()''',\\n    '''    onOpenQibla: () -> Unit,\\n    onOpenAlarms: () -> Unit,\\n    onOpenQuran: () -> Unit,\\n    onRefreshLocation: () -> Unit,\\n) {\\n    val uiState by viewModel.uiState.collectAsState()''',",
+              ),
+          ]
+          for old, new in patches:
+              if text.count(old) != 1:
+                  raise SystemExit(f'writer patch target expected once, found {text.count(old)}: {old[:80]}')
+              text = text.replace(old, new, 1)
+          p.write_text(text)
+          PY
+          git fetch origin main --force
+          test "$(git rev-parse origin/main)" = "$SPEC_SHA"
+          test "$(git rev-parse "$SPEC_SHA^")" = "$BASE_RUNTIME_SHA"
+          test "$(git diff --name-only "$BASE_RUNTIME_SHA" "$SPEC_SHA")" = 'specs/2026-09-07-home-hijri-quran-arabic.md'
+          git switch -C "$CANDIDATE_BRANCH" "$SPEC_SHA"
+          test "$(git rev-parse HEAD)" = "$SPEC_SHA"
+
+      - name: Bundle pinned Tanzil Quran assets verbatim
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p app/src/main/assets/quran /tmp/tanzil
+          BASE="https://raw.githubusercontent.com/acfatah/tanzil/$TANZIL_SHA"
+          curl --fail --location --retry 3 "$BASE/data/quran-uthmani.txt" -o app/src/main/assets/quran/quran-uthmani.txt
+          curl --fail --location --retry 3 "$BASE/data/quran-data.js" -o app/src/main/assets/quran/quran-data.js
+          curl --fail --location --retry 3 "$BASE/LICENSE" -o app/src/main/assets/quran/TANZIL_LICENSE.txt
+          curl --fail --location --retry 3 "$BASE/data/quran-uthmani.txt" -o /tmp/tanzil/quran-uthmani.txt
+          curl --fail --location --retry 3 "$BASE/data/quran-data.js" -o /tmp/tanzil/quran-data.js
+          curl --fail --location --retry 3 "$BASE/LICENSE" -o /tmp/tanzil/LICENSE
+          cmp app/src/main/assets/quran/quran-uthmani.txt /tmp/tanzil/quran-uthmani.txt
+          cmp app/src/main/assets/quran/quran-data.js /tmp/tanzil/quran-data.js
+          cmp app/src/main/assets/quran/TANZIL_LICENSE.txt /tmp/tanzil/LICENSE
+          echo "QURAN_TEXT_SHA256=$(sha256sum app/src/main/assets/quran/quran-uthmani.txt | awk '{print $1}')"
+          echo "QURAN_METADATA_SHA256=$(sha256sum app/src/main/assets/quran/quran-data.js | awk '{print $1}')"
+
+      - name: Apply requested product refinements
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 /tmp/revision.py
+          sed -i 's/import kotlin.test.assertEquals/import org.junit.Assert.assertEquals/' app/src/androidTest/java/com/archimedeprojects/arihna/core/i18n/AppLanguageAndroidTest.kt
+          git diff --check
+          grep -Fq 'settings-alarm-volume-slider' app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
+          ! grep -Fq 'settings-alarm-volume-decrease' app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
+          ! grep -Fq 'settings-alarm-volume-increase' app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
+          grep -Fq 'settings-language-arabic' app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
+          grep -Fq 'home-hijri-date' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+          grep -Fq 'home-calendar-dialog' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+          grep -Fq 'QuickActionButton(arihnaString("Corano", "القرآن")' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+          grep -Fq 'quran-mode-easy' app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt
+          grep -Fq 'quran-mode-hafs' app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+
+      - name: Restore frozen GeoNames build asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+
+      - name: JVM tests instrumentation compile and debug build
+        run: ./gradlew :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:assembleDebug --stacktrace
+
+      - name: Commit exact direct-child candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf app/src/main/assets/geonames
+          git diff --check
+          git config user.name "IbnKhaldoun-svg"
+          git config user.email "essalih.idriss.w@gmail.com"
+          git add \
+            app/src/main/java/com/archimedeprojects/arihna/core/i18n/AppLanguage.kt \
+            app/src/main/java/com/archimedeprojects/arihna/core/calendar/HijriDateFormatter.kt \
+            app/src/main/java/com/archimedeprojects/arihna/app/ArihnaApp.kt \
+            app/src/main/java/com/archimedeprojects/arihna/app/ArihnaNavHost.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/qibla/QiblaPlaceholderScreen.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/alarms/AlarmsPlaceholderScreen.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranData.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt \
+            app/src/main/assets/quran/quran-uthmani.txt \
+            app/src/main/assets/quran/quran-data.js \
+            app/src/main/assets/quran/TANZIL_LICENSE.txt \
+            app/src/test/java/com/archimedeprojects/arihna/feature/quran/QuranBundledDataTest.kt \
+            app/src/androidTest/java/com/archimedeprojects/arihna/core/i18n/AppLanguageAndroidTest.kt \
+            app/src/androidTest/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreenAndroidTest.kt \
+            app/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/AlarmSettingsOverlayVolumeAndroidTest.kt \
+            docs/quran/TANZIL_SOURCE.md
+          test -z "$(git status --porcelain | grep '^??' || true)"
+          git commit -m "feat: add Arabic Hijri calendar and Quran reader"
+          CANDIDATE_SHA="$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          test "$(git rev-list --parents -n 1 HEAD | wc -w)" -eq 2
+          git push origin "HEAD:refs/heads/$CANDIDATE_BRANCH" --force-with-lease
+          echo "CANDIDATE_SHA=$CANDIDATE_SHA"
