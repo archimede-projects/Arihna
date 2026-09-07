@@ -135,8 +135,9 @@ class AlarmsViewModel(
         ringtoneUri: String? = null,
         ringtoneTitle: String? = null,
     ) {
-        val targetUri = if (soundProfile == AlarmSoundProfile.SYSTEM_DEFAULT) ringtoneUri else null
-        val targetTitle = if (soundProfile == AlarmSoundProfile.SYSTEM_DEFAULT) ringtoneTitle else null
+        val keepSelectionMetadata = soundProfile != AlarmSoundProfile.SILENT
+        val targetUri = if (keepSelectionMetadata) ringtoneUri else null
+        val targetTitle = if (keepSelectionMetadata) ringtoneTitle else null
         if (
             rule.soundProfile == soundProfile &&
             rule.ringtoneUri == targetUri &&

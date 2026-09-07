@@ -18,6 +18,23 @@ enum class AlarmSoundProfile {
     SILENT,
 }
 
+enum class AdhanVariant(
+    val storageId: String,
+    val displayName: String,
+) {
+    CLASSIC("classic", "Adhan classico"),
+    BEAUTIFUL("beautiful", "Adhan armonioso"),
+    SHORT("short", "Adhan breve"),
+    ;
+
+    val storageValue: String = "arihna://adhan/$storageId"
+
+    companion object {
+        fun fromStorage(value: String?): AdhanVariant =
+  entries.firstOrNull { it.storageValue == value } ?: CLASSIC
+    }
+}
+
 sealed interface AlarmDefinition {
     data class PrayerLinked(
         val prayer: AlarmPrayer,
