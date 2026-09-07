@@ -1,0 +1,72 @@
+name: premium-quran-staging-build
+
+on:
+  push:
+    branches:
+      - premium-quran-staging-build-driver-20260907
+
+permissions:
+  contents: read
+
+env:
+  STAGING_SHA: df47ccf469c2cd57c9be1e15cf6a56065d6ce443
+  GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
+  FROZEN_ASSET_RELEASE: settings-s25-premium-3f28b6f0-20260906
+  FROZEN_ASSET_APK: arihna-settings-s25-premium.apk
+
+jobs:
+  build-test:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact staging SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.STAGING_SHA }}
+          fetch-depth: 0
+
+      - name: Verify exact staging
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$STAGING_SHA"
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Restore frozen GeoNames
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+
+      - name: Compile JVM Android tests and APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew :app:testDebugUnitTest :app:compileDebugAndroidTestSources :app:assembleDebug --stacktrace
+
+      - name: Verify new offline Mushaf package
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(find app/build/generated/quranAssets/mushaf -maxdepth 1 -type f -name '*.svg' | wc -l)" -eq 604
+          test -s app/build/generated/quranAssets/mushaf-surah.json
+          test -s app/build/generated/quranAssets/QURAN_SVG_LICENSE.txt
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          test "$(unzip -l "$APK" 'assets/mushaf/*.svg' | grep -E 'assets/mushaf/[0-9]{3}\.svg' | wc -l)" -eq 604
+          unzip -l "$APK" | grep -F 'assets/mushaf-surah.json'
+          unzip -l "$APK" | grep -F 'assets/QURAN_SVG_LICENSE.txt'
