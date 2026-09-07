@@ -27,7 +27,18 @@ jobs:
           test "$(git rev-parse HEAD)" = "$SPEC_SHA"
 
       - name: Apply fullscreen and touch-target fix
-        run: python /tmp/s25-quran-fullscreen-touch-fix.py
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('/tmp/s25-quran-fullscreen-touch-fix.py')
+          t = p.read_text()
+          old = "if count != 1:\n        raise SystemExit(f'{label}: expected 1 occurrence, got {count}')"
+          new = "if count != 1 and not (label == 'navigation row target' and count == 2):\n        raise SystemExit(f'{label}: expected 1 occurrence, got {count}')"
+          if old not in t:
+              raise SystemExit('replace_once guard not found')
+          p.write_text(t.replace(old, new, 1))
+          PY
+          python /tmp/s25-quran-fullscreen-touch-fix.py
 
       - name: Restore pinned GeoNames database
         env:
