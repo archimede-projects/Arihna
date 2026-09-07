@@ -1,3 +1,5 @@
+import java.net.URI
+import java.util.zip.ZipInputStream
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -6,6 +8,8 @@ plugins {
 }
 
 val quranSourceCommit = "a5284b17034d36567e4a4bac982a17ba56837448"
+val quranSvgCommit = "78d97544bfdc57e9f04bc97ace3f857ed972d772"
+val quranMetadataCommit = "052b515f3a24dfacbe4cafc3b89f0681a447f462"
 val generatedQuranAssets = layout.buildDirectory.dir("generated/quranAssets").get().asFile
 val prepareQuranAssets by tasks.registering {
     outputs.dir(generatedQuranAssets)
@@ -28,6 +32,57 @@ val prepareQuranAssets by tasks.registering {
             }
             check(target.isFile && target.length() > 0L) { "Missing Quran asset: $name" }
         }
+
+        // Pinned Tanzil metadata supplies canonical Page/Juz/Hizb start coordinates.
+        val metadataTarget = quranDir.resolve("quran-data.js")
+        URI(
+            "https://raw.githubusercontent.com/acfatah/tanzil/$quranMetadataCommit/data/quran-data.js",
+        ).toURL().openStream().use { input ->
+            metadataTarget.outputStream().use { output -> input.copyTo(output) }
+        }
+        check(metadataTarget.isFile && metadataTarget.length() > 0L) { "Missing pinned Quran page metadata" }
+
+        // Visual Muṣḥaf pages only. The immutable Tarteel/Tanzil corpus above remains
+        // Arihna's textual Quran source; these pinned MIT SVGs reproduce a printed page.
+        val mushafDir = root.resolve("mushaf")
+        if (mushafDir.exists()) mushafDir.deleteRecursively()
+        mushafDir.mkdirs()
+        val surahTarget = root.resolve("mushaf-surah.json")
+        val licenseTarget = root.resolve("QURAN_SVG_LICENSE.txt")
+        surahTarget.delete()
+        licenseTarget.delete()
+
+        val archiveUrl = URI(
+            "https://codeload.github.com/batoulapps/quran-svg/zip/$quranSvgCommit",
+        ).toURL()
+        ZipInputStream(archiveUrl.openStream().buffered()).use { zip ->
+            var entry = zip.nextEntry
+            while (entry != null) {
+                if (!entry.isDirectory) {
+                    val name = entry.name
+                    when {
+                        Regex(".*/svg/[0-9]{3}\\.svg").matches(name) -> {
+                            val target = mushafDir.resolve(name.substringAfterLast('/'))
+                            target.outputStream().buffered().use { output -> zip.copyTo(output) }
+                        }
+                        name.endsWith("/surah.json") -> {
+                            surahTarget.outputStream().buffered().use { output -> zip.copyTo(output) }
+                        }
+                        name.endsWith("/LICENSE") -> {
+                            licenseTarget.outputStream().buffered().use { output -> zip.copyTo(output) }
+                        }
+                    }
+                }
+                zip.closeEntry()
+                entry = zip.nextEntry
+            }
+        }
+        val mushafPages = mushafDir.listFiles { file ->
+            file.isFile && Regex("[0-9]{3}\\.svg").matches(file.name)
+        }?.size ?: 0
+        check(mushafPages == 604) { "Expected 604 pinned Mushaf SVG pages, found $mushafPages" }
+        check(surahTarget.isFile && surahTarget.length() > 0L) { "Missing pinned Mushaf surah metadata" }
+        check(licenseTarget.isFile && licenseTarget.length() > 0L) { "Missing pinned Mushaf MIT license" }
     }
 }
 
@@ -82,9 +137,11 @@ dependencies {
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
+    implementation("androidx.compose.foundation:foundation")
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation("com.caverock:androidsvg:1.4")
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
