@@ -1,0 +1,98 @@
+name: Write explicit location refresh candidate
+
+on:
+  push:
+    branches:
+      - parallel-location-impl-driver-20260907
+
+permissions:
+  contents: write
+
+jobs:
+  write-location:
+    runs-on: ubuntu-latest
+    env:
+      SPEC_SHA: 21c7f8763734c2646e24f34c792c58f1816625d2
+      TARGET_BRANCH: parallel-location-v1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.SPEC_SHA }}
+      - name: Verify exact shared spec
+        run: test "$(git rev-parse HEAD)" = "$SPEC_SHA"
+      - name: Apply explicit refresh semantics
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          fused = Path('app/src/main/java/com/archimedeprojects/arihna/core/location/platform/GoogleFusedDeviceLocationDataSource.kt')
+          text = fused.read_text()
+          old = 'import com.google.android.gms.location.FusedLocationProviderClient\n'
+          new = old + 'import com.google.android.gms.location.CurrentLocationRequest\n'
+          assert old in text and 'CurrentLocationRequest' not in text
+          text = text.replace(old, new, 1)
+          old_call = '''            fusedClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cancellation.token)\n                .addOnSuccessListener { location ->'''
+          new_call = '''            val request = CurrentLocationRequest.Builder()\n                .setPriority(Priority.PRIORITY_HIGH_ACCURACY)\n                .setMaxUpdateAgeMillis(0L)\n                .build()\n            fusedClient.getCurrentLocation(request, cancellation.token)\n                .addOnSuccessListener { location ->'''
+          assert old_call in text
+          text = text.replace(old_call, new_call, 1)
+          fused.write_text(text)
+
+          coordinator = Path('app/src/main/java/com/archimedeprojects/arihna/core/location/domain/LocationCoordinator.kt')
+          text = coordinator.read_text()
+          old_select = '        return resolveDevice(permissionState, locationServicesEnabled)\n'
+          assert text.count(old_select) == 1
+          text = text.replace(old_select, '        return resolveDevice(permissionState, locationServicesEnabled, explicitRefresh = true)\n', 1)
+          old_sig = '''    suspend fun resolveDevice(\n        permissionState: LocationPermissionState,\n        locationServicesEnabled: Boolean,\n    ): LocationResolutionState {'''
+          new_sig = '''    suspend fun resolveDevice(\n        permissionState: LocationPermissionState,\n        locationServicesEnabled: Boolean,\n        explicitRefresh: Boolean = false,\n    ): LocationResolutionState {'''
+          assert old_sig in text
+          text = text.replace(old_sig, new_sig, 1)
+          old_success = '''            is DeviceLocationResult.Success -> handleDeviceSuccess(\n                result = result,\n                previous = cachedFix,\n                forceCached = timeoutOccurred,\n            )'''
+          new_success = '''            is DeviceLocationResult.Success -> handleDeviceSuccess(\n                result = result,\n                previous = cachedFix,\n                forceCached = timeoutOccurred,\n                forceAccept = explicitRefresh,\n            )'''
+          assert old_success in text
+          text = text.replace(old_success, new_success, 1)
+          old_handle = '''    private suspend fun handleDeviceSuccess(\n        result: DeviceLocationResult.Success,\n        previous: DeviceLocationFix?,\n        forceCached: Boolean,\n    ): LocationResolutionState {'''
+          new_handle = '''    private suspend fun handleDeviceSuccess(\n        result: DeviceLocationResult.Success,\n        previous: DeviceLocationFix?,\n        forceCached: Boolean,\n        forceAccept: Boolean,\n    ): LocationResolutionState {'''
+          assert old_handle in text
+          text = text.replace(old_handle, new_handle, 1)
+          old_return = '        return handleDeviceFix(candidate, previous, freshness)\n'
+          assert text.count(old_return) == 1
+          text = text.replace(old_return, '        return handleDeviceFix(candidate, previous, freshness, forceAccept = forceAccept)\n', 1)
+          old_fix_sig = '''    private suspend fun handleDeviceFix(\n        candidate: DeviceLocationFix,\n        previous: DeviceLocationFix?,\n        freshness: LocationFreshness,\n    ): LocationResolutionState {'''
+          new_fix_sig = '''    private suspend fun handleDeviceFix(\n        candidate: DeviceLocationFix,\n        previous: DeviceLocationFix?,\n        freshness: LocationFreshness,\n        forceAccept: Boolean = false,\n    ): LocationResolutionState {'''
+          assert old_fix_sig in text
+          text = text.replace(old_fix_sig, new_fix_sig, 1)
+          old_if = '        if (!updatePolicy.shouldAccept(previous, candidate) && previous != null) {\n'
+          assert text.count(old_if) == 1
+          text = text.replace(old_if, '        if (!forceAccept && !updatePolicy.shouldAccept(previous, candidate) && previous != null) {\n', 1)
+          coordinator.write_text(text)
+
+          test = Path('app/src/test/java/com/archimedeprojects/arihna/core/location/domain/LocationCoordinatorTest.kt')
+          text = test.read_text()
+          marker = '''    @Test\n    fun freshFixAboveFiveKilometersReplacesCache() = runBlocking {'''
+          assert marker in text
+          added = '''    @Test\n    fun explicitSelectDeviceBelowFiveKilometersReplacesCache() = runBlocking {\n        val cached = romeFix()\n        val nearby = cached.copy(\n            coordinates = Coordinates(41.9200, 12.4964),\n            capturedAt = Instant.parse("2026-08-29T11:00:00Z"),\n        )\n        val device = FakeDeviceLocationDataSource().apply {\n            currentResult = DeviceLocationResult.Success(nearby)\n        }\n        val preferences = FakeLocationPreferencesRepository(LocationPreference.Device, cached)\n        val coordinator = coordinator(device = device, preferences = preferences)\n\n        val state = coordinator.selectDevice(LocationPermissionState.Granted, true)\n\n        val ready = state as LocationResolutionState.Ready\n        assertEquals(LocationFreshness.FRESH, ready.freshness)\n        assertEquals(nearby.coordinates, ready.location.coordinates)\n        assertEquals(nearby, preferences.cachedState.value)\n    }\n\n'''
+          text = text.replace(marker, added + marker, 1)
+          test.write_text(text)
+          PY
+      - name: Verify narrow delta
+        run: |
+          git diff --check
+          test "$(git diff --name-only | sort)" = "$(printf '%s\n' \
+            app/src/main/java/com/archimedeprojects/arihna/core/location/domain/LocationCoordinator.kt \
+            app/src/main/java/com/archimedeprojects/arihna/core/location/platform/GoogleFusedDeviceLocationDataSource.kt \
+            app/src/test/java/com/archimedeprojects/arihna/core/location/domain/LocationCoordinatorTest.kt | sort)"
+          grep -F 'setMaxUpdateAgeMillis(0L)' app/src/main/java/com/archimedeprojects/arihna/core/location/platform/GoogleFusedDeviceLocationDataSource.kt
+          grep -F 'explicitRefresh = true' app/src/main/java/com/archimedeprojects/arihna/core/location/domain/LocationCoordinator.kt
+          grep -F 'explicitSelectDeviceBelowFiveKilometersReplacesCache' app/src/test/java/com/archimedeprojects/arihna/core/location/domain/LocationCoordinatorTest.kt
+      - name: Commit candidate direct from spec
+        run: |
+          git config user.name 'Arihna Implementation Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add app/src/main/java/com/archimedeprojects/arihna/core/location/domain/LocationCoordinator.kt \
+                  app/src/main/java/com/archimedeprojects/arihna/core/location/platform/GoogleFusedDeviceLocationDataSource.kt \
+                  app/src/test/java/com/archimedeprojects/arihna/core/location/domain/LocationCoordinatorTest.kt
+          git commit -m 'fix(location): force fresh explicit device refresh'
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          git push origin HEAD:refs/heads/$TARGET_BRANCH
+          echo "LOCATION_CANDIDATE_SHA=$(git rev-parse HEAD)"
