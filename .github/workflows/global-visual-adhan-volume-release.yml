@@ -1,4 +1,4 @@
-name: Unified visual + six Adhan S25 prerelease
+name: Alba six-Adhan S25 prerelease
 
 on:
   push:
@@ -22,6 +22,10 @@ jobs:
       VERIFIED_STATIC_JOB: '101703366918'
       VERIFIED_API28_JOB: '101703366960'
       VERIFIED_API36_JOB: '101703366705'
+      SIGNING_SOURCE_SHA: ce23a7f78695be95c7f8dfd2bcedbe22544da94c
+      DEBUG_CERT_SHA256: 13:97:00:8C:1F:96:2D:BB:D3:6D:D8:A8:EA:02:16:AF:DD:06:E4:B2:B3:E0:8B:C0:F6:D4:B5:43:44:D7:B0:FA
+      DEBUG_CERT_SHA256_COMPACT: 1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa
+      DEBUG_KEYSTORE_SHA256: bc9057f26ad6de7efb70a5df06effb1ed259f1d015c3f062d0f757b3f0983b72
       GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
       ADHAN_CLASSIC_SHA256: 3b350bc210d657727578ed977e32323c06b63c2088c3ebcea9fc9afb7d487702
       ADHAN_BEAUTIFUL_SHA256: 35fe06b08fe80505c550c33fed8a783fa9901ddc81ac884958b4be048f5b2a79
@@ -34,8 +38,6 @@ jobs:
       PACKAGE_NAME: com.archimedeprojects.arihna
       RELEASE_TAG: global-visual-adhan-volume-s25-f5478522-20260907
       APK_NAME: arihna-global-visual-adhan-volume-s25.apk
-      SIGNER_RECIPE_BRANCH: home-alba-dorata-release-driver-20260907
-      SIGNER_RECIPE_PATH: .github/workflows/home-alba-dorata-release.yml
 
     steps:
       - name: Checkout exact promoted runtime
@@ -44,7 +46,7 @@ jobs:
           ref: f5478522533962f44ca9f8879f7d6a82d9c35af4
           fetch-depth: 0
 
-      - name: Verify promoted runtime and definitive gate
+      - name: Verify exact promoted runtime and definitive gate
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -56,21 +58,30 @@ jobs:
           git fetch origin main --force
           test "$(git rev-parse origin/main)" = "$RUNTIME_SHA"
           for JOB in "$VERIFIED_STATIC_JOB" "$VERIFIED_API28_JOB" "$VERIFIED_API36_JOB"; do
-            test "$(gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$JOB" --jq '[(.id|tostring),(.run_id|tostring),.status,.conclusion] | join(" ")')" = "$JOB $VERIFIED_GATE_RUN completed success"
+            ACTUAL="$(gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$JOB" --jq '[(.id|tostring),(.run_id|tostring),.status,.conclusion] | join(" ")')"
+            test "$ACTUAL" = "$JOB $VERIFIED_GATE_RUN completed success"
           done
           test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$VERIFIED_GATE_RUN" --jq '[.status,.conclusion] | join(" ")')" = 'completed success'
-          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then exit 1; fi
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release already exists: $RELEASE_TAG" >&2
+            exit 1
+          fi
 
-      - uses: actions/setup-java@v5
+      - name: Setup Java 21
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
-      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
           cache-read-only: true
-      - uses: android-actions/setup-android@v3
 
-      - name: Restore and verify frozen assets
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Restore frozen GeoNames and verify six Adhan sources
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -88,57 +99,63 @@ jobs:
           echo "$ADHAN_COMPACT_SHA256  app/src/main/res/raw/adhan_compact_pd.ogg" | sha256sum -c -
           echo "$ADHAN_ALTERNATIVE_SHA256  app/src/main/res/raw/adhan_alternative_cc_by_sa.ogg" | sha256sum -c -
 
-      - name: Import audited persistent-signer recipe
+      - name: Verify product and frozen platform contracts
         shell: bash
         run: |
           set -euo pipefail
-          git fetch origin "$SIGNER_RECIPE_BRANCH"
-          git show "origin/$SIGNER_RECIPE_BRANCH:$SIGNER_RECIPE_PATH" > /tmp/signer-recipe.yml
-          python3 - <<'PY'
-          import os, re
-          text=open('/tmp/signer-recipe.yml').read()
-          keys=['SIGNING_SOURCE_SHA','DEBUG_CERT_SHA256','DEBUG_CERT_SHA256_COMPACT','DEBUG_KEYSTORE_SHA256']
-          with open(os.environ['GITHUB_ENV'],'a') as out:
-              for key in keys:
-                  m=re.search(r'^\s*'+re.escape(key)+r':\s*([^\n]+)$', text, re.M)
-                  if not m: raise SystemExit('missing '+key)
-                  out.write(key+'='+m.group(1).strip()+"\n")
-          PY
+          grep -Fq 'applicationId = "com.archimedeprojects.arihna"' app/build.gradle.kts
+          grep -Fq 'compileSdk = 37' app/build.gradle.kts
+          grep -Fq 'minSdk = 28' app/build.gradle.kts
+          grep -Fq 'targetSdk = 37' app/build.gradle.kts
+          grep -Fq 'playServicesLocation = "21.3.0"' gradle/libs.versions.toml
+          grep -Fq 'android.permission.ACCESS_FINE_LOCATION' app/src/main/AndroidManifest.xml
+          grep -Fq 'android.permission.ACCESS_COARSE_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -Fq 'android.permission.ACCESS_BACKGROUND_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -Fq 'android.permission.USE_EXACT_ALARM' app/src/main/AndroidManifest.xml
+          grep -Fq 'val ArihnaDawnTop = Color(0xFFFFF7E6)' app/src/main/java/com/archimedeprojects/arihna/core/ui/theme/Color.kt
+          grep -Fq 'val ArihnaDawnBottom = Color(0xFFE7ECD7)' app/src/main/java/com/archimedeprojects/arihna/core/ui/theme/Color.kt
+          grep -Fq 'private val ArihnaAlbaColors = lightColorScheme(' app/src/main/java/com/archimedeprojects/arihna/core/ui/theme/Theme.kt
+          SETTINGS=app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
+          ! grep -Fq 'Slider(' "$SETTINGS"
+          grep -Fq 'settings-alarm-volume-decrease' "$SETTINGS"
+          grep -Fq 'settings-alarm-volume-increase' "$SETTINGS"
+          SERVICE=app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
+          test "$(grep -c 'AdhanVariant\..*R.raw.adhan_' "$SERVICE")" -eq 6
+          grep -Fq 'const val TEST_DELAY_MILLIS = 10_000L' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmDiagnosticTestScheduler.kt
 
-      - name: Restore persistent signer using audited recipe
+      - name: Restore persistent Arihna debug signing identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin location-step5-device-test
+          mkdir -p "$HOME/.android"
+          git show "$SIGNING_SOURCE_SHA:.github/test-signing/arihna-debug.keystore.b64" | base64 --decode > "$HOME/.android/debug.keystore"
+          test "$(sha256sum "$HOME/.android/debug.keystore" | awk '{print $1}')" = "$DEBUG_KEYSTORE_SHA256"
+          keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | tee /tmp/keytool.txt
+          grep -F "$DEBUG_CERT_SHA256" /tmp/keytool.txt
+
+      - name: Apply transient persistent debug signing configuration
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          text=open('/tmp/signer-recipe.yml').read()
-          name='Restore persistent Arihna debug signing identity'
-          start=text.index('      - name: '+name)
-          run=text.index('        run: |\n', start)+len('        run: |\n')
-          end=text.find('\n      - name:', run)
-          block=text[run:end if end!=-1 else None]
-          open('/tmp/restore-signer.sh','w').write('\n'.join(line[10:] if line.startswith('          ') else line for line in block.splitlines())+'\n')
+          from pathlib import Path
+          path = Path('app/build.gradle.kts')
+          text = path.read_text()
+          marker = '    buildFeatures {\n'
+          block = '''    signingConfigs {\n        getByName("debug") {\n            storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")\n            storePassword = "android"\n            keyAlias = "androiddebugkey"\n            keyPassword = "android"\n        }\n    }\n\n'''
+          if marker not in text:
+              raise SystemExit('buildFeatures marker not found')
+          path.write_text(text.replace(marker, block + marker, 1))
           PY
-          bash /tmp/restore-signer.sh
+          git diff --check -- app/build.gradle.kts
+          test "$(git diff --name-only)" = "app/build.gradle.kts"
 
-      - name: Apply audited transient signing configuration
+      - name: Build exact promoted runtime with persistent signer
         shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          text=open('/tmp/signer-recipe.yml').read()
-          name='Apply transient persistent debug signing configuration'
-          start=text.index('      - name: '+name)
-          run=text.index('        run: |\n', start)+len('        run: |\n')
-          end=text.find('\n      - name:', run)
-          block=text[run:end if end!=-1 else None]
-          open('/tmp/apply-signing.sh','w').write('\n'.join(line[10:] if line.startswith('          ') else line for line in block.splitlines())+'\n')
-          PY
-          bash /tmp/apply-signing.sh
-
-      - name: Build with persistent signer
         run: ./gradlew :app:assembleDebug --stacktrace
 
-      - name: Verify APK signer package assets and digest
+      - name: Verify APK signer package SDK permissions assets and digest
         shell: bash
         run: |
           set -euo pipefail
@@ -171,7 +188,7 @@ jobs:
           echo "FINAL_APK_SHA256=$(cat /tmp/apk-sha256.txt)"
           echo "FINAL_APK_SIZE=$(cat /tmp/apk-size.txt)"
 
-      - name: Publish prerelease
+      - name: Publish Galaxy S25 prerelease
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -179,7 +196,12 @@ jobs:
           set -euo pipefail
           APK_SHA="$(cat /tmp/apk-sha256.txt)"
           APK_SIZE="$(cat /tmp/apk-size.txt)"
-          gh release create "$RELEASE_TAG" "$APK_NAME" --repo "$GITHUB_REPOSITORY" --target "$RUNTIME_SHA" --title 'S25 validation — visual harmony + six Adhan — f5478522' --prerelease --notes "Galaxy S25 validation build. Spec $SPEC_SHA; promoted candidate $RUNTIME_SHA; exact-SHA gate $VERIFIED_GATE_RUN passed static/JVM/build, API28 full instrumentation (77 tests, zero failures/errors/skips), and API36 permission matrix. Shared Alba dorata visual system across top-level screens; six bundled Adhan choices; alarm volume uses discrete minus/plus controls instead of slider. Package $PACKAGE_NAME; minSdk 28; compileSdk 37; targetSdk 37. Persistent signer, GeoNames and all six Adhan assets verified. APK bytes $APK_SIZE. APK SHA-256 $APK_SHA. Physical Galaxy S25 validation remains required."
+          gh release create "$RELEASE_TAG" "$APK_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$RUNTIME_SHA" \
+            --title 'S25 validation — Alba dorata + 6 Adhan — f5478522' \
+            --prerelease \
+            --notes "Galaxy S25 validation build. SPEC $SPEC_SHA; promoted exact candidate $RUNTIME_SHA, direct child of the SPEC. Definitive exact-SHA gate $VERIFIED_GATE_RUN passed static/JVM/build, API28 full instrumentation with zero failures/errors/skips, and API36 location-permission matrix. Shared Alba dorata visual system across Home, Orari, Impostazioni, Sveglie, Qibla and Corano; six distinct bundled Adhan choices; alarm volume uses adjacent minus/value/plus controls instead of a slider. Package $PACKAGE_NAME; minSdk 28; compileSdk 37; targetSdk 37. Persistent signer, GeoNames and all six Adhan assets verified. APK bytes $APK_SIZE. APK SHA-256 $APK_SHA. Physical Galaxy S25 validation remains required."
 
       - name: Verify published prerelease by redownload
         env:
