@@ -47,6 +47,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.archimedeprojects.arihna.core.i18n.appText
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaCream
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaDawnGold
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaDawnTop
@@ -142,13 +143,13 @@ private fun PrayerTimesScreen(
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    "Orari",
+                    appText("Orari", "مواقيت الصلاة"),
                     color = OrariForest,
                     fontSize = 32.sp,
                     fontWeight = FontWeight.ExtraBold,
                 )
                 Text(
-                    "Orari di preghiera e promemoria",
+                    appText("Orari di preghiera e promemoria", "مواقيت الصلاة والتذكيرات"),
                     color = OrariForest.copy(alpha = 0.68f),
                     style = MaterialTheme.typography.bodyMedium,
                 )
@@ -169,7 +170,7 @@ private fun PrayerTimesScreen(
                         color = OrariSage,
                     ) {
                         Text(
-                            "Oggi • ${scheduleState.location.displayName}",
+                            "${appText("Oggi", "اليوم")} • ${scheduleState.location.displayName}",
                             color = OrariForest,
                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
                             fontWeight = FontWeight.SemiBold,

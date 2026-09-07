@@ -5,6 +5,32 @@ plugins {
     alias(libs.plugins.compose.compiler)
 }
 
+val quranSourceCommit = "a5284b17034d36567e4a4bac982a17ba56837448"
+val generatedQuranAssets = layout.buildDirectory.dir("generated/quranAssets").get().asFile
+val prepareQuranAssets by tasks.registering {
+    outputs.dir(generatedQuranAssets)
+    doLast {
+        val root = generatedQuranAssets
+        val quranDir = root.resolve("quran").apply { mkdirs() }
+        val files = mapOf(
+            "quran-uthmani.txt" to "text/quran-uthmani.txt",
+            "juz-info.json" to "metadata/juz-info.json",
+            "hizb-info.json" to "metadata/hizb-info.json",
+            "TANZIL_TEXT_README.md" to "text/README.md",
+        )
+        files.forEach { (name, remotePath) ->
+            val target = quranDir.resolve(name)
+            val url = project.uri(
+                "https://raw.githubusercontent.com/TarteelAI/quran-assets/$quranSourceCommit/$remotePath",
+            ).toURL()
+            url.openStream().use { input ->
+                target.outputStream().use { output -> input.copyTo(output) }
+            }
+            check(target.isFile && target.length() > 0L) { "Missing Quran asset: $name" }
+        }
+    }
+}
+
 android {
     namespace = "com.archimedeprojects.arihna"
     compileSdk = 37
@@ -27,6 +53,14 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    sourceSets.getByName("main").assets.srcDir(generatedQuranAssets)
+}
+
+tasks.matching { task ->
+    task.name.startsWith("merge") && task.name.endsWith("Assets")
+}.configureEach {
+    dependsOn(prepareQuranAssets)
 }
 
 kotlin {
