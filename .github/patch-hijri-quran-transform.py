@@ -1,17 +1,14 @@
 from pathlib import Path
 
-# Fix the Home transform ambiguity: the route signature is the first of two
-# intentionally similar callback signatures in the baseline source.
 p = Path('/tmp/revision.py')
 text = p.read_text(encoding='utf-8')
+
 old = "text = replace_once(text, '    onOpenAlarms: () -> Unit,\\n    onRefreshLocation: () -> Unit,', '    onOpenAlarms: () -> Unit,\\n    onOpenQuran: () -> Unit = {},\\n    onRefreshLocation: () -> Unit,', 'Home route signature Quran')"
 new = "text = text.replace('    onOpenAlarms: () -> Unit,\\n    onRefreshLocation: () -> Unit,', '    onOpenAlarms: () -> Unit,\\n    onOpenQuran: () -> Unit = {},\\n    onRefreshLocation: () -> Unit,', 1)"
 if text.count(old) != 1:
     raise SystemExit(f'expected one Home transform source target, found {text.count(old)}')
 text = text.replace(old, new, 1)
 
-# Avoid JVM setter collision: Kotlin property `language` already generates a
-# setLanguage signature even with a private setter.
 old = '    fun setLanguage(value: AppLanguage) {'
 new = '    fun updateLanguage(value: AppLanguage) {'
 if text.count(old) != 1:
@@ -23,8 +20,6 @@ if text.count(old) != 1:
     raise SystemExit(f'expected one language mutator reference, found {text.count(old)}')
 text = text.replace(old, new, 1)
 
-# Direct composable tests and previews need a safe Italian fallback controller;
-# the real app still supplies the context-backed persistent controller.
 replacements = [
     ('class AppLanguageController(context: Context) {', 'class AppLanguageController(context: Context? = null) {'),
     ('    private val preferences = context.getSharedPreferences("arihna_ui_preferences", Context.MODE_PRIVATE)', '    private val preferences = context?.getSharedPreferences("arihna_ui_preferences", Context.MODE_PRIVATE)'),
@@ -37,8 +32,6 @@ for old, new in replacements:
         raise SystemExit(f'expected one language fallback target, found {text.count(old)}: {old}')
     text = text.replace(old, new, 1)
 
-# The project already carries JUnit 4 for host tests; generated focused tests
-# must use that dependency instead of kotlin.test, which is not on the classpath.
 old = 'import kotlin.test.Test'
 new = 'import org.junit.Test'
 if text.count(old) != 2:
@@ -55,12 +48,8 @@ if text.count(old) != 1:
     raise SystemExit(f'expected one kotlin.test.assertEquals import, found {text.count(old)}')
 text = text.replace(old, new, 1)
 
-# Extend the generated revision with Android acceptance-test compatibility and
-# the new cycle-specific Home, slider, persistence and RTL smoke coverage.
-text += r'''
+append = r"""
 
-# Android tests: update the frozen Home expectations to the new Quran action,
-# add calendar coverage, and pass the new callback through the local test helper.
 home_test_path = 'app/src/androidTest/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreenAndroidTest.kt'
 home_test = read(home_test_path)
 home_replacements = [
@@ -91,8 +80,6 @@ if home_test.count(anchor) != 1:
 home_test = home_test.replace(anchor, calendar_test + anchor, 1)
 write(home_test_path, home_test)
 
-# Settings Android test: the current spec explicitly restores the slider and
-# removes the adjacent step controls.
 settings_test_path = 'app/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreenAndroidTest.kt'
 settings_test = read(settings_test_path)
 if settings_test.count('import androidx.compose.ui.test.assertIsDisplayed\n') != 1:
@@ -136,8 +123,6 @@ if count != 1:
     raise SystemExit(f'Settings slider Android test replacement mismatch: {count}')
 write(settings_test_path, settings_test)
 
-# Persisted language + RTL mapping smoke. The production ArihnaApp uses the
-# same controller state to provide LocalLayoutDirection.
 write('app/src/androidTest/java/com/archimedeprojects/arihna/core/i18n/AppLanguageAndroidTest.kt', r'''package com.archimedeprojects.arihna.core.i18n
 
 import androidx.compose.material3.Text
@@ -166,7 +151,6 @@ class AppLanguageAndroidTest {
             assertEquals(AppLanguage.ITALIAN, controller.language)
             controller.updateLanguage(AppLanguage.ARABIC)
             assertEquals(AppLanguage.ARABIC, controller.language)
-
             val reloaded = AppLanguageController(context)
             assertEquals(AppLanguage.ARABIC, reloaded.language)
             composeRule.setContent {
@@ -188,24 +172,17 @@ class AppLanguageAndroidTest {
     }
 }
 ''')
-'''
+"""
+text += append
 p.write_text(text, encoding='utf-8')
 
-# Patch the build-assets transform before it generates app/build.gradle.kts.
 p = Path('/tmp/quran-buildassets.py')
 text = p.read_text(encoding='utf-8')
-
-# In Gradle Kotlin DSL `java` can resolve to the Android Java extension rather
-# than the Java package root. Project.uri() is unambiguous.
 old = 'val url = java.net.URI(\\n                "https://raw.githubusercontent.com/TarteelAI/quran-assets/$quranSourceCommit/$remotePath",\\n            ).toURL()'
 new = 'val url = project.uri(\\n                "https://raw.githubusercontent.com/TarteelAI/quran-assets/$quranSourceCommit/$remotePath",\\n            ).toURL()'
 if text.count(old) != 1:
     raise SystemExit(f'expected one Quran URI transform source target, found {text.count(old)}')
 text = text.replace(old, new, 1)
-
-# AGP 9 rejects Provider instances passed to the legacy SourceSet API. Resolve
-# this project-owned build directory to a concrete File and keep the explicit
-# mergeAssets task dependency already installed by the transform.
 old = 'val generatedQuranAssets = layout.buildDirectory.dir("generated/quranAssets")'
 new = 'val generatedQuranAssets = layout.buildDirectory.dir("generated/quranAssets").get().asFile'
 if text.count(old) != 1:
@@ -216,6 +193,5 @@ new = 'val root = generatedQuranAssets'
 if text.count(old) != 1:
     raise SystemExit(f'expected one generated Quran root expression, found {text.count(old)}')
 text = text.replace(old, new, 1)
-
 p.write_text(text, encoding='utf-8')
 print('patched v2 Home, language, tests and Gradle Quran asset generation')
