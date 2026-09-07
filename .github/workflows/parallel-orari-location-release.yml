@@ -1,0 +1,194 @@
+name: Orari + Location S25 prerelease
+
+on:
+  push:
+    branches:
+      - parallel-orari-location-release-driver-20260907
+    paths:
+      - .github/workflows/parallel-orari-location-release.yml
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  build-verify-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      RUNTIME_SHA: 882e434ea036ef9033608131b428e46b16b64d1e
+      SPEC_SHA: 21c7f8763734c2646e24f34c792c58f1816625d2
+      VERIFIED_GATE_RUN: '34100049305'
+      VERIFIED_STATIC_JOB: '101672166485'
+      VERIFIED_API28_JOB: '101672166192'
+      VERIFIED_API36_JOB: '101672166378'
+      GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
+      ADHAN_SHA256: 3b350bc210d657727578ed977e32323c06b63c2088c3ebcea9fc9afb7d487702
+      ADHAN_BEAUTIFUL_SHA256: 35fe06b08fe80505c550c33fed8a783fa9901ddc81ac884958b4be048f5b2a79
+      ADHAN_SHORT_SHA256: faeb03e4338554fb8b54dba98ed4949648615b58e991bbd560a89f4837dde413
+      FROZEN_ASSET_RELEASE: settings-s25-premium-3f28b6f0-20260906
+      FROZEN_ASSET_APK: arihna-settings-s25-premium.apk
+      PACKAGE_NAME: com.archimedeprojects.arihna
+      RELEASE_TAG: orari-location-s25-882e434e-20260907
+      APK_NAME: arihna-orari-location-s25.apk
+      SIGNER_RECIPE_BRANCH: home-alba-dorata-release-driver-20260907
+      SIGNER_RECIPE_PATH: .github/workflows/home-alba-dorata-release.yml
+
+    steps:
+      - name: Checkout exact promoted runtime
+        uses: actions/checkout@v4
+        with:
+          ref: 882e434ea036ef9033608131b428e46b16b64d1e
+          fetch-depth: 0
+
+      - name: Verify promoted runtime and definitive gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RUNTIME_SHA"
+          test "$(git rev-list --parents -n 1 HEAD | wc -w)" -eq 2
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          git fetch origin main --force
+          test "$(git rev-parse origin/main)" = "$RUNTIME_SHA"
+          for JOB in "$VERIFIED_STATIC_JOB" "$VERIFIED_API28_JOB" "$VERIFIED_API36_JOB"; do
+            test "$(gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$JOB" --jq '[(.id|tostring),(.run_id|tostring),.status,.conclusion] | join(" ")')" = "$JOB $VERIFIED_GATE_RUN completed success"
+          done
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$VERIFIED_GATE_RUN" --jq '[.status,.conclusion] | join(" ")')" = 'completed success'
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then exit 1; fi
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+
+      - name: Restore and verify frozen assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+          echo "$ADHAN_SHA256  app/src/main/res/raw/adhan_cc0.ogg" | sha256sum -c -
+          echo "$ADHAN_BEAUTIFUL_SHA256  app/src/main/res/raw/adhan_beautiful_cc0.ogg" | sha256sum -c -
+          echo "$ADHAN_SHORT_SHA256  app/src/main/res/raw/adhan_short_cc0.ogg" | sha256sum -c -
+
+      - name: Import audited persistent-signer recipe
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "$SIGNER_RECIPE_BRANCH"
+          git show "origin/$SIGNER_RECIPE_BRANCH:$SIGNER_RECIPE_PATH" > /tmp/signer-recipe.yml
+          python3 - <<'PY'
+          import os, re
+          text=open('/tmp/signer-recipe.yml').read()
+          keys=['SIGNING_SOURCE_SHA','DEBUG_CERT_SHA256','DEBUG_CERT_SHA256_COMPACT','DEBUG_KEYSTORE_SHA256']
+          with open(os.environ['GITHUB_ENV'],'a') as out:
+              for key in keys:
+                  m=re.search(r'^\s*'+re.escape(key)+r':\s*([^\n]+)$', text, re.M)
+                  if not m: raise SystemExit('missing '+key)
+                  out.write(key+'='+m.group(1).strip()+"\n")
+          PY
+
+      - name: Restore persistent signer using audited recipe
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          text=open('/tmp/signer-recipe.yml').read()
+          name='Restore persistent Arihna debug signing identity'
+          start=text.index('      - name: '+name)
+          run=text.index('        run: |\n', start)+len('        run: |\n')
+          end=text.find('\n      - name:', run)
+          block=text[run:end if end!=-1 else None]
+          open('/tmp/restore-signer.sh','w').write('\n'.join(line[10:] if line.startswith('          ') else line for line in block.splitlines())+'\n')
+          PY
+          bash /tmp/restore-signer.sh
+
+      - name: Apply audited transient signing configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          text=open('/tmp/signer-recipe.yml').read()
+          name='Apply transient persistent debug signing configuration'
+          start=text.index('      - name: '+name)
+          run=text.index('        run: |\n', start)+len('        run: |\n')
+          end=text.find('\n      - name:', run)
+          block=text[run:end if end!=-1 else None]
+          open('/tmp/apply-signing.sh','w').write('\n'.join(line[10:] if line.startswith('          ') else line for line in block.splitlines())+'\n')
+          PY
+          bash /tmp/apply-signing.sh
+
+      - name: Build with persistent signer
+        run: ./gradlew :app:assembleDebug --stacktrace
+
+      - name: Verify APK and digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          test -s "$APK" && test -x "$APKSIGNER" && test -x "$AAPT"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee /tmp/apksigner.txt
+          tr '[:upper:]' '[:lower:]' < /tmp/apksigner.txt | tr -d ':' | grep -F "$DEBUG_CERT_SHA256_COMPACT"
+          "$AAPT" dump badging "$APK" | tee /tmp/badging.txt
+          grep -F "package: name='$PACKAGE_NAME'" /tmp/badging.txt
+          grep -F "sdkVersion:'28'" /tmp/badging.txt
+          grep -F "targetSdkVersion:'37'" /tmp/badging.txt
+          grep -F "compileSdkVersion='37'" /tmp/badging.txt
+          "$AAPT" dump permissions "$APK" > /tmp/permissions.txt
+          grep -Fq 'android.permission.ACCESS_FINE_LOCATION' /tmp/permissions.txt
+          grep -Fq 'android.permission.ACCESS_COARSE_LOCATION' /tmp/permissions.txt
+          ! grep -Fq 'android.permission.ACCESS_BACKGROUND_LOCATION' /tmp/permissions.txt
+          ! grep -Fq 'android.permission.USE_EXACT_ALARM' /tmp/permissions.txt
+          test "$(unzip -p "$APK" assets/geonames/cities.db | sha256sum | awk '{print $1}')" = "$GEONAMES_SHA256"
+          test "$(unzip -p "$APK" res/raw/adhan_cc0.ogg | sha256sum | awk '{print $1}')" = "$ADHAN_SHA256"
+          test "$(unzip -p "$APK" res/raw/adhan_beautiful_cc0.ogg | sha256sum | awk '{print $1}')" = "$ADHAN_BEAUTIFUL_SHA256"
+          test "$(unzip -p "$APK" res/raw/adhan_short_cc0.ogg | sha256sum | awk '{print $1}')" = "$ADHAN_SHORT_SHA256"
+          cp "$APK" "$APK_NAME"
+          sha256sum "$APK_NAME" | awk '{print $1}' > /tmp/apk-sha256.txt
+          stat -c '%s' "$APK_NAME" > /tmp/apk-size.txt
+          echo "FINAL_APK_SHA256=$(cat /tmp/apk-sha256.txt)"
+          echo "FINAL_APK_SIZE=$(cat /tmp/apk-size.txt)"
+
+      - name: Publish prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK_SHA="$(cat /tmp/apk-sha256.txt)"
+          APK_SIZE="$(cat /tmp/apk-size.txt)"
+          gh release create "$RELEASE_TAG" "$APK_NAME" --repo "$GITHUB_REPOSITORY" --target "$RUNTIME_SHA" --title 'S25 validation — Orari + Location — 882e434e' --prerelease --notes "Galaxy S25 validation build. Spec $SPEC_SHA; promoted exact candidate $RUNTIME_SHA; definitive exact-SHA gate $VERIFIED_GATE_RUN passed static/JVM/build, API28 full instrumentation with zero-failure/zero-skip validation, and API36 permission matrix. Package $PACKAGE_NAME; minSdk 28; compileSdk 37; targetSdk 37. Persistent signer and frozen assets verified. APK bytes $APK_SIZE. APK SHA-256 $APK_SHA. Physical Galaxy S25 validation remains required."
+
+      - name: Verify published prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_SHA="$(cat /tmp/apk-sha256.txt)"
+          git fetch origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse "$RELEASE_TAG^{commit}")" = "$RUNTIME_SHA"
+          RELEASE_JSON="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")"
+          test "$(jq -r '.draft' <<<"$RELEASE_JSON")" = false
+          test "$(jq -r '.prerelease' <<<"$RELEASE_JSON")" = true
+          test "$(jq -r '.target_commitish' <<<"$RELEASE_JSON")" = "$RUNTIME_SHA"
+          test "$(jq '.assets | length' <<<"$RELEASE_JSON")" = 1
+          test "$(jq -r '.assets[0].name' <<<"$RELEASE_JSON")" = "$APK_NAME"
+          rm -rf /tmp/releasecheck && mkdir -p /tmp/releasecheck
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "$APK_NAME" --dir /tmp/releasecheck
+          test "$(sha256sum "/tmp/releasecheck/$APK_NAME" | awk '{print $1}')" = "$EXPECTED_SHA"
+          echo "DIRECT_APK_URL=$(jq -r '.assets[0].browser_download_url' <<<"$RELEASE_JSON")"
