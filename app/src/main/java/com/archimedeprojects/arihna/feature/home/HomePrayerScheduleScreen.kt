@@ -53,16 +53,19 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 
-private val HomeBackgroundTop = Color(0xFF030B08)
-private val HomeBackgroundBottom = Color(0xFF071610)
-private val HomeSurface = Color(0xFF0C1A15)
-private val HomeSurfaceRaised = Color(0xFF11251D)
-private val HomeHero = Color(0xFF123327)
-private val HomeHeroDeep = Color(0xFF0B241B)
-private val HomeText = Color(0xFFF7F2E7)
-private val HomeMuted = Color(0xFFA8B4AC)
-private val HomeAccent = Color(0xFFD8B95A)
-private val HomeOutline = Color(0xFF29483B)
+private val HomeBackgroundTop = Color(0xFFFFF7E6)
+private val HomeBackgroundMiddle = Color(0xFFF8F0DC)
+private val HomeBackgroundBottom = Color(0xFFE7ECD7)
+private val HomeSurface = Color(0xFFFFF9ED)
+private val HomeSurfaceRaised = Color(0xFFFFFCF4)
+private val HomeHero = Color(0xFF1D5A43)
+private val HomeHeroDeep = Color(0xFF0F3D2E)
+private val HomeText = Color(0xFF183E31)
+private val HomeMuted = Color(0xFF6B786F)
+private val HomeHeroText = Color(0xFFFFF9EC)
+private val HomeAccent = Color(0xFFB68A25)
+private val HomeAccentSoft = Color(0xFFF0D78B)
+private val HomeOutline = Color(0xFFD6C993)
 
 @Composable
 fun HomePrayerScheduleRoute(
@@ -96,7 +99,7 @@ fun HomePrayerScheduleScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(HomeBackgroundTop, HomeBackgroundBottom)))
+            .background(Brush.verticalGradient(listOf(HomeBackgroundTop, HomeBackgroundMiddle, HomeBackgroundBottom)))
             .islamicBackdrop()
             .padding(contentPadding)
             .verticalScroll(rememberScrollState())
@@ -140,7 +143,7 @@ private fun NoLocationContent(
             onClick = onOpenLocationSettings,
             colors = ButtonDefaults.buttonColors(
                 containerColor = HomeAccent,
-                contentColor = HomeBackgroundTop,
+                contentColor = HomeHeroDeep,
             ),
         ) {
             Text("Configura posizione", fontWeight = FontWeight.Bold)
@@ -289,7 +292,7 @@ private fun NextPrayerHero(state: PrayerScheduleUiState.Ready, zoneId: ZoneId) {
                 )
                 val nextPrayer = state.nextPrayer
                 if (nextPrayer == null) {
-                    Text("Nessuna prossima preghiera disponibile.", color = HomeText)
+                    Text("Nessuna prossima preghiera disponibile.", color = HomeHeroText)
                 } else {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -300,7 +303,7 @@ private fun NextPrayerHero(state: PrayerScheduleUiState.Ready, zoneId: ZoneId) {
                             text = prayerLabel(nextPrayer.prayer),
                             style = MaterialTheme.typography.headlineLarge,
                             fontWeight = FontWeight.Bold,
-                            color = HomeText,
+                            color = HomeHeroText,
                             modifier = Modifier.testTag("home-next-prayer-name"),
                         )
                         Text(
@@ -308,7 +311,7 @@ private fun NextPrayerHero(state: PrayerScheduleUiState.Ready, zoneId: ZoneId) {
                             fontSize = 46.sp,
                             lineHeight = 48.sp,
                             fontWeight = FontWeight.Light,
-                            color = HomeText,
+                            color = HomeHeroText,
                             modifier = Modifier.testTag("home-next-prayer-time"),
                         )
                     }
@@ -369,7 +372,7 @@ private fun PrayerStripTile(
     Column(
         modifier = modifier
             .background(
-                if (highlighted) HomeAccent.copy(alpha = 0.16f) else HomeSurface,
+                if (highlighted) HomeAccentSoft else HomeSurface,
                 RoundedCornerShape(13.dp),
             )
             .padding(horizontal = 2.dp, vertical = 8.dp),
@@ -380,7 +383,7 @@ private fun PrayerStripTile(
             text = label,
             fontSize = 9.sp,
             lineHeight = 11.sp,
-            color = if (highlighted) HomeAccent else HomeMuted,
+            color = if (highlighted) HomeHeroDeep else HomeMuted,
             fontWeight = if (highlighted) FontWeight.Bold else FontWeight.Medium,
             maxLines = 1,
         )
@@ -419,7 +422,7 @@ private fun WeekStrip(localDate: LocalDate) {
                     modifier = Modifier
                         .weight(1f)
                         .background(
-                            if (isToday) HomeAccent else HomeSurface,
+                            if (isToday) HomeAccentSoft else HomeSurface,
                             RoundedCornerShape(15.dp),
                         )
                         .padding(vertical = 7.dp)
@@ -431,13 +434,13 @@ private fun WeekStrip(localDate: LocalDate) {
                         text = dayInitial(day.dayOfWeek),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
-                        color = if (isToday) HomeBackgroundTop else HomeMuted,
+                        color = if (isToday) HomeHeroDeep else HomeMuted,
                     )
                     Text(
                         text = day.dayOfMonth.toString(),
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Bold,
-                        color = if (isToday) HomeBackgroundTop else HomeText,
+                        color = if (isToday) HomeHeroDeep else HomeText,
                     )
                 }
             }
@@ -475,7 +478,7 @@ private fun QuickActionButton(
         modifier = modifier,
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, HomeOutline),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = HomeText),
+        colors = ButtonDefaults.outlinedButtonColors(containerColor = HomeSurfaceRaised, contentColor = HomeText),
         contentPadding = PaddingValues(horizontal = 6.dp, vertical = 10.dp),
     ) {
         Column(

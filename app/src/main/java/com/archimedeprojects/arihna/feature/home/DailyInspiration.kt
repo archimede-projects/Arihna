@@ -74,8 +74,8 @@ internal fun DailyInspirationCard(localDate: LocalDate) {
         onClick = { showDetail = true },
         modifier = Modifier.fillMaxWidth().testTag("home-inspiration"),
         shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF11251D)),
-        border = BorderStroke(1.dp, Color(0xFFD8B95A).copy(alpha = 0.38f)),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFCF4)),
+        border = BorderStroke(1.dp, Color(0xFFB68A25).copy(alpha = 0.38f)),
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 17.dp, vertical = 14.dp),
@@ -90,20 +90,20 @@ internal fun DailyInspirationCard(localDate: LocalDate) {
                     "ISPIRAZIONE DEL GIORNO",
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFD8B95A),
+                    color = Color(0xFFB68A25),
                 )
                 Text(
                     inspiration.kind,
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFA8B4AC),
+                    color = Color(0xFF6B786F),
                 )
             }
             Text(
                 "“${inspiration.text}”",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFFF7F2E7),
+                color = Color(0xFF183E31),
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -113,7 +113,7 @@ internal fun DailyInspirationCard(localDate: LocalDate) {
                 Text(
                     inspiration.reference,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFFA8B4AC),
+                    color = Color(0xFF6B786F),
                 )
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(5.dp),
@@ -122,13 +122,13 @@ internal fun DailyInspirationCard(localDate: LocalDate) {
                     Icon(
                         Icons.Rounded.Share,
                         contentDescription = null,
-                        tint = Color(0xFFD8B95A),
+                        tint = Color(0xFFB68A25),
                         modifier = Modifier.size(15.dp),
                     )
                     Text(
                         "Tocca per leggere e condividere",
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFFD8B95A),
+                        color = Color(0xFFB68A25),
                     )
                 }
             }
@@ -139,16 +139,16 @@ internal fun DailyInspirationCard(localDate: LocalDate) {
         AlertDialog(
             onDismissRequest = { showDetail = false },
             modifier = Modifier.testTag("home-inspiration-detail"),
-            containerColor = Color(0xFF10241C),
-            titleContentColor = Color(0xFFD8B95A),
-            textContentColor = Color(0xFFF7F2E7),
+            containerColor = Color(0xFFFFF8E9),
+            titleContentColor = Color(0xFFB68A25),
+            textContentColor = Color(0xFF183E31),
             title = {
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text("Ispirazione del giorno", fontWeight = FontWeight.Bold)
                     Text(
                         inspiration.kind,
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFFA8B4AC),
+                        color = Color(0xFF6B786F),
                     )
                 }
             },
@@ -162,7 +162,7 @@ internal fun DailyInspirationCard(localDate: LocalDate) {
                     Text(
                         inspiration.reference,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFFD8B95A),
+                        color = Color(0xFFB68A25),
                     )
                 }
             },

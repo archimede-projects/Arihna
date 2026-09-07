@@ -12,11 +12,13 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.flowWithLifecycle
@@ -41,6 +43,11 @@ import com.archimedeprojects.arihna.feature.qibla.domain.QiblaRepository
 import com.archimedeprojects.arihna.feature.quran.QuranPlaceholderScreen
 import com.archimedeprojects.arihna.feature.settings.LocationSettingsRoute
 import com.archimedeprojects.arihna.feature.settings.LocationSettingsViewModel
+
+private val AlbaNavBar = Color(0xFFFFFAEF)
+private val AlbaNavIcon = Color(0xFF52705F)
+private val AlbaNavSelectedIcon = Color(0xFF173C30)
+private val AlbaNavIndicator = Color(0xFFDDE6C9)
 
 private enum class Destination(
     val route: String,
@@ -75,7 +82,7 @@ fun ArihnaNavHost(
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
-            NavigationBar {
+            NavigationBar(containerColor = AlbaNavBar, contentColor = AlbaNavIcon) {
                 Destination.entries.forEach { destination ->
                     val selected = currentDestination?.hierarchy?.any {
                         it.route == destination.route
@@ -95,7 +102,12 @@ fun ArihnaNavHost(
                             )
                         },
                         label = null,
-                        alwaysShowLabel = false,
+    alwaysShowLabel = false,
+    colors = NavigationBarItemDefaults.colors(
+        selectedIconColor = AlbaNavSelectedIcon,
+        unselectedIconColor = AlbaNavIcon,
+        indicatorColor = AlbaNavIndicator,
+    ),
                     )
                 }
             }
