@@ -12,10 +12,14 @@ Base runtime: `f5478522533962f44ca9f8879f7d6a82d9c35af4`
 5. Replace the Home quick action `Posizione` with `Corano`; tapping it navigates to the existing Quran top-level destination. Location remains visible/refreshable in the Home header and remains configurable in Settings.
 6. Replace the Quran placeholder with a functional offline Quran reader that exposes two reading modes:
    - `Facile da leggere`: the verified Quran text is rendered verse-by-verse with larger type, generous spacing, and minimal metadata.
-   - `Ḥafṣ / Uthmani`: the same verified, unmodified Quran text is rendered with verse numbers and explicit Juz / Hizb-quarter markers.
+   - `Ḥafṣ / Uthmani`: the same verified, unmodified Quran text is rendered with verse numbers and explicit Juz / Hizb markers.
    These are presentation modes over one authenticated text corpus, not different Quran contents or recitations.
-7. Quran text and metadata source is Tanzil Quran Text Uthmani v1.1 / Quran metadata, pinned to upstream commit `052b515f3a24dfacbe4cafc3b89f0681a447f462`. The Quran text must be bundled verbatim and unmodified. Attribution and the Tanzil license notice must ship with the app and be visible in the Quran screen. Build/gate must verify the bundled text is byte-identical to the pinned upstream file.
-8. Quran reader must support all 6,236 ayat, all 114 surahs, Juz boundaries including Juz 2 at 2:142, and Hizb-quarter metadata from the pinned Tanzil metadata. It must never synthesize Quran text.
+7. Quran text and metadata source is TarteelAI `quran-assets` pinned to commit `a5284b17034d36567e4a4bac982a17ba56837448`: `text/quran-uthmani.txt` is Tanzil Quran Text Uthmani v1.1 and `metadata/juz-info.json` / `metadata/hizb-info.json` provide the Juz/Hizb boundaries. The Quran text must be bundled verbatim and unmodified. Attribution and the Tanzil license notice must ship with the app and be visible in the Quran screen. Build/gate must verify the bundled files are byte-identical to this pinned upstream commit.
+8. Quran reader must support all 6,236 ayat, all 114 surahs, Juz boundaries including Juz 2 at 2:142, and valid Hizb marker data from the pinned metadata. It must never synthesize Quran text.
+
+## Source-pin correction
+
+The earlier documentation-only commit referenced upstream SHA `052b515f3a24dfacbe4cafc3b89f0681a447f462`. Repository verification showed that SHA is not a commit in the selected TarteelAI source. This specification-only correction replaces it with the verified immutable TarteelAI commit `a5284b17034d36567e4a4bac982a17ba56837448`; no product behavior is changed by this correction.
 
 ## Frozen contracts retained
 
@@ -32,14 +36,14 @@ Base runtime: `f5478522533962f44ca9f8879f7d6a82d9c35af4`
 
 ## Acceptance tests / gate
 
-The technical candidate must be a direct child of this spec commit. Gate must run against the exact candidate SHA and include:
+The technical candidate must be a direct child of this corrected spec commit. Gate must run against the exact candidate SHA and include:
 
 - static contract checks for slider present and +/- controls absent;
 - Home contract: Quran quick action present, location quick action absent, current location remains in header, Hijri date present, current-date block clickable;
 - Android UI test proving date click opens the calendar and Home Quran quick action invokes its destination callback;
 - persisted Italian/Arabic language selector with Arabic RTL smoke coverage;
-- Quran parser/unit tests proving exactly 6,236 verses, 114 surahs, Juz 1 at 1:1, Juz 2 at 2:142, and valid Hizb-quarter marker data;
-- exact byte comparison of the bundled Tanzil Quran text and metadata against the pinned upstream commit plus preservation of attribution/license notice;
+- Quran parser/unit tests proving exactly 6,236 verses, 114 surahs, Juz 1 at 1:1, Juz 2 at 2:142, and valid Hizb marker data;
+- exact byte comparison of the bundled Tanzil Quran text and metadata against TarteelAI commit `a5284b17034d36567e4a4bac982a17ba56837448` plus preservation of attribution/license notice;
 - JVM tests + debug build + androidTest compile;
 - full API 28 instrumentation with XML validation requiring >0 tests and zero failures/errors/skips;
 - API 36 location permission matrix;
