@@ -1,0 +1,153 @@
+name: Global visual Adhan volume implementation
+
+on:
+  push:
+    branches:
+      - global-visual-adhan-volume-impl-driver-20260907
+
+permissions:
+  contents: write
+
+jobs:
+  implement:
+    runs-on: ubuntu-24.04
+    env:
+      BASE_MAIN_SHA: 882e434ea036ef9033608131b428e46b16b64d1e
+      SPEC_SHA: 4fb277b6956f7ca6f777c3badfd044d77b72a42b
+      CANDIDATE_BRANCH: global-visual-adhan-volume-v1
+      GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
+      FROZEN_ASSET_RELEASE: settings-s25-premium-3f28b6f0-20260906
+      FROZEN_ASSET_APK: arihna-settings-s25-premium.apk
+    steps:
+      - name: Checkout implementation driver
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Capture driver script and guard SPEC-FIRST lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .github/arihna-global-revision.py /tmp/arihna-global-revision.py
+          # Correct the exact editor colors present on the approved spec baseline.
+          sed -i \
+            -e 's/0B2117/08150F/g' \
+            -e 's/F5F1E5/F4F1E8/g' \
+            -e 's/111914/15251E/g' \
+            -e 's/F2F0E9/FFFFFFFF/g' \
+            -e 's/182019/102019/g' \
+            -e 's/E7E6DF/EBE8DF/g' \
+            /tmp/arihna-global-revision.py
+          git fetch origin main --force
+          test "$(git rev-parse origin/main)" = "$BASE_MAIN_SHA"
+          test "$(git rev-parse "$SPEC_SHA^")" = "$BASE_MAIN_SHA"
+          git switch -C "$CANDIDATE_BRANCH" "$SPEC_SHA"
+          test "$(git rev-parse HEAD)" = "$SPEC_SHA"
+
+      - name: Download verified Adhan additions
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p app/src/main/res/raw
+          UA='Arihna-GitHub-Release/1.0 (https://github.com/archimede-projects/Arihna)'
+          curl --fail --location --retry 3 --user-agent "$UA" \
+            'https://commons.wikimedia.org/wiki/Special:Redirect/file/Muslim_calling_to_prayer.ogg' \
+            --output app/src/main/res/raw/adhan_extended_cc0.ogg
+          curl --fail --location --retry 3 --user-agent "$UA" \
+            'https://commons.wikimedia.org/wiki/Special:Redirect/file/Oraci%C3%B3n_Al-Azzan.ogg' \
+            --output app/src/main/res/raw/adhan_compact_pd.ogg
+          curl --fail --location --retry 3 --user-agent "$UA" \
+            'https://commons.wikimedia.org/wiki/Special:Redirect/file/Call_to_prayer.ogg' \
+            --output app/src/main/res/raw/adhan_alternative_cc_by_sa.ogg
+          for f in app/src/main/res/raw/adhan_extended_cc0.ogg app/src/main/res/raw/adhan_compact_pd.ogg app/src/main/res/raw/adhan_alternative_cc_by_sa.ogg; do
+            test -s "$f"
+            file "$f" | grep -Eqi 'ogg|vorbis'
+          done
+          sha256sum app/src/main/res/raw/adhan_* | sort
+
+      - name: Apply product revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 /tmp/arihna-global-revision.py
+          git diff --check
+          test ! -e .github/arihna-global-revision.py
+          test ! -e .github/workflows/global-visual-adhan-volume-impl.yml
+          grep -F 'CLASSIC("classic", "Adhan classico")' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/domain/AlarmModels.kt
+          grep -F 'SHORT("short", "Adhan breve")' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/domain/AlarmModels.kt
+          test "$(grep -c 'AdhanVariant\..*R.raw.adhan_' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt)" -ge 6
+          ! grep -Fq 'settings-alarm-volume-slider' app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
+          grep -Fq 'settings-alarm-volume-decrease' app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
+          grep -Fq 'settings-alarm-volume-increase' app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Restore frozen GeoNames build asset
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+
+      - name: JVM tests and debug build
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew :app:testDebugUnitTest :app:assembleDebug --stacktrace
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          echo "CANDIDATE_DEBUG_APK_SIZE=$(stat -c '%s' "$APK")"
+          sha256sum "$APK"
+
+      - name: Commit exact direct-child candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf app/src/main/assets/geonames
+          git status --short
+          git diff --check
+          git config user.name "IbnKhaldoun-svg"
+          git config user.email "essalih.idriss.w@gmail.com"
+          git add \
+            app/src/main/java/com/archimedeprojects/arihna/core/ui/theme/Color.kt \
+            app/src/main/java/com/archimedeprojects/arihna/core/ui/theme/Theme.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/qibla/QiblaPlaceholderScreen.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/alarms/AlarmsPlaceholderScreen.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/alarms/domain/AlarmModels.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt \
+            app/src/main/res/raw/adhan_extended_cc0.ogg \
+            app/src/main/res/raw/adhan_compact_pd.ogg \
+            app/src/main/res/raw/adhan_alternative_cc_by_sa.ogg \
+            app/src/test/java/com/archimedeprojects/arihna/feature/alarms/domain/AdhanVariantTest.kt \
+            app/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreenAndroidTest.kt \
+            docs/audio/ADHAN_SOURCES.md \
+            docs/audio/THIRD_PARTY_AUDIO_LICENSES.md
+          test -n "$(git diff --cached --name-only)"
+          test -z "$(git status --porcelain | grep '^??' || true)"
+          git commit -m "feat: unify Arihna visuals and expand Adhan choices"
+          CANDIDATE_SHA="$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          test "$(git rev-list --parents -n 1 HEAD | wc -w)" -eq 2
+          git push origin "HEAD:refs/heads/$CANDIDATE_BRANCH" --force-with-lease
+          echo "CANDIDATE_SHA=$CANDIDATE_SHA"
