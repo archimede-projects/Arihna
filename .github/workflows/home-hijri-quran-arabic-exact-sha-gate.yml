@@ -10,7 +10,7 @@ permissions:
 
 env:
   SPEC_SHA: 89bef3ff59bebc8e3cf0db3652ff18b9dd056938
-  CANDIDATE_SHA: d6d8499bdbebb01fcfebcb518492ea3c25011f05
+  CANDIDATE_SHA: 16132b21d4dbb039c0e8e1ce4fda88895ce5b3c7
   PACKAGE_NAME: com.archimedeprojects.arihna
   GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
   FROZEN_ASSET_RELEASE: settings-s25-premium-3f28b6f0-20260906
@@ -23,7 +23,7 @@ jobs:
       - name: Checkout exact candidate
         uses: actions/checkout@v4
         with:
-          ref: d6d8499bdbebb01fcfebcb518492ea3c25011f05
+          ref: 16132b21d4dbb039c0e8e1ce4fda88895ce5b3c7
           fetch-depth: 0
 
       - name: Verify exact SHA lineage and product contracts
@@ -184,7 +184,7 @@ jobs:
       - name: Checkout exact candidate
         uses: actions/checkout@v4
         with:
-          ref: d6d8499bdbebb01fcfebcb518492ea3c25011f05
+          ref: 16132b21d4dbb039c0e8e1ce4fda88895ce5b3c7
           fetch-depth: 0
 
       - name: Verify exact candidate lineage
