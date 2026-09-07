@@ -1,0 +1,144 @@
+name: Write Orari fixed-screen Adhan candidate
+
+on:
+  push:
+    branches:
+      - parallel-orari-impl-driver-20260907
+
+permissions:
+  contents: write
+
+jobs:
+  write-orari:
+    runs-on: ubuntu-latest
+    env:
+      SPEC_SHA: 21c7f8763734c2646e24f34c792c58f1816625d2
+      TARGET_BRANCH: parallel-orari-v1
+      PRAYER_SCREEN_B64: PLACEHOLDER
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.SPEC_SHA }}
+      - name: Verify exact shared spec
+        run: test "$(git rev-parse HEAD)" = "$SPEC_SHA"
+      - name: Restore frozen GeoNames and verify existing Adhan
+        env:
+          GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
+          ADHAN_SHA256: 3b350bc210d657727578ed977e32323c06b63c2088c3ebcea9fc9afb7d487702
+        run: |
+          gh release download settings-s25-premium-3f28b6f0-20260906 --repo "$GITHUB_REPOSITORY" --pattern arihna-settings-s25-premium.apk --dir /tmp/geonames
+          mkdir -p app/src/main/assets/geonames
+          unzip -p /tmp/geonames/arihna-settings-s25-premium.apk assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+          echo "$ADHAN_SHA256  app/src/main/res/raw/adhan_cc0.ogg" | sha256sum -c -
+      - name: Download two additional CC0 Adhan recordings
+        run: |
+          curl -L --fail --retry 3 --retry-delay 2 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Beautiful%20adhan.ogg' -o app/src/main/res/raw/adhan_beautiful_cc0.ogg
+          curl -L --fail --retry 3 --retry-delay 2 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Adhan.ogg' -o app/src/main/res/raw/adhan_short_cc0.ogg
+          test -s app/src/main/res/raw/adhan_beautiful_cc0.ogg
+          test -s app/src/main/res/raw/adhan_short_cc0.ogg
+          file app/src/main/res/raw/adhan_beautiful_cc0.ogg | grep -Ei 'Ogg|Vorbis'
+          file app/src/main/res/raw/adhan_short_cc0.ogg | grep -Ei 'Ogg|Vorbis'
+      - name: Write Orari screen and audio plumbing
+        run: |
+          printf '%s' "$PRAYER_SCREEN_B64" | base64 -d > app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt
+          python3 - <<'PY'
+          from pathlib import Path
+
+          models = Path('app/src/main/java/com/archimedeprojects/arihna/feature/alarms/domain/AlarmModels.kt')
+          text = models.read_text()
+          marker = '''enum class AlarmSoundProfile {\n    ADHAN,\n    SYSTEM_DEFAULT,\n    SILENT,\n}\n'''
+          addition = marker + '''\nenum class AdhanVariant(\n    val storageId: String,\n    val displayName: String,\n) {\n    CLASSIC("classic", "Adhan classico"),\n    BEAUTIFUL("beautiful", "Adhan armonioso"),\n    SHORT("short", "Adhan breve"),\n    ;\n\n    val storageValue: String = "arihna://adhan/$storageId"\n\n    companion object {\n        fun fromStorage(value: String?): AdhanVariant =\n            entries.firstOrNull { it.storageValue == value } ?: CLASSIC\n    }\n}\n'''
+          assert marker in text and 'enum class AdhanVariant' not in text
+          models.write_text(text.replace(marker, addition, 1))
+
+          vm = Path('app/src/main/java/com/archimedeprojects/arihna/feature/alarms/AlarmsViewModel.kt')
+          text = vm.read_text()
+          old = '''        val targetUri = if (soundProfile == AlarmSoundProfile.SYSTEM_DEFAULT) ringtoneUri else null\n        val targetTitle = if (soundProfile == AlarmSoundProfile.SYSTEM_DEFAULT) ringtoneTitle else null\n'''
+          new = '''        val keepSelectionMetadata = soundProfile != AlarmSoundProfile.SILENT\n        val targetUri = if (keepSelectionMetadata) ringtoneUri else null\n        val targetTitle = if (keepSelectionMetadata) ringtoneTitle else null\n'''
+          assert old in text
+          vm.write_text(text.replace(old, new, 1))
+
+          service = Path('app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt')
+          text = service.read_text()
+          import_marker = 'import com.archimedeprojects.arihna.feature.alarms.domain.AlarmDefinition\n'
+          assert import_marker in text and 'domain.AdhanVariant' not in text
+          text = text.replace(import_marker, 'import com.archimedeprojects.arihna.feature.alarms.domain.AdhanVariant\n' + import_marker, 1)
+          old = '''                resources.openRawResourceFd(R.raw.adhan_cc0).use { descriptor ->\n                    player.setDataSource(\n                        descriptor.fileDescriptor,\n                        descriptor.startOffset,\n                        descriptor.length,\n                    )\n                }'''
+          new = '''                val rawResource = when (AdhanVariant.fromStorage(selectedRingtoneUri)) {\n                    AdhanVariant.CLASSIC -> R.raw.adhan_cc0\n                    AdhanVariant.BEAUTIFUL -> R.raw.adhan_beautiful_cc0\n                    AdhanVariant.SHORT -> R.raw.adhan_short_cc0\n                }\n                resources.openRawResourceFd(rawResource).use { descriptor ->\n                    player.setDataSource(\n                        descriptor.fileDescriptor,\n                        descriptor.startOffset,\n                        descriptor.length,\n                    )\n                }'''
+          assert old in text
+          service.write_text(text.replace(old, new, 1))
+          PY
+      - name: Add provenance and tests
+        run: |
+          mkdir -p docs/audio app/src/test/java/com/archimedeprojects/arihna/feature/alarms/domain
+          BEAUTIFUL_SHA=$(sha256sum app/src/main/res/raw/adhan_beautiful_cc0.ogg | awk '{print $1}')
+          SHORT_SHA=$(sha256sum app/src/main/res/raw/adhan_short_cc0.ogg | awk '{print $1}')
+          cat > docs/audio/ADHAN_SOURCES.md <<EOF
+          # Arihna bundled Adhan audio provenance
+
+          - `adhan_cc0.ogg` — existing Arihna frozen/approved Adhan asset. SHA-256: `3b350bc210d657727578ed977e32323c06b63c2088c3ebcea9fc9afb7d487702`.
+          - `adhan_beautiful_cc0.ogg` — Wikimedia Commons, “Beautiful adhan.ogg”, author Adam-synagda, own work, CC0 1.0 Universal, source page: https://commons.wikimedia.org/wiki/File:Beautiful_adhan.ogg. SHA-256: `$BEAUTIFUL_SHA`.
+          - `adhan_short_cc0.ogg` — Wikimedia Commons, “Adhan.ogg”, author Aishatu98, own work, CC0 1.0 Universal, source page: https://commons.wikimedia.org/wiki/File:Adhan.ogg. SHA-256: `$SHORT_SHA`.
+
+          The two Wikimedia recordings are redistributed unmodified as Ogg files. Their source pages explicitly state CC0/public-domain dedication.
+          EOF
+          cat > app/src/test/java/com/archimedeprojects/arihna/feature/alarms/domain/AdhanVariantTest.kt <<'EOF'
+          package com.archimedeprojects.arihna.feature.alarms.domain
+
+          import org.junit.Assert.assertEquals
+          import org.junit.Assert.assertEquals
+          import org.junit.Assert.assertNotEquals
+          import org.junit.Test
+
+          class AdhanVariantTest {
+              @Test
+              fun eachVariantHasStableDistinctStorageValue() {
+                  val values = AdhanVariant.entries.map { it.storageValue }
+                  assertEquals(values.size, values.toSet().size)
+                  assertNotEquals(AdhanVariant.CLASSIC.storageValue, AdhanVariant.BEAUTIFUL.storageValue)
+              }
+
+              @Test
+              fun legacyAndUnknownValuesFallBackToClassic() {
+                  assertEquals(AdhanVariant.CLASSIC, AdhanVariant.fromStorage(null))
+                  assertEquals(AdhanVariant.CLASSIC, AdhanVariant.fromStorage("content://legacy"))
+              }
+
+              @Test
+              fun storedVariantRoundTrips() {
+                  AdhanVariant.entries.forEach { variant ->
+                      assertEquals(variant, AdhanVariant.fromStorage(variant.storageValue))
+                  }
+              }
+          }
+          EOF
+          sed -i '/import org.junit.Assert.assertEquals/{x;/x/d;x}' app/src/test/java/com/archimedeprojects/arihna/feature/alarms/domain/AdhanVariantTest.kt || true
+      - name: Verify scope and UI contracts
+        run: |
+          git diff --check
+          ! grep -F 'LazyColumn' app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt
+          grep -F 'Modifier.weight(1f)' app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt
+          grep -F 'Icons.Rounded.Mosque' app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt
+          grep -F 'Icons.Rounded.VolumeOff' app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt
+          grep -F 'AdhanVariant.entries.forEach' app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt
+          grep -F 'R.raw.adhan_beautiful_cc0' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
+          grep -F 'R.raw.adhan_short_cc0' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
+          test -z "$(git diff --name-only "$SPEC_SHA" -- app/src/main/java/com/archimedeprojects/arihna/feature/home app/src/main/java/com/archimedeprojects/arihna/feature/alarms/AlarmsPlaceholderScreen.kt)"
+      - name: Commit candidate direct from spec
+        run: |
+          git config user.name 'Arihna Implementation Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt \
+                  app/src/main/java/com/archimedeprojects/arihna/feature/alarms/domain/AlarmModels.kt \
+                  app/src/main/java/com/archimedeprojects/arihna/feature/alarms/AlarmsViewModel.kt \
+                  app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt \
+                  app/src/main/res/raw/adhan_beautiful_cc0.ogg \
+                  app/src/main/res/raw/adhan_short_cc0.ogg \
+                  app/src/test/java/com/archimedeprojects/arihna/feature/alarms/domain/AdhanVariantTest.kt \
+                  docs/audio/ADHAN_SOURCES.md
+          git commit -m 'feat(orari): fixed screen with selectable Adhan list'
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          git push origin HEAD:refs/heads/$TARGET_BRANCH
+          echo "ORARI_CANDIDATE_SHA=$(git rev-parse HEAD)"
