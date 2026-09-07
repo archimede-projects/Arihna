@@ -2195,3 +2195,22 @@ The earlier `LocationManager`-only / no-Google-Play-Services device-location res
 - API36 denied/granted modern capability matrix must pass with the new foreground location permission pair represented correctly while alarm capability coverage remains intact.
 - Gate must verify no `ACCESS_BACKGROUND_LOCATION`, no `USE_EXACT_ALARM`, no Google Places/Maps API or API key, package/SDK invariants, frozen GeoNames and Adhan digests, real icon navigation, bounded non-focus-stealing city suggestions, production DI to fused location, and the approved Home visual anchors.
 - Only after exact-SHA gate success may `main` fast-forward to the candidate and a persistent-signer Galaxy S25 prerelease APK be published.
+
+
+### 2026-09-07 — Home visual direction “Alba dorata” APPROVED
+
+Physical/design review of the Home after the Islamic-backdrop correction selected the **first generated alternative, “Alba dorata,” as the approved visual target** for the next Home presentation iteration. This decision refines visual presentation only and does not reopen prayer calculation, navigation behavior, daily-content interaction/sharing, Fused location, alarms, GeoNames, Adhan, package/SDK or signing decisions.
+
+**Approved atmosphere and palette.** Home must become visibly lighter, warmer and more serene than the current dark emerald screen. The target atmosphere is an early-morning / sunrise feeling using **warm ivory/cream, soft sage green and restrained warm gold**, with dark forest/emerald reserved for high-contrast text, icons and selected premium surfaces. The result should feel spiritual, calm, optimistic and distinctly Islamic rather than dark, heavy or melancholic.
+
+**Background language.** The Home background should suggest soft dawn light with a gentle vertical/radial glow, subtle Islamic architectural arches and very low-contrast geometric/mashrabiya-inspired ornament. A restrained mosque/minaret/palm silhouette may be used only as a decorative, non-interactive, non-sacred shape layer. No Quranic text, divine names, Arabic calligraphy or decorative religious quotation may be used in the background.
+
+**Implementation constraint.** The approved mockup is a visual reference, not authorization to ship a photographic wallpaper. Production should reproduce the look primarily with Compose gradients, vector/Canvas geometry, simple silhouettes and low-cost procedural decoration so density scaling, APK size, rendering quality and performance remain controlled. Any decorative raster asset would require a separate explicit decision and licensing/provenance check.
+
+**Surface hierarchy.** The next-prayer hero may remain a richer emerald/green premium surface with warm-gold edge treatment so it anchors the screen against the lighter background. Prayer-time tiles, week tiles, inspiration surface and quick actions should move toward light ivory/sage surfaces with clear dark-green typography and restrained gold selected/highlight states. The Home selected state must remain immediately obvious without relying on low-contrast text alone.
+
+**Bottom navigation.** The Home bottom navigation should visually harmonize with the lighter “Alba dorata” direction rather than read as a detached dark slab. A light/ivory or softly translucent warm surface with forest-green icons and a clearly highlighted selected Home item is preferred, provided contrast and Android edge/inset behavior remain correct.
+
+**Readability and restraint.** Decorative light, arches and geometry must never reduce legibility of location, prayer name/time, countdown, daily inspiration, quick actions or bottom navigation. Avoid washed-out text, excessive blur, glossy gold, neon effects, busy wallpaper, faux-3D ornament and photo-realistic religious scenery. The intended tone is premium, contemporary and peaceful.
+
+**Acceptance and SPEC-FIRST rule.** This `PROJECT_SPEC.md` commit is the specification parent for the corresponding technical candidate. The implementation candidate must be a direct child of this exact spec commit. If a candidate fails its exact-SHA gate, any replacement must again be a direct child of this same spec commit. No application-code change is part of this documentation commit. The implementation must retain the already-approved Home navigation fix and daily inspiration detail/share behavior and must pass the existing full regression/gate policy before promotion and Galaxy S25 prerelease validation.
