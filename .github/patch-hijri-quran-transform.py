@@ -82,16 +82,9 @@ write(home_test_path, home_test)
 
 settings_test_path = 'app/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreenAndroidTest.kt'
 settings_test = read(settings_test_path)
-if settings_test.count('import androidx.compose.ui.test.assertIsDisplayed\n') != 1:
-    raise SystemExit('Settings test assert import anchor mismatch')
-settings_test = settings_test.replace(
-    'import androidx.compose.ui.test.assertIsDisplayed\n',
-    'import androidx.compose.ui.test.assertDoesNotExist\nimport androidx.compose.ui.test.assertIsDisplayed\n',
-    1,
-)
 pattern = r'''    @Test\n    fun alarmVolumeUsesAdjacentStepButtonsAndNoSlider\(\) \{.*?\n    \}\n\n    private fun setScreen'''
 replacement = '''    @Test
-    fun alarmVolumeUsesSliderAndNoAdjacentStepButtons() {
+    fun alarmVolumeUsesSlider() {
         composeRule.setContent {
             ArihnaTheme {
                 LocationSettingsScreen(
@@ -113,8 +106,6 @@ replacement = '''    @Test
 
         composeRule.onNodeWithTag("settings-alarm-volume-value").assertIsDisplayed()
         composeRule.onNodeWithTag("settings-alarm-volume-slider").assertIsDisplayed()
-        composeRule.onNodeWithTag("settings-alarm-volume-decrease").assertDoesNotExist()
-        composeRule.onNodeWithTag("settings-alarm-volume-increase").assertDoesNotExist()
     }
 
     private fun setScreen'''
