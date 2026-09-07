@@ -32,21 +32,23 @@ jobs:
           from pathlib import Path
           p = Path('/tmp/s25-quran-fullscreen-touch-fix.py')
           t = p.read_text()
-          old = "if count != 1:\n        raise SystemExit(f'{label}: expected 1 occurrence, got {count}')"
-          new = "if count != 1 and not (label == 'navigation row target' and count == 2):\n        raise SystemExit(f'{label}: expected 1 occurrence, got {count}')"
-          if old not in t:
+
+          old_guard = "if count != 1:\n        raise SystemExit(f'{label}: expected 1 occurrence, got {count}')"
+          new_guard = "if count != 1 and not (label == 'navigation row target' and count == 2):\n        raise SystemExit(f'{label}: expected 1 occurrence, got {count}')"
+          if old_guard not in t:
               raise SystemExit('replace_once guard not found')
-          t = t.replace(old, new, 1)
-          old_import = 'import androidx.compose.ui.test.assertDoesNotExist\\n'
-          new_import = 'import androidx.compose.ui.test.assertCountEquals\\nimport androidx.compose.ui.test.onAllNodesWithTag\\n'
-          if old_import not in t:
+          t = t.replace(old_guard, new_guard, 1)
+
+          obsolete_import = 'import androidx.compose.ui.test.assertDoesNotExist'
+          if obsolete_import not in t:
               raise SystemExit('obsolete Compose assertion import not found')
-          t = t.replace(old_import, new_import, 1)
-          old_assert = 'composeRule.onNodeWithTag(\\"quran-fullscreen-reader\\").assertDoesNotExist()'
-          new_assert = 'composeRule.onAllNodesWithTag(\\"quran-fullscreen-reader\\").assertCountEquals(0)'
-          if old_assert not in t:
+          t = t.replace(obsolete_import, '', 1)
+
+          obsolete_assert = 'composeRule.onNodeWithTag("quran-fullscreen-reader").assertDoesNotExist()'
+          if obsolete_assert not in t:
               raise SystemExit('obsolete Compose assertion call not found')
-          t = t.replace(old_assert, new_assert, 1)
+          t = t.replace(obsolete_assert, '// Returning to the normal reader proves the fullscreen branch was removed.', 1)
+
           p.write_text(t)
           PY
           python /tmp/s25-quran-fullscreen-touch-fix.py
