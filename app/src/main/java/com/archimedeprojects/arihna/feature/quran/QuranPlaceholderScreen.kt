@@ -167,16 +167,18 @@ private fun QuranReaderHeader(
                         fontSize = 22.sp,
                         fontWeight = FontWeight.ExtraBold,
                     )
+                    val pageLabel = appText(
+                        "pag. ${currentPage + 1}",
+                        "صفحة ${toArabicIndic(currentPage + 1)}",
+                    )
+                    val readingLocation = if (explorerOpen) {
+                        appText("Scegli dove leggere", "اختر موضع القراءة")
+                    } else {
+                        listOfNotNull(surah?.nameArabic?.takeIf { it.isNotBlank() }, pageLabel)
+                            .joinToString("  •  ")
+                    }
                     Text(
-                        if (explorerOpen) {
-                            appText("Scegli dove leggere", "اختر موضع القراءة")
-                        } else {
-                            buildString {
-                                if (!surah?.nameArabic.isNullOrBlank()) append(surah?.nameArabic)
-                                if (isNotEmpty()) append("  •  ")
-                                append(appText("pag. ${currentPage + 1}", "صفحة ${toArabicIndic(currentPage + 1)}"))
-                            }
-                        },
+                        readingLocation,
                         color = ArihnaMutedText,
                         fontSize = 11.sp,
                         maxLines = 1,
@@ -625,10 +627,10 @@ private fun QuranAyahCard(ayah: QuranAyah, corpus: QuranCorpus) {
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 17.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            val marker = buildList {
-                juz?.let { add(appText("Juz $it", "الجزء ${toArabicIndic(it)}")) }
-                hizb?.let { add(appText("Hizb $it", "الحزب ${toArabicIndic(it)}")) }
-            }.joinToString("  •  ")
+            val markerParts = mutableListOf<String>()
+            if (juz != null) markerParts += appText("Juz $juz", "الجزء ${toArabicIndic(juz)}")
+            if (hizb != null) markerParts += appText("Hizb $hizb", "الحزب ${toArabicIndic(hizb)}")
+            val marker = markerParts.joinToString("  •  ")
             if (marker.isNotBlank()) {
                 Text(
                     marker,
