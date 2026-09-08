@@ -1,0 +1,99 @@
+name: Quran Warsh cutout candidate
+
+on:
+  push:
+    branches:
+      - driver/quran-warsh-cutout-impl-20260908
+
+permissions:
+  contents: write
+
+env:
+  SPEC_SHA: 8b3cd3dde1d6164d0fa81823ac34a8f9613ec055
+  CANDIDATE_BRANCH: candidate/quran-warsh-cutout-v1
+  GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
+  FROZEN_ASSET_RELEASE: settings-s25-premium-3f28b6f0-20260906
+  FROZEN_ASSET_APK: arihna-settings-s25-premium.apk
+
+jobs:
+  build_candidate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Save implementation patcher and checkout exact spec
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .github/quran-warsh-cutout-impl.py /tmp/quran-warsh-cutout-impl.py
+          git checkout --detach "$SPEC_SHA"
+          test "$(git rev-parse HEAD)" = "$SPEC_SHA"
+          test "$(git rev-list --parents -n1 HEAD | wc -w)" -eq 2
+      - name: Apply Quran-only implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 /tmp/quran-warsh-cutout-impl.py
+          git diff --check
+          mapfile -t CHANGED < <(git diff --name-only | sort)
+          printf '%s\n' "${CHANGED[@]}"
+          test "${#CHANGED[@]}" -eq 6
+          ! printf '%s\n' "${CHANGED[@]}" | grep -E '/(prayers|location|qibla)/'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+      - name: Restore frozen GeoNames
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+      - name: Preliminary JVM instrumentation compile and APK
+        run: ./gradlew :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:assembleDebug --stacktrace
+      - name: Verify generated Warsh assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          root=Path('app/build/generated/quranAssets')
+          pages=list((root/'mushaf-warsh').glob('[0-9][0-9][0-9].svg'))
+          assert len(pages)==604, len(pages)
+          surahs=json.loads((root/'mushaf-warsh-surah.json').read_text(encoding='utf-8'))
+          assert len(surahs)==114, len(surahs)
+          assert sum(int(s['ayahCount']) for s in surahs)==6214
+          notice=(root/'WARSH_KFQC_NOTICE.md').read_text(encoding='utf-8')
+          assert 'King Fahd' in notice and 'digital publishing' in notice and 'CC0 1.0' in notice
+          PY
+      - name: Commit clean direct-child candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf app/src/main/assets/geonames
+          test "$(git diff --name-only | wc -l)" -eq 6
+          git config user.name IbnKhaldoun-svg
+          git config user.email essalih.idriss.w@gmail.com
+          git switch -c "$CANDIDATE_BRANCH"
+          git add app/build.gradle.kts \
+            app/src/main/java/com/archimedeprojects/arihna/feature/quran/MushafRepository.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/quran/NativeMushafPage.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt \
+            app/src/androidTest/java/com/archimedeprojects/arihna/feature/quran/QuranFullscreenAndroidTest.kt \
+            app/src/main/res/values/themes.xml
+          git commit -m 'feat(quran): add Warsh and fix S25 reader chrome'
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          test "$(git rev-list --parents -n1 HEAD | wc -w)" -eq 2
+          git push origin "HEAD:refs/heads/$CANDIDATE_BRANCH"
+          echo "CANDIDATE_SHA=$(git rev-parse HEAD)"
