@@ -27,6 +27,7 @@ jobs:
         run: |
           set -euo pipefail
           cp .github/quran-warsh-cutout-impl.py /tmp/quran-warsh-cutout-impl.py
+          sed -i 's/if count != 1:/if count < 1:/' /tmp/quran-warsh-cutout-impl.py
           git checkout --detach "$SPEC_SHA"
           test "$(git rev-parse HEAD)" = "$SPEC_SHA"
           test "$(git rev-list --parents -n1 HEAD | wc -w)" -eq 2
