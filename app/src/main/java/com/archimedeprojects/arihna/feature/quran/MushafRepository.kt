@@ -146,6 +146,7 @@ internal object QuranReadingPrefs {
     private const val KEY_LAST_PAGE = "last_mushaf_page_v1"
     private const val KEY_RECENT = "recent_mushaf_pages_v1"
     private const val KEY_MODE = "quran_reading_mode_v1"
+    private const val KEY_VISUAL_STYLE = "quran_visual_style_v1"
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
@@ -195,4 +196,15 @@ internal object QuranReadingPrefs {
     fun setMode(context: Context, mode: QuranReadingMode) {
         prefs(context).edit().putString(KEY_MODE, mode.name).apply()
     }
+
+    fun visualStyle(context: Context): MushafVisualStyle = runCatching {
+        MushafVisualStyle.valueOf(
+            prefs(context).getString(KEY_VISUAL_STYLE, MushafVisualStyle.CLASSIC.name).orEmpty(),
+        )
+    }.getOrDefault(MushafVisualStyle.CLASSIC)
+
+    fun setVisualStyle(context: Context, style: MushafVisualStyle) {
+        prefs(context).edit().putString(KEY_VISUAL_STYLE, style.name).apply()
+    }
+
 }
