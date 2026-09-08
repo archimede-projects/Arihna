@@ -54,6 +54,31 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('/tmp/patch_quran_mushaf_premium.py')
+          s = p.read_text()
+          start = s.index('old_tail = dedent(', s.index('repo = Path('))
+          end_marker = 'repo.write_text(r.replace(old_tail, new_tail, 1))'
+          end = s.index(end_marker, start) + len(end_marker)
+          replacement = '''insert_at = r.rfind("\\n}")
+          if insert_at < 0:
+              raise SystemExit("QuranReadingPrefs final object close missing")
+          visual_methods = """
+
+              fun visualStyle(context: Context): MushafVisualStyle = runCatching {
+                  MushafVisualStyle.valueOf(
+                      prefs(context).getString(KEY_VISUAL_STYLE, MushafVisualStyle.CLASSIC.name).orEmpty(),
+                  )
+              }.getOrDefault(MushafVisualStyle.CLASSIC)
+
+              fun setVisualStyle(context: Context, style: MushafVisualStyle) {
+                  prefs(context).edit().putString(KEY_VISUAL_STYLE, style.name).apply()
+              }
+          """
+          repo.write_text(r[:insert_at] + visual_methods + r[insert_at:])'''
+          p.write_text(s[:start] + replacement + s[end:])
+          PY
           python3 /tmp/patch_quran_mushaf_premium.py
           git diff --check
           ACTUAL="$(git diff --name-only | sort)"
