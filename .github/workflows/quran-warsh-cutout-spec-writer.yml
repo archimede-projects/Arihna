@@ -1,82 +1,37 @@
-name: Quran Warsh + S25 cutout spec writer
+name: Quran Warsh cutout spec writer
 
 on:
   push:
-    branches: [driver/quran-warsh-cutout-spec-20260908]
+    branches:
+      - driver/quran-warsh-cutout-spec-20260908
 
 permissions:
   contents: write
 
-env:
-  BASELINE_SHA: 23b9a5a0a7ea372ddb5d68e16a0027fd09a40231
-  SPEC_BRANCH: spec/quran-warsh-cutout-20260908
-
 jobs:
-  write-spec:
+  write_spec:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 23b9a5a0a7ea372ddb5d68e16a0027fd09a40231
           fetch-depth: 0
-      - name: Append tracked Quran specification
+      - name: Create spec commit from approved main
         shell: bash
+        env:
+          BASELINE_SHA: 23b9a5a0a7ea372ddb5d68e16a0027fd09a40231
+          SPEC_BRANCH: spec/quran-warsh-cutout-20260908
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$BASELINE_SHA"
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('PROJECT_SPEC.md')
-          text = p.read_text(encoding='utf-8')
-          marker = '### 2026-09-08 — Corano: S25 toolbar/cutout + supporto multi-riwaya (Warsh) APPROVED'
-          if marker in text:
-              raise SystemExit('spec marker already present')
-          section = r'''
-
-### 2026-09-08 — Corano: S25 toolbar/cutout + supporto multi-riwaya (Warsh) APPROVED
-
-Physical review on the primary Galaxy S25 of runtime `23b9a5a0a7ea372ddb5d68e16a0027fd09a40231` identified two Quran presentation defects and authorizes one additional Quran-only feature step. This change is strictly scoped to Quran plus the minimum app-window theme flag needed for correct edge-to-edge cutout handling. **Prayer, Location and Qibla are frozen and must not be changed.**
-
-#### STEP A — Corano S25: barra Lettura sempre raggiungibile + cutout immersivo
-
-1. **Non-immersive Muṣḥaf toolbar/preview overlap.** The row containing current surah/page context, visual style (`Classico`/`Pulito`), `Lettura` and bookmark is a persistent interactive toolbar above the page preview. The preview/premium page card must never draw over, obscure or intercept this toolbar in any scroll/page state. The implementation must use an explicit sibling z-order plus clipping/padding (or an equivalent Compose layout contract) so the toolbar remains visually above the preview and `quran-reading-fullscreen` remains clickable while `quran-premium-page-frame` is visible.
-2. **Immersive top-bar safe area.** The immersive Quran top bar (close X, Arabic surah title, page number, bookmark) must honor both the display cutout and status-bar safe area. Apply `Modifier.windowInsetsPadding(WindowInsets.displayCutout.union(WindowInsets.statusBars))` to the top-bar container, or `safeDrawingPadding()` only if it is demonstrably equivalent in the current Compose setup. The top bar must remain correct on devices with no cutout.
-3. **Edge-to-edge cutout mode.** `Theme.Arihna` must explicitly set `android:windowLayoutInDisplayCutoutMode="shortEdges"` so the existing immersive edge-to-edge behavior is coherent with the safe-area handling. No unrelated permission/manifest change is authorized.
-4. **Regression coverage.** Android instrumentation must render a visible premium preview and then activate `quran-reading-fullscreen`; this proves the visible preview does not block the reading control. The immersive top-bar layout must be testable with injected/simulated top inset and must place `quran-fullscreen-chrome` below that inset. A final real Galaxy S25 validation remains required for the physical camera-hole cutout.
-
-#### STEP B — Corano: supporto multi-riwaya (Warsh)
-
-Add **Warsh ʿan Nāfiʿ** as a second Muṣḥaf riwāya beside the existing **Ḥafṣ ʿan ʿĀṣim**. Selection is made directly in the Quran header with a dedicated `Muṣḥaf Warsh` chip adjacent to the existing `Muṣḥaf Ḥafṣ` / `Facile` controls; the selected riwāya persists through the existing Quran reading preference. `Facile` remains the existing verified Unicode/Tanzil reading mode and must not be relabeled as Warsh.
-
-**Pinned Warsh dataset.** Use `quranpedia/quran-svg` commit `b91d39e1065b57bdda3e94aca8ecf3575e50e1e6`, folder `mushafs/warsh/kfqc`. Acceptance requires exactly **604 numeric SVG pages**, **114 surahs**, and the Warsh per-surah ayah counts summing to **6214**. The Warsh page artwork is the King Fahd Glorious Qur'an Printing Complex (KFQC) digital Muṣḥaf; it is **not MIT**. Quranpedia's polygon/JSON metadata is CC0 1.0, while KFQC permits free digital/app/web/software/media use and restricts physical print-for-commercial-sale of muṣḥafs. Preserve the upstream NOTICE text in generated assets and show separate in-app credits for Warsh. The existing Ḥafṣ visual set remains the pinned `batoulapps/quran-svg` MIT set and its existing credit remains separate.
-
-**Riwāya-aware state/data contract.** Ḥafṣ uses the Kufan count (**6236**) and Warsh uses the Madani-last count (**6214**); therefore no ayah/page/surah identity may be silently treated as a 1:1 cross-riwāya mapping. Every Muṣḥaf lookup must take an explicit riwāya. In particular:
-
-- surah index/search uses that riwāya's own `surah.json`, including its page starts and ayah counts;
-- rendered page assets are selected by riwāya (`Ḥafṣ` vs `Warsh`) and page number;
-- bookmarks are stored in separate per-riwāya namespaces. A Ḥafṣ bookmark never appears as a Warsh bookmark merely because the numeric page is the same, and vice versa;
-- last-read page and recent-page history are stored separately per riwāya; existing v1 Ḥafṣ preferences must migrate/fallback transparently into the Ḥafṣ namespace so current users do not lose their state;
-- changing riwāya restores that riwāya's own last position and own bookmark/recent set;
-- no automatic bookmark/ayah conversion between Ḥafṣ and Warsh is authorized in this step. If a future cross-riwāya equivalent is needed, it requires an explicit verified mapping dataset rather than an invented fallback.
-
-**Juz/Hizb honesty.** Existing Ḥafṣ Juz/Hizb navigation remains unchanged. Until an authoritative Warsh Juz/Hizb boundary index is integrated and gated, Warsh must not reuse Ḥafṣ ayah-boundary metadata as though it were Warsh. The Warsh index may therefore expose surah/page/bookmark/recent navigation while disabling/omitting Juz/Hizb boundary navigation with a clear non-authoritative-avoidance message. The immersive Warsh chrome may show page/surah context without fabricated Juz/Hizb values.
-
-**Search scope.** The current Quran search is the surah/index search; it must search the selected riwāya's own metadata. This step does not invent a Unicode Warsh full-text search corpus. Any future ayah-text search for Warsh requires a separately verified Warsh textual dataset.
-
-**Instrumentation acceptance.** Tests must verify: (1) switching from Ḥafṣ to Warsh actually renders the Warsh mode and preserves the existing Ḥafṣ flow; (2) a bookmark created in one riwāya is absent in the other and reappears when switching back; (3) each riwāya restores its own last page/recent state; (4) the non-immersive `Lettura` overlap regression remains fixed with preview visible; and (5) immersive top chrome respects an injected non-zero safe inset. Existing RTL paging, pinch zoom/pan, premium style selection, 604-page behavior and physical S25 fullscreen interaction remain required.
-
-**Gate/release.** Implementation must be one clean candidate whose direct single parent is this specification commit. Before promotion, the exact candidate SHA must pass the full host/JVM/build gate, Android 9/API28 complete instrumentation with zero failures/errors/skips, the existing API36 location-permission matrix unchanged, frozen GeoNames/signing/package/SDK/Quran-Hafs integrity checks, and new Warsh dataset/licensing checks. Only an all-green exact-SHA candidate may fast-forward `main`. Publish a persistent-signed GitHub prerelease and stop for real Galaxy S25 validation of the reading toolbar, camera-hole cutout and Warsh switching/bookmarks.
-'''
-          p.write_text(text.rstrip() + section + '\n', encoding='utf-8')
-          PY
-          test "$(git diff --name-only)" = "PROJECT_SPEC.md"
+          test "$(git rev-parse origin/main)" = "$BASELINE_SHA"
+          cp .github/quran-warsh-cutout-spec-append.md /tmp/quran-spec.md
+          git checkout --detach "$BASELINE_SHA"
+          test -f PROJECT_SPEC.md
+          ! grep -Fq 'Corano: S25 toolbar/cutout + supporto multi-riwaya (Warsh) APPROVED' PROJECT_SPEC.md
+          cat /tmp/quran-spec.md >> PROJECT_SPEC.md
           git diff --check
-      - name: Commit spec as direct child of approved main
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name 'IbnKhaldoun-svg'
-          git config user.email 'essalih.idriss.w@gmail.com'
+          test "$(git diff --name-only)" = PROJECT_SPEC.md
+          git config user.name IbnKhaldoun-svg
+          git config user.email essalih.idriss.w@gmail.com
           git switch -c "$SPEC_BRANCH"
           git add PROJECT_SPEC.md
           git commit -m 'spec: track Quran S25 cutout fixes and Warsh riwaya'
