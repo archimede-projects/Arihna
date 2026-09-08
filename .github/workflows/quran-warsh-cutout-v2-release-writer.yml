@@ -1,0 +1,87 @@
+name: Prepare Quran Warsh cutout release
+
+on:
+  push:
+    branches:
+      - driver/quran-warsh-cutout-v2-release-20260908
+    paths:
+      - .github/workflows/quran-warsh-cutout-v2-release-writer.yml
+
+permissions:
+  contents: write
+
+jobs:
+  prepare-release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Derive release workflow from verified persistent-signer release template
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin driver/quran-mushaf-premium-release-20260908
+          git show origin/driver/quran-mushaf-premium-release-20260908:.github/workflows/quran-mushaf-premium-release.yml > /tmp/release.yml
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/release.yml')
+          s=p.read_text(encoding='utf-8')
+          replacements={
+            'Quran Mushaf premium Galaxy S25 prerelease':'Quran Warsh cutout Galaxy S25 prerelease',
+            'driver/quran-mushaf-premium-release-20260908':'driver/quran-warsh-cutout-v2-release-20260908',
+            '.github/workflows/quran-mushaf-premium-release.yml':'.github/workflows/quran-warsh-cutout-v2-release.yml',
+            '23b9a5a0a7ea372ddb5d68e16a0027fd09a40231':'99ed8a0ae257f917443dffd6315057b967fdec9c',
+            '906de6bf1f53e643012f9a4d4ce120f93c0c66ec':'8b3cd3dde1d6164d0fa81823ac34a8f9613ec055',
+            "VERIFIED_GATE_RUN: '34212827171'":"VERIFIED_GATE_RUN: '34236483682'",
+            "VERIFIED_STATIC_JOB: '102017581707'":"VERIFIED_STATIC_JOB: '102095402641'",
+            "VERIFIED_API28_JOB: '102017581433'":"VERIFIED_API28_JOB: '102095402886'",
+            "VERIFIED_API36_JOB: '102017581733'":"VERIFIED_API36_JOB: '102095402410'",
+            'ce23a7f78695be95c7f8dfd2bcedbe22544da94c':'ce23a7f78695c7f8dfd2bcedbe22544da94c',
+            's25-quran-mushaf-premium-23b9a5a0-20260908':'s25-quran-warsh-cutout-99ed8a0a-20260908',
+            'arihna-s25-quran-mushaf-premium.apk':'arihna-s25-quran-warsh-cutout.apk',
+            'Verify premium Quran release contracts':'Verify Quran Warsh release contracts',
+            'Verify Quran corpus assets package SDK signer and digest':'Verify Hafs Warsh assets package SDK signer and digest',
+          }
+          for old,new in replacements.items():
+              if old not in s:
+                  raise SystemExit(f'missing template token: {old}')
+              s=s.replace(old,new)
+          anchor='''          grep -Fq 'check(mushafPages == 604)' app/build.gradle.kts\n'''
+          extra='''          grep -Fq 'quranWarshSvgCommit = "b91d39e1065b57bdda3e94aca8ecf3575e50e1e6"' app/build.gradle.kts\n          grep -Fq 'check(warshPages == 604)' app/build.gradle.kts\n          grep -Fq 'check(warshAyahCount == 6214)' app/build.gradle.kts\n          grep -Fq '<item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>' app/src/main/res/values/themes.xml\n'''
+          if anchor not in s: raise SystemExit('release contract anchor missing')
+          s=s.replace(anchor,anchor+extra,1)
+          qanchor="""            'coerceIn(1f, 5f)'; do\n"""
+          qextra="""            'QuranReadingMode.WARSH_NAFI' \\\n            'quran-mode-warsh' \\\n            'quran-mushaf-toolbar' \\\n            '.zIndex(2f)' \\\n            '.clipToBounds()' \\\n            'WindowInsets.displayCutout.union(WindowInsets.statusBars)' \\\n            'windowInsetsPadding(topBarInsets)' \\\n            'quran-warsh-boundaries-unavailable' \\\n            'King Fahd Complex' \\\n            'Quranpedia CC0' \\\n"""
+          if qanchor not in s: raise SystemExit('quran token anchor missing')
+          s=s.replace(qanchor,qextra+qanchor,1)
+          pyanchor="""          assert 'MIT' in (root/'QURAN_SVG_LICENSE.txt').read_text(encoding='utf-8')\n"""
+          pyextra="""          warsh=list((root/'mushaf-warsh').glob('[0-9][0-9][0-9].svg'))\n          assert len(warsh)==604, len(warsh)\n          warsh_surahs=json.loads((root/'mushaf-warsh-surah.json').read_text(encoding='utf-8'))\n          assert len(warsh_surahs)==114\n          assert sum(int(x['ayahCount']) for x in warsh_surahs)==6214\n          notice=(root/'WARSH_KFQC_NOTICE.md').read_text(encoding='utf-8')\n          assert 'King Fahd' in notice and 'digital publishing' in notice and 'CC0 1.0' in notice\n"""
+          if pyanchor not in s: raise SystemExit('asset verification anchor missing')
+          s=s.replace(pyanchor,pyanchor+pyextra,1)
+          unzipanchor="""          test "$(unzip -l "$APK" 'assets/mushaf/*.svg' | awk '$4 ~ /^assets\\/mushaf\\/[0-9][0-9][0-9]\\.svg$/ {c++} END{print c+0}')" -eq 604\n"""
+          unzipextra="""          test "$(unzip -l "$APK" 'assets/mushaf-warsh/*.svg' | awk '$4 ~ /^assets\\/mushaf-warsh\\/[0-9][0-9][0-9]\\.svg$/ {c++} END{print c+0}')" -eq 604\n"""
+          if unzipanchor not in s: raise SystemExit('apk asset anchor missing')
+          s=s.replace(unzipanchor,unzipanchor+unzipextra,1)
+          lines=[]
+          for line in s.splitlines():
+              if line.strip().startswith("--title 'S25 validation"):
+                  line="            --title 'S25 validation — Quran Warsh + cutout — 99ed8a0a' \\\\"
+              elif line.strip().startswith('--notes "GALAXY S25 VALIDATION BUILD.'):
+                  line='            --notes "GALAXY S25 VALIDATION BUILD. SPEC $SPEC_SHA; approved runtime $RUNTIME_SHA; exact-SHA gate $VERIFIED_GATE_RUN fully PASS. Quran fixes: Lettura toolbar stays above the Muṣḥaf preview; immersive chrome respects display cutout and status bars. Added Warsh an Nafi from pinned Quranpedia/KFQC source: 604 pages, 114 surahs, 6214 ayat; bookmarks, last page and recents are isolated by riwaya; no invented Hafs-Warsh mapping. Hafs licensing remains separate. APK SHA-256 $APK_SHA. Physical Galaxy S25 validation remains required."'
+              lines.append(line)
+          s='\n'.join(lines)+'\n'
+          p.write_text(s,encoding='utf-8')
+          PY
+          test ! -e .github/workflows/quran-warsh-cutout-v2-release.yml
+          cp /tmp/release.yml .github/workflows/quran-warsh-cutout-v2-release.yml
+          git diff --check
+      - name: Commit release workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name IbnKhaldoun-svg
+          git config user.email essalih.idriss.w@gmail.com
+          git add .github/workflows/quran-warsh-cutout-v2-release.yml
+          git commit -m 'release: wire Quran Warsh cutout prerelease'
+          git push origin HEAD:driver/quran-warsh-cutout-v2-release-20260908
