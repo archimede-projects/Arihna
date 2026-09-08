@@ -101,6 +101,37 @@ jobs:
           ! grep -Fq 'android.permission.ACCESS_BACKGROUND_LOCATION' app/src/main/AndroidManifest.xml
           ! grep -Fq 'android.permission.USE_EXACT_ALARM' app/src/main/AndroidManifest.xml
 
+      - name: Apply transient persistent debug signing config
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/build.gradle.kts')
+          s = p.read_text(encoding='utf-8')
+          needle = '''    buildFeatures {
+              compose = true
+              buildConfig = false
+          }
+          '''
+          insert = '''    signingConfigs {
+              getByName("debug") {
+                  storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
+                  storePassword = "android"
+                  keyAlias = "androiddebugkey"
+                  keyPassword = "android"
+              }
+          }
+
+          '''
+          assert s.count(needle) == 1, 'unexpected android buildFeatures structure'
+          assert 'signingConfigs {' not in s, 'runtime unexpectedly already contains signing config'
+          p.write_text(s.replace(needle, insert + needle, 1), encoding='utf-8')
+          PY
+          test "$(git diff --name-only | tr -d '\n')" = 'app/build.gradle.kts'
+          grep -Fq 'storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")' app/build.gradle.kts
+          grep -Fq 'keyAlias = "androiddebugkey"' app/build.gradle.kts
+
       - name: Build exact promoted runtime
         run: ./gradlew :app:assembleDebug --stacktrace
 
