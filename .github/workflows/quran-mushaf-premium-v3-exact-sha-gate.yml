@@ -1,15 +1,15 @@
-name: Quran Mushaf premium v3 exact-SHA gate
+name: Quran Mushaf premium v4 exact-SHA gate
 
 on:
   push:
-    branches: [driver/quran-mushaf-premium-v3-gate-20260908]
+    branches: [driver/quran-mushaf-premium-v4-gate-20260908]
 
 permissions:
   contents: read
 
 env:
   SPEC_SHA: 906de6bf1f53e643012f9a4d4ce120f93c0c66ec
-  CANDIDATE_SHA: a7709a7e2b0ac5d280c534b5fe318029227727f1
+  CANDIDATE_SHA: 54261246c683f6721818de6ff9858571f583a798
   GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
   FROZEN_ASSET_RELEASE: settings-s25-premium-3f28b6f0-20260906
   FROZEN_ASSET_APK: arihna-settings-s25-premium.apk
@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: a7709a7e2b0ac5d280c534b5fe318029227727f1
+          ref: 54261246c683f6721818de6ff9858571f583a798
           fetch-depth: 0
       - name: Verify exact lineage and frozen premium contracts
         shell: bash
@@ -53,6 +53,7 @@ jobs:
             'quran-fullscreen-bottom-context' \
             'QuranExplorerView.BOOKMARKS' \
             'QuranExplorerView.RECENT'; do grep -Fq "$token" "$Q"; done
+          test "$(grep -Fc 'Build.VERSION.SDK_INT > Build.VERSION_CODES.P' "$Q")" -eq 2
           grep -Fq 'quran_visual_style_v1' "$R"
           grep -Fq 'LruCache<String, Picture>(12)' "$M"
           grep -Fq 'renderToPicture()' "$M"
@@ -130,7 +131,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: a7709a7e2b0ac5d280c534b5fe318029227727f1
+          ref: 54261246c683f6721818de6ff9858571f583a798
           fetch-depth: 0
       - name: Verify exact lineage
         run: test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA" && test "$(git rev-parse HEAD^)" = "$SPEC_SHA" && test "$(git rev-list --parents -n1 HEAD | wc -w)" -eq 2
@@ -187,7 +188,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: a7709a7e2b0ac5d280c534b5fe318029227727f1
+          ref: 54261246c683f6721818de6ff9858571f583a798
           fetch-depth: 0
       - name: Verify exact lineage
         run: test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA" && test "$(git rev-parse HEAD^)" = "$SPEC_SHA" && test "$(git rev-list --parents -n1 HEAD | wc -w)" -eq 2
