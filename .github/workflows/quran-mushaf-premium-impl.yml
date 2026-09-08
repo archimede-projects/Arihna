@@ -80,6 +80,15 @@ jobs:
           p.write_text(s[:start] + replacement + s[end:])
           PY
           python3 /tmp/patch_quran_mushaf_premium.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt')
+          s = p.read_text()
+          marker = "\\\n    @Composable\n    private fun MushafBookReader("
+          if marker not in s:
+              raise SystemExit('premium block leading raw-string slash marker missing')
+          p.write_text(s.replace(marker, "    @Composable\n    private fun MushafBookReader(", 1))
+          PY
           git diff --check
           ACTUAL="$(git diff --name-only | sort)"
           EXPECTED="$(printf '%s\n' \
