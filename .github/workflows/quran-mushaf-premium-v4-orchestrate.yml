@@ -1,0 +1,88 @@
+name: Quran Mushaf premium v4 orchestrator
+
+on:
+  push:
+    branches: [driver/quran-mushaf-premium-v4-orchestrate-20260908]
+
+permissions:
+  contents: write
+
+env:
+  SPEC_SHA: 906de6bf1f53e643012f9a4d4ce120f93c0c66ec
+  SOURCE_SHA: a7709a7e2b0ac5d280c534b5fe318029227727f1
+  GATE_BASE_SHA: e1cc5a4a30605091fb9f9cecb590832bcd3ac89e
+
+jobs:
+  create-candidate-and-gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create direct-child replacement candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Arihna CI"
+          git config user.email "ci@arihna.local"
+          git checkout --detach "$SOURCE_SHA"
+          Q=app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt")
+          s=p.read_text(encoding="utf-8")
+          if "import android.os.Build" not in s:
+              marker="package com.archimedeprojects.arihna.feature.quran\n\n"
+              assert marker in s
+              s=s.replace(marker, marker + "import android.os.Build\n", 1)
+          old="        if (fullscreenOpen) {\n            insetsController?.systemBarsBehavior ="
+          new="        if (fullscreenOpen && Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {\n            insetsController?.systemBarsBehavior ="
+          assert old in s
+          s=s.replace(old,new,1)
+          old2="            if (fullscreenOpen) {\n                insetsController?.show(WindowInsetsCompat.Type.systemBars())"
+          new2="            if (fullscreenOpen && Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {\n                insetsController?.show(WindowInsetsCompat.Type.systemBars())"
+          assert old2 in s
+          s=s.replace(old2,new2,1)
+          p.write_text(s,encoding="utf-8")
+          PY
+          git diff --check
+          test "$(git diff --name-only | wc -l)" -eq 1
+          test "$(git diff --name-only)" = "$Q"
+          test "$(grep -Fc 'Build.VERSION.SDK_INT > Build.VERSION_CODES.P' "$Q")" -eq 2
+          git reset --soft "$SPEC_SHA"
+          git add -A
+          git commit -m "fix: keep API28 Mushaf fullscreen transition stable"
+          CANDIDATE_SHA="$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          test "$(git rev-list --parents -n1 HEAD | wc -w)" -eq 2
+          git push --force origin HEAD:refs/heads/candidate/quran-mushaf-premium-v4
+          echo "CANDIDATE_SHA=$CANDIDATE_SHA" >> "$GITHUB_ENV"
+          echo "candidate=$CANDIDATE_SHA"
+
+      - name: Create exact-SHA gate driver
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout -B driver/quran-mushaf-premium-v4-gate-20260908 "$GATE_BASE_SHA"
+          OLD=.github/workflows/quran-mushaf-premium-v3-exact-sha-gate.yml
+          NEW=.github/workflows/quran-mushaf-premium-v4-exact-sha-gate.yml
+          cp "$OLD" "$NEW"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          p=Path(".github/workflows/quran-mushaf-premium-v4-exact-sha-gate.yml")
+          s=p.read_text(encoding="utf-8")
+          s=s.replace("Quran Mushaf premium v3 exact-SHA gate","Quran Mushaf premium v4 exact-SHA gate")
+          s=s.replace("driver/quran-mushaf-premium-v3-gate-20260908","driver/quran-mushaf-premium-v4-gate-20260908")
+          s=s.replace("a7709a7e2b0ac5d280c534b5fe318029227727f1",os.environ["CANDIDATE_SHA"])
+          # Assert the API28 compatibility guard as part of the exact-SHA static contract.
+          needle="          ! grep -Fq 'Dialog(' \"$Q\"\n"
+          extra="          test \"$(grep -Fc 'Build.VERSION.SDK_INT > Build.VERSION_CODES.P' \"$Q\")\" -eq 2\n"
+          assert needle in s
+          s=s.replace(needle, needle+extra, 1)
+          p.write_text(s,encoding="utf-8")
+          PY
+          rm "$OLD"
+          git add -A
+          git commit -m "ci: gate premium Mushaf v4 exact candidate"
+          git push --force origin HEAD:refs/heads/driver/quran-mushaf-premium-v4-gate-20260908
