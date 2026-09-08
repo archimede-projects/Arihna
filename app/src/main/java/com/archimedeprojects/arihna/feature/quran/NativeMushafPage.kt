@@ -27,32 +27,32 @@ import kotlinx.coroutines.withContext
 private object MushafPictureCache {
     private val pictures = LruCache<String, Picture>(12)
 
-    fun load(context: Context, pageName: String): Picture? {
-        pictures.get(pageName)?.let { return it }
+    fun load(context: Context, riwaya: QuranRiwaya, pageName: String): Picture? {
+        val cacheKey = "${riwaya.name}:$pageName"
+        pictures.get(cacheKey)?.let { return it }
+        val folder = if (riwaya == QuranRiwaya.WARSH) "mushaf-warsh" else "mushaf"
         val picture = runCatching {
-            context.assets.open("mushaf/$pageName.svg").use { input ->
+            context.assets.open("$folder/$pageName.svg").use { input ->
                 SVG.getFromInputStream(input).renderToPicture()
             }
         }.getOrNull() ?: return null
-        pictures.put(pageName, picture)
+        pictures.put(cacheKey, picture)
         return picture
     }
 }
 
-/**
- * Renders one pinned Muṣḥaf page from assets/mushaf/NNN.svg.
- * The SVG is visual presentation only; textual Quran acceptance still comes from QuranCorpus.
- */
+/** Renders one pinned Muṣḥaf page for the explicitly selected riwāya. */
 @Composable
 internal fun NativeMushafPage(
     page: Int,
+    riwaya: QuranRiwaya,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val pageName = String.format(Locale.US, "%03d", page.coerceIn(1, 604))
-    val picture by produceState<Picture?>(initialValue = null, pageName) {
+    val picture by produceState<Picture?>(initialValue = null, pageName, riwaya) {
         value = withContext(Dispatchers.IO) {
-            MushafPictureCache.load(context.applicationContext, pageName)
+            MushafPictureCache.load(context.applicationContext, riwaya, pageName)
         }
     }
 
@@ -79,9 +79,5 @@ internal fun NativeMushafPage(
 
 @Composable
 internal fun MushafPageLoadError(page: Int) {
-    Text(
-        text = "Pagina Muṣḥaf $page non disponibile",
-        color = Color.Gray,
-        fontSize = 12.sp,
-    )
+    Text(text = "Pagina Muṣḥaf $page non disponibile", color = Color.Gray, fontSize = 12.sp)
 }

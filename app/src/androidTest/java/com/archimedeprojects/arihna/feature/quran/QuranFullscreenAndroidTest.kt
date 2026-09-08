@@ -1,13 +1,17 @@
 package com.archimedeprojects.arihna.feature.quran
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.click
 import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
@@ -21,7 +25,7 @@ class QuranFullscreenAndroidTest {
     val composeRule = createComposeRule()
 
     private fun waitForExists(tag: String) {
-        composeRule.waitUntil(timeoutMillis = 5_000) {
+        composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
         }
     }
@@ -34,6 +38,8 @@ class QuranFullscreenAndroidTest {
 
     @Test
     fun readingButtonOpensAndClosesRealFullscreenReader() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        QuranReadingPrefs.setMode(context, QuranReadingMode.HAFS_UTHMANI)
         var immersive = false
         composeRule.setContent {
             QuranPlaceholderScreen(
@@ -42,7 +48,6 @@ class QuranFullscreenAndroidTest {
             )
         }
 
-        composeRule.onNodeWithTag("quran-mode-hafs").performClick()
         waitForExists("quran-reading-fullscreen")
         composeRule.onNodeWithTag("quran-reading-fullscreen")
             .performSemanticsAction(SemanticsActions.OnClick)
@@ -58,7 +63,101 @@ class QuranFullscreenAndroidTest {
     }
 
     @Test
+    fun readingButtonStaysTouchableWhilePremiumPreviewIsVisible() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        QuranReadingPrefs.setMode(context, QuranReadingMode.HAFS_UTHMANI)
+        QuranReadingPrefs.recordVisitedPage(context, QuranRiwaya.HAFS, 11)
+        composeRule.setContent { QuranPlaceholderScreen(PaddingValues(0.dp)) }
+
+        waitForExists("quran-mushaf-toolbar")
+        waitForExists("quran-premium-page-frame")
+        val rootBounds = composeRule.onRoot().fetchSemanticsNode().boundsInRoot
+        val previewNodes = composeRule.onAllNodesWithTag("quran-premium-page-frame").fetchSemanticsNodes()
+        assertTrue("at least one premium preview must intersect the visible root", previewNodes.any { node ->
+            val bounds = node.boundsInRoot
+            bounds.left < rootBounds.right && bounds.right > rootBounds.left &&
+                bounds.top < rootBounds.bottom && bounds.bottom > rootBounds.top
+        })
+        composeRule.onNodeWithTag("quran-reading-fullscreen")
+            .assertIsDisplayed()
+            .performTouchInput { click() }
+        waitForExists("quran-fullscreen-reader")
+    }
+
+    @Test
+    fun fullscreenTopBarHonorsInjectedSafeInset() {
+        composeRule.setContent {
+            FullscreenMushafReader(
+                startPage = 0,
+                style = MushafVisualStyle.CLASSIC,
+                riwaya = QuranRiwaya.HAFS,
+                onDismiss = {},
+                onPageChanged = {},
+                topBarInsets = WindowInsets(top = 72.dp),
+            )
+        }
+        waitForExists("quran-fullscreen-chrome")
+        val density = composeRule.density
+        val top = composeRule.onNodeWithTag("quran-fullscreen-chrome").fetchSemanticsNode().boundsInRoot.top
+        val expected = with(density) { 72.dp.toPx() }
+        assertTrue("fullscreen chrome top=$top expected >= $expected", top >= expected)
+    }
+
+    @Test
+    fun warshSwitchKeepsBookmarksSeparatedByRiwaya() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        QuranReadingPrefs.setMode(context, QuranReadingMode.HAFS_UTHMANI)
+        QuranReadingPrefs.recordVisitedPage(context, QuranRiwaya.HAFS, 0)
+        QuranReadingPrefs.recordVisitedPage(context, QuranRiwaya.WARSH, 0)
+        QuranReadingPrefs.setBookmarked(context, QuranRiwaya.HAFS, 0, false)
+        QuranReadingPrefs.setBookmarked(context, QuranRiwaya.WARSH, 0, false)
+
+        composeRule.setContent { QuranPlaceholderScreen(PaddingValues(0.dp)) }
+        waitForExists("quran-mushaf-riwaya-hafs")
+        composeRule.onNodeWithTag("quran-bookmark-toggle").performClick()
+        composeRule.runOnIdle {
+            assertTrue(QuranReadingPrefs.isBookmarked(context, QuranRiwaya.HAFS, 0))
+            assertFalse(QuranReadingPrefs.isBookmarked(context, QuranRiwaya.WARSH, 0))
+        }
+
+        composeRule.onNodeWithTag("quran-mode-warsh").performClick()
+        waitForExists("quran-mushaf-riwaya-warsh")
+        waitForExists("quran-mushaf-page-1")
+        composeRule.runOnIdle {
+            assertTrue(QuranReadingPrefs.isBookmarked(context, QuranRiwaya.HAFS, 0))
+            assertFalse(QuranReadingPrefs.isBookmarked(context, QuranRiwaya.WARSH, 0))
+        }
+
+        composeRule.onNodeWithTag("quran-bookmark-toggle").performClick()
+        composeRule.runOnIdle {
+            assertTrue(QuranReadingPrefs.isBookmarked(context, QuranRiwaya.HAFS, 0))
+            assertTrue(QuranReadingPrefs.isBookmarked(context, QuranRiwaya.WARSH, 0))
+        }
+    }
+
+    @Test
+    fun eachRiwayaRestoresOwnLastPageAndRecentHistory() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        QuranReadingPrefs.recordVisitedPage(context, QuranRiwaya.HAFS, 11)
+        QuranReadingPrefs.recordVisitedPage(context, QuranRiwaya.WARSH, 22)
+        assertEquals(11, QuranReadingPrefs.lastPage(context, QuranRiwaya.HAFS))
+        assertEquals(22, QuranReadingPrefs.lastPage(context, QuranRiwaya.WARSH))
+        assertEquals(11, QuranReadingPrefs.recentPages(context, QuranRiwaya.HAFS).first())
+        assertEquals(22, QuranReadingPrefs.recentPages(context, QuranRiwaya.WARSH).first())
+
+        QuranReadingPrefs.setMode(context, QuranReadingMode.WARSH_NAFI)
+        composeRule.setContent { QuranPlaceholderScreen(PaddingValues(0.dp)) }
+        waitForExists("quran-mushaf-riwaya-warsh")
+        waitForExists("quran-mushaf-page-23")
+        composeRule.onNodeWithTag("quran-mode-hafs").performClick()
+        waitForExists("quran-mushaf-riwaya-hafs")
+        waitForExists("quran-mushaf-page-12")
+    }
+
+    @Test
     fun indexLargeTargetsAreClickable() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        QuranReadingPrefs.setMode(context, QuranReadingMode.HAFS_UTHMANI)
         composeRule.setContent { QuranPlaceholderScreen(PaddingValues(0.dp)) }
 
         composeRule.onNodeWithTag("quran-surah-selector").performClick()
@@ -69,13 +168,23 @@ class QuranFullscreenAndroidTest {
     }
 
     @Test
+    fun warshIndexDoesNotPretendHafsJuzHizbBoundaries() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        QuranReadingPrefs.setMode(context, QuranReadingMode.WARSH_NAFI)
+        composeRule.setContent { QuranPlaceholderScreen(PaddingValues(0.dp)) }
+        composeRule.onNodeWithTag("quran-surah-selector").performClick()
+        waitForExists("quran-warsh-boundaries-unavailable")
+        composeRule.onNodeWithTag("quran-warsh-boundaries-unavailable").assertIsDisplayed()
+    }
+
+    @Test
     fun premiumStylePersistsAndFullscreenChromeToggles() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
+        QuranReadingPrefs.setMode(context, QuranReadingMode.HAFS_UTHMANI)
         QuranReadingPrefs.setVisualStyle(context, MushafVisualStyle.CLASSIC)
-        val pageNumber = QuranReadingPrefs.lastPage(context) + 1
+        val pageNumber = QuranReadingPrefs.lastPage(context, QuranRiwaya.HAFS) + 1
 
         composeRule.setContent { QuranPlaceholderScreen(PaddingValues(0.dp)) }
-        composeRule.onNodeWithTag("quran-mode-hafs").performClick()
         waitForExists("quran-style-menu")
         composeRule.onNodeWithTag("quran-style-menu")
             .performSemanticsAction(SemanticsActions.OnClick)

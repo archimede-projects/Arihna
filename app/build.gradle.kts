@@ -9,6 +9,7 @@ plugins {
 
 val quranSourceCommit = "a5284b17034d36567e4a4bac982a17ba56837448"
 val quranSvgCommit = "78d97544bfdc57e9f04bc97ace3f857ed972d772"
+val quranWarshSvgCommit = "b91d39e1065b57bdda3e94aca8ecf3575e50e1e6"
 val quranMetadataCommit = "052b515f3a24dfacbe4cafc3b89f0681a447f462"
 val generatedQuranAssets = layout.buildDirectory.dir("generated/quranAssets").get().asFile
 val prepareQuranAssets by tasks.registering {
@@ -83,6 +84,64 @@ val prepareQuranAssets by tasks.registering {
         check(mushafPages == 604) { "Expected 604 pinned Mushaf SVG pages, found $mushafPages" }
         check(surahTarget.isFile && surahTarget.length() > 0L) { "Missing pinned Mushaf surah metadata" }
         check(licenseTarget.isFile && licenseTarget.length() > 0L) { "Missing pinned Mushaf MIT license" }
+
+
+        // Warsh ʿan Nāfiʿ: Quranpedia metadata is CC0; the page artwork is the
+        // King Fahd Complex digital Muṣḥaf and is NOT covered by the Hafs MIT licence.
+        val warshDir = root.resolve("mushaf-warsh")
+        if (warshDir.exists()) warshDir.deleteRecursively()
+        warshDir.mkdirs()
+        val warshSurahTarget = root.resolve("mushaf-warsh-surah.json")
+        val warshNoticeTarget = root.resolve("WARSH_KFQC_NOTICE.md")
+        warshSurahTarget.delete()
+        warshNoticeTarget.delete()
+        val warshCheckout = layout.buildDirectory.dir("tmp/quranpedia-warsh").get().asFile
+        if (warshCheckout.exists()) warshCheckout.deleteRecursively()
+
+        fun git(vararg args: String) {
+            val command = mutableListOf("git")
+            command.addAll(args)
+            val process = ProcessBuilder(command).inheritIO().start()
+            check(process.waitFor() == 0) { "git command failed: ${command.joinToString(" ")}" }
+        }
+        git(
+            "clone", "--filter=blob:none", "--no-checkout",
+            "https://github.com/quranpedia/quran-svg.git", warshCheckout.absolutePath,
+        )
+        git("-C", warshCheckout.absolutePath, "sparse-checkout", "init", "--no-cone")
+        git(
+            "-C", warshCheckout.absolutePath, "sparse-checkout", "set", "--no-cone",
+            "mushafs/warsh/kfqc/svg/[0-9][0-9][0-9].svg",
+            "mushafs/warsh/kfqc/json/surah.json",
+            "NOTICE.md",
+        )
+        git("-C", warshCheckout.absolutePath, "fetch", "--depth=1", "origin", quranWarshSvgCommit)
+        git("-C", warshCheckout.absolutePath, "checkout", "--detach", quranWarshSvgCommit)
+
+        val warshSvgSource = warshCheckout.resolve("mushafs/warsh/kfqc/svg")
+        warshSvgSource.listFiles { file -> file.isFile && Regex("[0-9]{3}\\.svg").matches(file.name) }
+            .orEmpty()
+            .forEach { file -> file.copyTo(warshDir.resolve(file.name), overwrite = true) }
+        warshCheckout.resolve("mushafs/warsh/kfqc/json/surah.json")
+            .copyTo(warshSurahTarget, overwrite = true)
+        warshCheckout.resolve("NOTICE.md").copyTo(warshNoticeTarget, overwrite = true)
+        warshCheckout.deleteRecursively()
+
+        val warshPages = warshDir.listFiles { file ->
+            file.isFile && Regex("[0-9]{3}\\.svg").matches(file.name)
+        }?.size ?: 0
+        check(warshPages == 604) { "Expected 604 pinned Warsh SVG pages, found $warshPages" }
+        val warshSurahRaw = warshSurahTarget.readText(Charsets.UTF_8)
+        check(Regex("\\\"number\\\"\\s*:").findAll(warshSurahRaw).count() == 114) {
+            "Expected 114 Warsh surahs"
+        }
+        val warshAyahCount = Regex("\\\"ayahCount\\\"\\s*:\\s*(\\d+)")
+            .findAll(warshSurahRaw).sumOf { it.groupValues[1].toInt() }
+        check(warshAyahCount == 6214) { "Expected 6214 Warsh ayat, found $warshAyahCount" }
+        val notice = warshNoticeTarget.readText(Charsets.UTF_8)
+        check("King Fahd" in notice && "digital publishing" in notice && "CC0 1.0" in notice) {
+            "Warsh KFQC/Quranpedia usage notice is incomplete"
+        }
     }
 }
 

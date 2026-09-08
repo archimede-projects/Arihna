@@ -15,6 +15,11 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -68,6 +73,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -86,6 +92,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.archimedeprojects.arihna.core.i18n.appText
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaCream
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaDawnBottom
@@ -102,7 +109,13 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import kotlinx.coroutines.launch
 
-enum class QuranReadingMode { EASY, HAFS_UTHMANI }
+enum class QuranReadingMode { EASY, HAFS_UTHMANI, WARSH_NAFI }
+
+internal fun QuranReadingMode.riwayaOrNull(): QuranRiwaya? = when (this) {
+    QuranReadingMode.HAFS_UTHMANI -> QuranRiwaya.HAFS
+    QuranReadingMode.WARSH_NAFI -> QuranRiwaya.WARSH
+    QuranReadingMode.EASY -> null
+}
 
 enum class MushafVisualStyle { CLASSIC, CLEAN }
 
@@ -119,11 +132,16 @@ fun QuranPlaceholderScreen(
     val view = LocalView.current
     val activity = remember(context) { context.findActivity() }
     val corpus = remember(context) { QuranCorpus.load(context.applicationContext) }
-    val surahs = remember(context) { MushafRepository.surahs(context.applicationContext) }
     var mode by remember { mutableStateOf(QuranReadingPrefs.mode(context)) }
+    val activeRiwaya = mode.riwayaOrNull() ?: QuranRiwaya.HAFS
+    val surahs = remember(context, activeRiwaya) {
+        MushafRepository.surahs(context.applicationContext, activeRiwaya)
+    }
     var visualStyle by remember { mutableStateOf(QuranReadingPrefs.visualStyle(context)) }
     var selectedSurah by remember { mutableIntStateOf(1) }
-    var requestedPage by remember { mutableIntStateOf(QuranReadingPrefs.lastPage(context)) }
+    var requestedPage by remember {
+        mutableIntStateOf(QuranReadingPrefs.lastPage(context, activeRiwaya))
+    }
     var explorerOpen by remember { mutableStateOf(false) }
     var fullscreenOpen by remember { mutableStateOf(false) }
 
@@ -146,10 +164,11 @@ fun QuranPlaceholderScreen(
         FullscreenMushafReader(
             startPage = requestedPage,
             style = visualStyle,
+            riwaya = activeRiwaya,
             onDismiss = { fullscreenOpen = false },
             onPageChanged = { pageIndex ->
                 requestedPage = pageIndex
-                MushafRepository.surahForPage(context, pageIndex)?.let { selectedSurah = it.number }
+                MushafRepository.surahForPage(context, activeRiwaya, pageIndex)?.let { selectedSurah = it.number }
             },
         )
         return
@@ -168,6 +187,10 @@ fun QuranPlaceholderScreen(
             surah = surahs.lastOrNull { it.pageNumber <= requestedPage + 1 },
             explorerOpen = explorerOpen,
             onModeChange = { selected ->
+                selected.riwayaOrNull()?.let { riwaya ->
+                    requestedPage = QuranReadingPrefs.lastPage(context, riwaya)
+                    selectedSurah = MushafRepository.surahForPage(context, riwaya, requestedPage)?.number ?: 1
+                }
                 mode = selected
                 QuranReadingPrefs.setMode(context, selected)
                 explorerOpen = false
@@ -179,6 +202,7 @@ fun QuranPlaceholderScreen(
             QuranExplorer(
                 surahs = surahs,
                 currentPage = requestedPage,
+                riwaya = activeRiwaya,
                 onSelectPage = { pageIndex, surahNumber ->
                     requestedPage = pageIndex.coerceIn(0, 603)
                     if (surahNumber != null) selectedSurah = surahNumber
@@ -186,9 +210,10 @@ fun QuranPlaceholderScreen(
                 },
                 modifier = Modifier.weight(1f),
             )
-        } else if (mode == QuranReadingMode.HAFS_UTHMANI) {
+        } else if (mode == QuranReadingMode.HAFS_UTHMANI || mode == QuranReadingMode.WARSH_NAFI) {
             MushafBookReader(
                 startPage = requestedPage,
+                riwaya = activeRiwaya,
                 style = visualStyle,
                 onStyleChange = { selected ->
                     visualStyle = selected
@@ -196,7 +221,7 @@ fun QuranPlaceholderScreen(
                 },
                 onPageChanged = { pageIndex ->
                     requestedPage = pageIndex
-                    MushafRepository.surahForPage(context, pageIndex)?.let { selectedSurah = it.number }
+                    MushafRepository.surahForPage(context, activeRiwaya, pageIndex)?.let { selectedSurah = it.number }
                 },
                 onOpenFullscreen = { fullscreenOpen = true },
                 modifier = Modifier.weight(1f),
@@ -210,7 +235,7 @@ fun QuranPlaceholderScreen(
             )
         }
 
-        QuranAttribution()
+        QuranAttribution(mode.riwayaOrNull())
     }
 }
 
@@ -280,6 +305,13 @@ private fun QuranReaderHeader(
                     modifier = Modifier.testTag("quran-mode-hafs"),
                 )
                 FilterChip(
+                    selected = mode == QuranReadingMode.WARSH_NAFI,
+                    onClick = { onModeChange(QuranReadingMode.WARSH_NAFI) },
+                    label = { Text(appText("Muṣḥaf Warsh", "مصحف ورش")) },
+                    leadingIcon = { Icon(Icons.Rounded.AutoStories, null, Modifier.size(17.dp)) },
+                    modifier = Modifier.testTag("quran-mode-warsh"),
+                )
+                FilterChip(
                     selected = mode == QuranReadingMode.EASY,
                     onClick = { onModeChange(QuranReadingMode.EASY) },
                     label = { Text(appText("Facile", "قراءة سهلة")) },
@@ -293,6 +325,7 @@ private fun QuranReaderHeader(
     @Composable
     private fun MushafBookReader(
         startPage: Int,
+        riwaya: QuranRiwaya,
         style: MushafVisualStyle,
         onStyleChange: (MushafVisualStyle) -> Unit,
         onPageChanged: (Int) -> Unit,
@@ -306,10 +339,10 @@ private fun QuranReaderHeader(
         )
         var bookmarkVersion by remember { mutableIntStateOf(0) }
         val currentPage = pagerState.currentPage
-        val meta = remember(currentPage) { MushafRepository.metaForPage(context, currentPage) }
-        val surah = remember(currentPage) { MushafRepository.surahForPage(context, currentPage) }
-        val bookmarked = remember(currentPage, bookmarkVersion) {
-            QuranReadingPrefs.isBookmarked(context, currentPage)
+        val meta = remember(currentPage, riwaya) { MushafRepository.metaForPage(context, riwaya, currentPage) }
+        val surah = remember(currentPage, riwaya) { MushafRepository.surahForPage(context, riwaya, currentPage) }
+        val bookmarked = remember(currentPage, bookmarkVersion, riwaya) {
+            QuranReadingPrefs.isBookmarked(context, riwaya, currentPage)
         }
 
         LaunchedEffect(startPage) {
@@ -318,16 +351,24 @@ private fun QuranReaderHeader(
             }
         }
         LaunchedEffect(currentPage) {
-            QuranReadingPrefs.recordVisitedPage(context, currentPage)
+            QuranReadingPrefs.recordVisitedPage(context, riwaya, currentPage)
             onPageChanged(currentPage)
         }
 
         Column(
-            modifier = modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp),
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 2.dp)
+                .testTag("quran-mushaf-riwaya-${riwaya.name.lowercase()}"),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 56.dp)
+                    .background(ArihnaDawnTop.copy(alpha = 0.98f))
+                    .zIndex(2f)
+                    .testTag("quran-mushaf-toolbar"),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
@@ -339,11 +380,16 @@ private fun QuranReaderHeader(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Text(
+                    val pageContext = if (meta != null) {
                         appText(
                             "pag. ${currentPage + 1} · Juz ${meta.juz} · Hizb ${meta.hizb}",
                             "صفحة ${toArabicIndic(currentPage + 1)} · الجزء ${toArabicIndic(meta.juz)} · الحزب ${toArabicIndic(meta.hizb)}",
-                        ),
+                        )
+                    } else {
+                        appText("pag. ${currentPage + 1} · Warsh", "صفحة ${toArabicIndic(currentPage + 1)} · ورش")
+                    }
+                    Text(
+                        pageContext,
                         color = ArihnaMutedText,
                         fontSize = 9.sp,
                         maxLines = 1,
@@ -361,7 +407,7 @@ private fun QuranReaderHeader(
                 }
                 IconButton(
                     onClick = {
-                        QuranReadingPrefs.setBookmarked(context, currentPage, !bookmarked)
+                        QuranReadingPrefs.setBookmarked(context, riwaya, currentPage, !bookmarked)
                         bookmarkVersion++
                     },
                     modifier = Modifier.size(52.dp).testTag("quran-bookmark-toggle"),
@@ -375,25 +421,36 @@ private fun QuranReaderHeader(
                 }
             }
 
-            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier.fillMaxWidth().weight(1f).testTag("quran-mushaf-rtl-pager"),
-                    beyondViewportPageCount = 1,
-                    pageSpacing = 2.dp,
-                ) { page ->
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 2.dp, vertical = 1.dp)
-                            .testTag("quran-mushaf-page-${page + 1}"),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        PremiumMushafPageFrame(
-                            page = page + 1,
-                            style = style,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(top = 6.dp)
+                    .clipToBounds()
+                    .zIndex(0f)
+                    .testTag("quran-mushaf-preview-container"),
+            ) {
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier.fillMaxSize().testTag("quran-mushaf-rtl-pager"),
+                        beyondViewportPageCount = 1,
+                        pageSpacing = 2.dp,
+                    ) { page ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 2.dp, vertical = 1.dp)
+                                .testTag("quran-mushaf-page-${page + 1}"),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            PremiumMushafPageFrame(
+                                page = page + 1,
+                                riwaya = riwaya,
+                                style = style,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
                     }
                 }
             }
@@ -412,11 +469,13 @@ private fun QuranReaderHeader(
     }
 
     @Composable
-    private fun FullscreenMushafReader(
+    internal fun FullscreenMushafReader(
         startPage: Int,
         style: MushafVisualStyle,
+        riwaya: QuranRiwaya,
         onDismiss: () -> Unit,
         onPageChanged: (Int) -> Unit,
+        topBarInsets: WindowInsets = WindowInsets.displayCutout.union(WindowInsets.statusBars),
     ) {
         val context = LocalContext.current
         val pagerState = rememberPagerState(
@@ -427,17 +486,17 @@ private fun QuranReaderHeader(
         var chromeVisible by remember { mutableStateOf(true) }
         var bookmarkVersion by remember { mutableIntStateOf(0) }
         val currentPage = pagerState.currentPage
-        val meta = remember(currentPage) { MushafRepository.metaForPage(context, currentPage) }
-        val surah = remember(currentPage) { MushafRepository.surahForPage(context, currentPage) }
-        val bookmarked = remember(currentPage, bookmarkVersion) {
-            QuranReadingPrefs.isBookmarked(context, currentPage)
+        val meta = remember(currentPage, riwaya) { MushafRepository.metaForPage(context, riwaya, currentPage) }
+        val surah = remember(currentPage, riwaya) { MushafRepository.surahForPage(context, riwaya, currentPage) }
+        val bookmarked = remember(currentPage, bookmarkVersion, riwaya) {
+            QuranReadingPrefs.isBookmarked(context, riwaya, currentPage)
         }
 
         BackHandler(onBack = onDismiss)
 
         LaunchedEffect(currentPage) {
             zoomed = false
-            QuranReadingPrefs.recordVisitedPage(context, currentPage)
+            QuranReadingPrefs.recordVisitedPage(context, riwaya, currentPage)
             onPageChanged(currentPage)
         }
 
@@ -456,6 +515,7 @@ private fun QuranReaderHeader(
                     ) { page ->
                         ZoomableMushafPage(
                             page = page + 1,
+                            riwaya = riwaya,
                             style = style,
                             onZoomedChange = { active ->
                                 if (pagerState.currentPage == page) zoomed = active
@@ -469,67 +529,75 @@ private fun QuranReaderHeader(
                 }
 
                 if (chromeVisible) {
-                    Surface(
+                    Box(
                         modifier = Modifier
                             .align(Alignment.TopCenter)
                             .fillMaxWidth()
+                            .windowInsetsPadding(topBarInsets)
                             .padding(horizontal = 10.dp, vertical = 8.dp)
-                            .testTag("quran-fullscreen-chrome"),
-                        color = ArihnaCream.copy(alpha = 0.96f),
-                        shape = RoundedCornerShape(20.dp),
-                        border = BorderStroke(1.dp, ArihnaWarmOutline.copy(alpha = 0.8f)),
-                        shadowElevation = 3.dp,
+                            .testTag("quran-fullscreen-safe-top"),
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = ArihnaCream.copy(alpha = 0.96f),
+                            shape = RoundedCornerShape(20.dp),
+                            border = BorderStroke(1.dp, ArihnaWarmOutline.copy(alpha = 0.8f)),
+                            shadowElevation = 3.dp,
                         ) {
-                            IconButton(
-                                onClick = onDismiss,
-                                modifier = Modifier.size(52.dp).testTag("quran-fullscreen-close"),
-                            ) {
-                                Icon(
-                                    Icons.Rounded.Close,
-                                    contentDescription = appText("Chiudi lettura", "إغلاق القراءة"),
-                                    tint = ArihnaForest,
-                                    modifier = Modifier.size(27.dp),
-                                )
-                            }
-                            Column(
+                            Row(
                                 modifier = Modifier
-                                    .weight(1f)
-                                    .padding(horizontal = 6.dp)
-                                    .testTag("quran-fullscreen-page-context"),
-                                horizontalAlignment = Alignment.CenterHorizontally,
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 4.dp)
+                                    .testTag("quran-fullscreen-chrome"),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(
-                                    surah?.nameArabic ?: appText("Corano", "القرآن"),
-                                    color = ArihnaForest,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 16.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                Text(
-                                    appText("Pagina ${currentPage + 1}", "صفحة ${toArabicIndic(currentPage + 1)}"),
-                                    color = ArihnaMutedText,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 10.sp,
-                                )
-                            }
-                            IconButton(
-                                onClick = {
-                                    QuranReadingPrefs.setBookmarked(context, currentPage, !bookmarked)
-                                    bookmarkVersion++
-                                },
-                                modifier = Modifier.size(52.dp).testTag("quran-fullscreen-bookmark"),
-                            ) {
-                                Icon(
-                                    if (bookmarked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
-                                    contentDescription = appText("Segnalibro", "إشارة مرجعية"),
-                                    tint = if (bookmarked) ArihnaDawnGold else ArihnaGreen,
-                                    modifier = Modifier.size(27.dp),
-                                )
+                                IconButton(
+                                    onClick = onDismiss,
+                                    modifier = Modifier.size(52.dp).testTag("quran-fullscreen-close"),
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.Close,
+                                        contentDescription = appText("Chiudi lettura", "إغلاق القراءة"),
+                                        tint = ArihnaForest,
+                                        modifier = Modifier.size(27.dp),
+                                    )
+                                }
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(horizontal = 6.dp)
+                                        .testTag("quran-fullscreen-page-context"),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                ) {
+                                    Text(
+                                        surah?.nameArabic ?: appText("Corano", "القرآن"),
+                                        color = ArihnaForest,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 16.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Text(
+                                        appText("Pagina ${currentPage + 1}", "صفحة ${toArabicIndic(currentPage + 1)}"),
+                                        color = ArihnaMutedText,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 10.sp,
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        QuranReadingPrefs.setBookmarked(context, riwaya, currentPage, !bookmarked)
+                                        bookmarkVersion++
+                                    },
+                                    modifier = Modifier.size(52.dp).testTag("quran-fullscreen-bookmark"),
+                                ) {
+                                    Icon(
+                                        if (bookmarked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
+                                        contentDescription = appText("Segnalibro", "إشارة مرجعية"),
+                                        tint = if (bookmarked) ArihnaDawnGold else ArihnaGreen,
+                                        modifier = Modifier.size(27.dp),
+                                    )
+                                }
                             }
                         }
                     }
@@ -549,10 +617,14 @@ private fun QuranReaderHeader(
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
                             Text(
-                                appText(
-                                    "Juz ${meta.juz} · Hizb ${meta.hizb}",
-                                    "الجزء ${toArabicIndic(meta.juz)} · الحزب ${toArabicIndic(meta.hizb)}",
-                                ),
+                                if (meta != null) {
+                                    appText(
+                                        "Juz ${meta.juz} · Hizb ${meta.hizb}",
+                                        "الجزء ${toArabicIndic(meta.juz)} · الحزب ${toArabicIndic(meta.hizb)}",
+                                    )
+                                } else {
+                                    appText("Warsh · Pagina ${currentPage + 1}", "ورش · صفحة ${toArabicIndic(currentPage + 1)}")
+                                },
                                 color = ArihnaForest,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp,
@@ -576,6 +648,7 @@ private fun QuranReaderHeader(
     @Composable
     private fun ZoomableMushafPage(
         page: Int,
+        riwaya: QuranRiwaya,
         style: MushafVisualStyle,
         onZoomedChange: (Boolean) -> Unit,
         onPageTap: () -> Unit,
@@ -619,6 +692,7 @@ private fun QuranReaderHeader(
         ) {
             PremiumMushafPageFrame(
                 page = page,
+                riwaya = riwaya,
                 style = style,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -686,13 +760,14 @@ private fun QuranReaderHeader(
     @Composable
     private fun PremiumMushafPageFrame(
         page: Int,
+        riwaya: QuranRiwaya,
         style: MushafVisualStyle,
         modifier: Modifier = Modifier,
     ) {
         val classic = style == MushafVisualStyle.CLASSIC
         Surface(
             modifier = modifier
-                .aspectRatio(MUSHAF_PAGE_ASPECT_RATIO)
+                .aspectRatio(if (riwaya == QuranRiwaya.WARSH) 345f / 550f else MUSHAF_PAGE_ASPECT_RATIO)
                 .testTag("quran-premium-page-frame"),
             color = if (classic) Color(0xFFFFFAEC) else Color(0xFFFFFEF9),
             shape = RoundedCornerShape(if (classic) 16.dp else 6.dp),
@@ -707,7 +782,7 @@ private fun QuranReaderHeader(
                 modifier = Modifier.fillMaxSize().padding(if (classic) 3.dp else 0.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                NativeMushafPage(page = page, modifier = Modifier.fillMaxSize())
+                NativeMushafPage(page = page, riwaya = riwaya, modifier = Modifier.fillMaxSize())
             }
         }
     }
@@ -716,6 +791,7 @@ private fun QuranReaderHeader(
 private fun QuranExplorer(
     surahs: List<MushafSurah>,
     currentPage: Int,
+    riwaya: QuranRiwaya,
     onSelectPage: (Int, Int?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -723,10 +799,11 @@ private fun QuranExplorer(
     var query by remember { mutableStateOf("") }
     var view by remember { mutableStateOf(QuranExplorerView.SURAHS) }
     var bookmarkVersion by remember { mutableIntStateOf(0) }
-    val bookmarked = remember(bookmarkVersion, currentPage) { QuranReadingPrefs.bookmarkedPages(context) }
-    val recent = remember(currentPage) { QuranReadingPrefs.recentPages(context) }
-    val juzPages = remember(context) { MushafRepository.juzStartPages(context) }
-    val hizbPages = remember(context) { MushafRepository.hizbStartPages(context) }
+    val bookmarked = remember(bookmarkVersion, currentPage, riwaya) { QuranReadingPrefs.bookmarkedPages(context, riwaya) }
+    val recent = remember(currentPage, riwaya) { QuranReadingPrefs.recentPages(context, riwaya) }
+    val supportsBoundaries = riwaya == QuranRiwaya.HAFS
+    val juzPages = remember(context, riwaya) { MushafRepository.juzStartPages(context, riwaya) }
+    val hizbPages = remember(context, riwaya) { MushafRepository.hizbStartPages(context, riwaya) }
     val filteredSurahs = remember(query, surahs) {
         val needle = query.trim().lowercase()
         if (needle.isBlank()) surahs else surahs.filter {
@@ -754,8 +831,21 @@ private fun QuranExplorer(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             ExplorerChip(QuranExplorerView.SURAHS, view, appText("Sure", "السور")) { view = it }
-            ExplorerChip(QuranExplorerView.JUZ, view, appText("Juz", "الأجزاء")) { view = it }
-            ExplorerChip(QuranExplorerView.HIZB, view, appText("Hizb", "الأحزاب")) { view = it }
+            if (supportsBoundaries) {
+                ExplorerChip(QuranExplorerView.JUZ, view, appText("Juz", "الأجزاء")) { view = it }
+                ExplorerChip(QuranExplorerView.HIZB, view, appText("Hizb", "الأحزاب")) { view = it }
+            }
+        }
+        if (!supportsBoundaries) {
+            Text(
+                appText(
+                    "Warsh: Juz/Hizb non mostrati finché non è integrato un indice autorevole specifico.",
+                    "ورش: لا نعرض حدود الجزء والحزب حتى يتوفر فهرس موثوق خاص بهذه الرواية.",
+                ),
+                color = ArihnaMutedText,
+                fontSize = 10.sp,
+                modifier = Modifier.testTag("quran-warsh-boundaries-unavailable"),
+            )
         }
         if (view == QuranExplorerView.SURAHS) {
             OutlinedTextField(
@@ -800,7 +890,7 @@ private fun QuranExplorer(
                         bookmarked = (surah.pageNumber - 1) in bookmarked,
                         onBookmark = {
                             val page = (surah.pageNumber - 1).coerceIn(0, 603)
-                            QuranReadingPrefs.setBookmarked(context, page, page !in bookmarked)
+                            QuranReadingPrefs.setBookmarked(context, riwaya, page, page !in bookmarked)
                             bookmarkVersion++
                         },
                         onClick = { onSelectPage(surah.pageNumber - 1, surah.number) },
@@ -823,10 +913,10 @@ private fun QuranExplorer(
                     )
                 }
                 QuranExplorerView.BOOKMARKS -> items(bookmarked.sorted(), key = { it }) { page ->
-                    SavedPageRow(page = page, onClick = { onSelectPage(page, null) })
+                    SavedPageRow(page = page, riwaya = riwaya, onClick = { onSelectPage(page, null) })
                 }
                 QuranExplorerView.RECENT -> items(recent, key = { it }) { page ->
-                    SavedPageRow(page = page, onClick = { onSelectPage(page, null) })
+                    SavedPageRow(page = page, riwaya = riwaya, onClick = { onSelectPage(page, null) })
                 }
             }
         }
@@ -959,9 +1049,9 @@ private fun NavigationBoundaryRow(number: Int, label: String, page: Int, onClick
 }
 
 @Composable
-private fun SavedPageRow(page: Int, onClick: () -> Unit) {
+private fun SavedPageRow(page: Int, riwaya: QuranRiwaya, onClick: () -> Unit) {
     val context = LocalContext.current
-    val surah = remember(page) { MushafRepository.surahForPage(context, page) }
+    val surah = remember(page, riwaya) { MushafRepository.surahForPage(context, riwaya, page) }
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
@@ -1058,13 +1148,24 @@ private fun QuranAyahCard(ayah: QuranAyah, corpus: QuranCorpus) {
 }
 
 @Composable
-private fun QuranAttribution() {
+private fun QuranAttribution(riwaya: QuranRiwaya?) {
     HorizontalDivider(color = ArihnaWarmOutline.copy(alpha = 0.65f))
+    val credit = when (riwaya) {
+        QuranRiwaya.WARSH -> appText(
+            "Warsh: pagine King Fahd Complex (uso digitale/app consentito; no stampa commerciale) · metadati Quranpedia CC0 · offline",
+            "ورش: صفحات مجمع الملك فهد للاستخدام الرقمي والتطبيقي · بيانات Quranpedia CC0 · دون اتصال",
+        )
+        QuranRiwaya.HAFS -> appText(
+            "Testo: Tanzil/Tarteel CC BY 3.0 · pagine Ḥafṣ: batoulapps/quran-svg MIT · tutto offline",
+            "النص: تنزيل/ترتيل CC BY 3.0 · صفحات حفص: batoulapps/quran-svg MIT · دون اتصال",
+        )
+        null -> appText(
+            "Testo: Tanzil/Tarteel CC BY 3.0 · tutto offline",
+            "النص: تنزيل/ترتيل CC BY 3.0 · يعمل دون اتصال",
+        )
+    }
     Text(
-        text = appText(
-            "Testo: Tanzil/Tarteel CC BY 3.0 · pagine Muṣḥaf: quran-svg MIT · tutto offline",
-            "النص: تنزيل/ترتيل CC BY 3.0 · صفحات المصحف: quran-svg MIT · يعمل دون اتصال",
-        ),
+        text = credit,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp).testTag("quran-attribution"),
         color = ArihnaMutedText,
         fontSize = 8.sp,
