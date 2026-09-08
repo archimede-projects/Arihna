@@ -11,6 +11,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -43,6 +44,8 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -75,6 +78,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -99,6 +104,10 @@ import kotlinx.coroutines.launch
 
 enum class QuranReadingMode { EASY, HAFS_UTHMANI }
 
+enum class MushafVisualStyle { CLASSIC, CLEAN }
+
+private const val MUSHAF_PAGE_ASPECT_RATIO = 510.23599f / 729.448f
+
 private enum class QuranExplorerView { SURAHS, JUZ, HIZB, BOOKMARKS, RECENT }
 
 @Composable
@@ -112,6 +121,7 @@ fun QuranPlaceholderScreen(
     val corpus = remember(context) { QuranCorpus.load(context.applicationContext) }
     val surahs = remember(context) { MushafRepository.surahs(context.applicationContext) }
     var mode by remember { mutableStateOf(QuranReadingPrefs.mode(context)) }
+    var visualStyle by remember { mutableStateOf(QuranReadingPrefs.visualStyle(context)) }
     var selectedSurah by remember { mutableIntStateOf(1) }
     var requestedPage by remember { mutableIntStateOf(QuranReadingPrefs.lastPage(context)) }
     var explorerOpen by remember { mutableStateOf(false) }
@@ -135,6 +145,7 @@ fun QuranPlaceholderScreen(
     if (fullscreenOpen) {
         FullscreenMushafReader(
             startPage = requestedPage,
+            style = visualStyle,
             onDismiss = { fullscreenOpen = false },
             onPageChanged = { pageIndex ->
                 requestedPage = pageIndex
@@ -178,6 +189,11 @@ fun QuranPlaceholderScreen(
         } else if (mode == QuranReadingMode.HAFS_UTHMANI) {
             MushafBookReader(
                 startPage = requestedPage,
+                style = visualStyle,
+                onStyleChange = { selected ->
+                    visualStyle = selected
+                    QuranReadingPrefs.setVisualStyle(context, selected)
+                },
                 onPageChanged = { pageIndex ->
                     requestedPage = pageIndex
                     MushafRepository.surahForPage(context, pageIndex)?.let { selectedSurah = it.number }
@@ -274,249 +290,428 @@ private fun QuranReaderHeader(
     }
 }
 
-@Composable
-private fun MushafBookReader(
-    startPage: Int,
-    onPageChanged: (Int) -> Unit,
-    onOpenFullscreen: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val context = LocalContext.current
-    val pagerState = rememberPagerState(
-        initialPage = startPage.coerceIn(0, 603),
-        pageCount = { 604 },
-    )
-    var bookmarkVersion by remember { mutableIntStateOf(0) }
-    val currentPage = pagerState.currentPage
-    val meta = remember(currentPage) { MushafRepository.metaForPage(context, currentPage) }
-    val bookmarked = remember(currentPage, bookmarkVersion) {
-        QuranReadingPrefs.isBookmarked(context, currentPage)
-    }
-
-    LaunchedEffect(startPage) {
-        if (pagerState.currentPage != startPage.coerceIn(0, 603)) {
-            pagerState.scrollToPage(startPage.coerceIn(0, 603))
-        }
-    }
-    LaunchedEffect(currentPage) {
-        QuranReadingPrefs.recordVisitedPage(context, currentPage)
-        onPageChanged(currentPage)
-    }
-
-    Column(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp),
+    @Composable
+    private fun MushafBookReader(
+        startPage: Int,
+        style: MushafVisualStyle,
+        onStyleChange: (MushafVisualStyle) -> Unit,
+        onPageChanged: (Int) -> Unit,
+        onOpenFullscreen: () -> Unit,
+        modifier: Modifier = Modifier,
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().height(56.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                appText("Juz ${meta.juz} · Hizb ${meta.hizb}", "الجزء ${toArabicIndic(meta.juz)} · الحزب ${toArabicIndic(meta.hizb)}"),
-                color = ArihnaForest,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 11.sp,
-                modifier = Modifier.weight(1f),
-            )
-            TextButton(
-                onClick = onOpenFullscreen,
-                modifier = Modifier.heightIn(min = 52.dp).testTag("quran-reading-fullscreen"),
-            ) {
-                Icon(Icons.Rounded.Fullscreen, null, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(5.dp))
-                Text(appText("Lettura", "قراءة"), fontWeight = FontWeight.Bold)
-            }
-            IconButton(
-                onClick = {
-                    QuranReadingPrefs.setBookmarked(context, currentPage, !bookmarked)
-                    bookmarkVersion++
-                },
-                modifier = Modifier.size(52.dp).testTag("quran-bookmark-toggle"),
-            ) {
-                Icon(
-                    if (bookmarked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
-                    contentDescription = appText("Segnalibro", "إشارة مرجعية"),
-                    tint = if (bookmarked) ArihnaDawnGold else ArihnaGreen,
-                    modifier = Modifier.size(27.dp),
-                )
-            }
+        val context = LocalContext.current
+        val pagerState = rememberPagerState(
+            initialPage = startPage.coerceIn(0, 603),
+            pageCount = { 604 },
+        )
+        var bookmarkVersion by remember { mutableIntStateOf(0) }
+        val currentPage = pagerState.currentPage
+        val meta = remember(currentPage) { MushafRepository.metaForPage(context, currentPage) }
+        val surah = remember(currentPage) { MushafRepository.surahForPage(context, currentPage) }
+        val bookmarked = remember(currentPage, bookmarkVersion) {
+            QuranReadingPrefs.isBookmarked(context, currentPage)
         }
 
-        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.fillMaxWidth().weight(1f).testTag("quran-mushaf-rtl-pager"),
-                beyondViewportPageCount = 1,
-                pageSpacing = 3.dp,
-            ) { page ->
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 1.dp, vertical = 1.dp),
-                    contentAlignment = Alignment.Center,
+        LaunchedEffect(startPage) {
+            if (pagerState.currentPage != startPage.coerceIn(0, 603)) {
+                pagerState.scrollToPage(startPage.coerceIn(0, 603))
+            }
+        }
+        LaunchedEffect(currentPage) {
+            QuranReadingPrefs.recordVisitedPage(context, currentPage)
+            onPageChanged(currentPage)
+        }
+
+        Column(
+            modifier = modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        surah?.nameArabic ?: appText("Corano", "القرآن"),
+                        color = ArihnaForest,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        appText(
+                            "pag. ${currentPage + 1} · Juz ${meta.juz} · Hizb ${meta.hizb}",
+                            "صفحة ${toArabicIndic(currentPage + 1)} · الجزء ${toArabicIndic(meta.juz)} · الحزب ${toArabicIndic(meta.hizb)}",
+                        ),
+                        color = ArihnaMutedText,
+                        fontSize = 9.sp,
+                        maxLines = 1,
+                    )
+                }
+                MushafStyleMenu(style = style, onStyleChange = onStyleChange)
+                TextButton(
+                    onClick = onOpenFullscreen,
+                    modifier = Modifier.heightIn(min = 52.dp).testTag("quran-reading-fullscreen"),
+                    contentPadding = PaddingValues(horizontal = 7.dp, vertical = 5.dp),
                 ) {
-                    NativeMushafPage(
-                        page = page + 1,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer(scaleX = 1.22f, scaleY = 1.22f)
-                            .testTag("quran-mushaf-page-${page + 1}"),
+                    Icon(Icons.Rounded.Fullscreen, null, modifier = Modifier.size(19.dp))
+                    Spacer(Modifier.width(3.dp))
+                    Text(appText("Lettura", "قراءة"), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                }
+                IconButton(
+                    onClick = {
+                        QuranReadingPrefs.setBookmarked(context, currentPage, !bookmarked)
+                        bookmarkVersion++
+                    },
+                    modifier = Modifier.size(52.dp).testTag("quran-bookmark-toggle"),
+                ) {
+                    Icon(
+                        if (bookmarked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
+                        contentDescription = appText("Segnalibro", "إشارة مرجعية"),
+                        tint = if (bookmarked) ArihnaDawnGold else ArihnaGreen,
+                        modifier = Modifier.size(27.dp),
                     )
                 }
             }
-        }
 
-        Text(
-            appText("Sfoglia da destra a sinistra · Lettura per schermo intero e zoom", "اقرأ من اليمين إلى اليسار · وضع القراءة للتكبير"),
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center,
-            color = ArihnaMutedText,
-            fontSize = 9.sp,
-        )
-    }
-}
-
-@Composable
-private fun FullscreenMushafReader(
-    startPage: Int,
-    onDismiss: () -> Unit,
-    onPageChanged: (Int) -> Unit,
-) {
-    val context = LocalContext.current
-    val pagerState = rememberPagerState(
-        initialPage = startPage.coerceIn(0, 603),
-        pageCount = { 604 },
-    )
-    var zoomed by remember { mutableStateOf(false) }
-    var bookmarkVersion by remember { mutableIntStateOf(0) }
-    val currentPage = pagerState.currentPage
-    val bookmarked = remember(currentPage, bookmarkVersion) {
-        QuranReadingPrefs.isBookmarked(context, currentPage)
-    }
-
-    BackHandler(onBack = onDismiss)
-
-    LaunchedEffect(currentPage) {
-        zoomed = false
-        QuranReadingPrefs.recordVisitedPage(context, currentPage)
-        onPageChanged(currentPage)
-    }
-
-    Surface(
-        modifier = Modifier.fillMaxSize().testTag("quran-fullscreen-reader"),
-        color = Color(0xFFFFFCF3),
-    ) {
-        Box(Modifier.fillMaxSize()) {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                 HorizontalPager(
                     state = pagerState,
-                    modifier = Modifier.fillMaxSize().testTag("quran-fullscreen-rtl-pager"),
-                    userScrollEnabled = !zoomed,
+                    modifier = Modifier.fillMaxWidth().weight(1f).testTag("quran-mushaf-rtl-pager"),
                     beyondViewportPageCount = 1,
                     pageSpacing = 2.dp,
                 ) { page ->
-                    ZoomableMushafPage(
-                        page = page + 1,
-                        onZoomedChange = { active ->
-                            if (pagerState.currentPage == page) zoomed = active
-                        },
-                        modifier = Modifier.fillMaxSize(),
-                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 2.dp, vertical = 1.dp)
+                            .testTag("quran-mushaf-page-${page + 1}"),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        PremiumMushafPageFrame(
+                            page = page + 1,
+                            style = style,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                 }
             }
 
-            Surface(
-                modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp),
-                color = ArihnaCream.copy(alpha = 0.94f),
-                shape = RoundedCornerShape(999.dp),
-                shadowElevation = 4.dp,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    modifier = Modifier.padding(horizontal = 4.dp),
-                ) {
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.size(52.dp).testTag("quran-fullscreen-close"),
-                    ) {
-                        Icon(
-                            Icons.Rounded.Close,
-                            contentDescription = appText("Chiudi lettura", "إغلاق القراءة"),
-                            tint = ArihnaForest,
-                            modifier = Modifier.size(27.dp),
+            Text(
+                appText(
+                    "Sfoglia da destra a sinistra · Lettura apre la modalità immersiva",
+                    "اقرأ من اليمين إلى اليسار · وضع القراءة يفتح العرض الغامر",
+                ),
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center,
+                color = ArihnaMutedText,
+                fontSize = 9.sp,
+            )
+        }
+    }
+
+    @Composable
+    private fun FullscreenMushafReader(
+        startPage: Int,
+        style: MushafVisualStyle,
+        onDismiss: () -> Unit,
+        onPageChanged: (Int) -> Unit,
+    ) {
+        val context = LocalContext.current
+        val pagerState = rememberPagerState(
+            initialPage = startPage.coerceIn(0, 603),
+            pageCount = { 604 },
+        )
+        var zoomed by remember { mutableStateOf(false) }
+        var chromeVisible by remember { mutableStateOf(true) }
+        var bookmarkVersion by remember { mutableIntStateOf(0) }
+        val currentPage = pagerState.currentPage
+        val meta = remember(currentPage) { MushafRepository.metaForPage(context, currentPage) }
+        val surah = remember(currentPage) { MushafRepository.surahForPage(context, currentPage) }
+        val bookmarked = remember(currentPage, bookmarkVersion) {
+            QuranReadingPrefs.isBookmarked(context, currentPage)
+        }
+
+        BackHandler(onBack = onDismiss)
+
+        LaunchedEffect(currentPage) {
+            zoomed = false
+            QuranReadingPrefs.recordVisitedPage(context, currentPage)
+            onPageChanged(currentPage)
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxSize().testTag("quran-fullscreen-reader"),
+            color = if (style == MushafVisualStyle.CLASSIC) Color(0xFFF4EBD8) else Color(0xFFFFFCF3),
+        ) {
+            Box(Modifier.fillMaxSize()) {
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier.fillMaxSize().testTag("quran-fullscreen-rtl-pager"),
+                        userScrollEnabled = !zoomed,
+                        beyondViewportPageCount = 1,
+                        pageSpacing = 2.dp,
+                    ) { page ->
+                        ZoomableMushafPage(
+                            page = page + 1,
+                            style = style,
+                            onZoomedChange = { active ->
+                                if (pagerState.currentPage == page) zoomed = active
+                            },
+                            onPageTap = {
+                                if (pagerState.currentPage == page) chromeVisible = !chromeVisible
+                            },
+                            modifier = Modifier.fillMaxSize(),
                         )
                     }
-                    Text(
-                        appText("pag. ${currentPage + 1}", "صفحة ${toArabicIndic(currentPage + 1)}"),
-                        color = ArihnaForest,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp,
-                    )
-                    IconButton(
-                        onClick = {
-                            QuranReadingPrefs.setBookmarked(context, currentPage, !bookmarked)
-                            bookmarkVersion++
-                        },
-                        modifier = Modifier.size(52.dp).testTag("quran-fullscreen-bookmark"),
+                }
+
+                if (chromeVisible) {
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .fillMaxWidth()
+                            .padding(horizontal = 10.dp, vertical = 8.dp)
+                            .testTag("quran-fullscreen-chrome"),
+                        color = ArihnaCream.copy(alpha = 0.96f),
+                        shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(1.dp, ArihnaWarmOutline.copy(alpha = 0.8f)),
+                        shadowElevation = 3.dp,
                     ) {
-                        Icon(
-                            if (bookmarked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
-                            contentDescription = appText("Segnalibro", "إشارة مرجعية"),
-                            tint = if (bookmarked) ArihnaDawnGold else ArihnaGreen,
-                            modifier = Modifier.size(27.dp),
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            IconButton(
+                                onClick = onDismiss,
+                                modifier = Modifier.size(52.dp).testTag("quran-fullscreen-close"),
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Close,
+                                    contentDescription = appText("Chiudi lettura", "إغلاق القراءة"),
+                                    tint = ArihnaForest,
+                                    modifier = Modifier.size(27.dp),
+                                )
+                            }
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(horizontal = 6.dp)
+                                    .testTag("quran-fullscreen-page-context"),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Text(
+                                    surah?.nameArabic ?: appText("Corano", "القرآن"),
+                                    color = ArihnaForest,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 16.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    appText("Pagina ${currentPage + 1}", "صفحة ${toArabicIndic(currentPage + 1)}"),
+                                    color = ArihnaMutedText,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 10.sp,
+                                )
+                            }
+                            IconButton(
+                                onClick = {
+                                    QuranReadingPrefs.setBookmarked(context, currentPage, !bookmarked)
+                                    bookmarkVersion++
+                                },
+                                modifier = Modifier.size(52.dp).testTag("quran-fullscreen-bookmark"),
+                            ) {
+                                Icon(
+                                    if (bookmarked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
+                                    contentDescription = appText("Segnalibro", "إشارة مرجعية"),
+                                    tint = if (bookmarked) ArihnaDawnGold else ArihnaGreen,
+                                    modifier = Modifier.size(27.dp),
+                                )
+                            }
+                        }
+                    }
+
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
+                            .testTag("quran-fullscreen-bottom-context"),
+                        color = ArihnaCream.copy(alpha = 0.95f),
+                        shape = RoundedCornerShape(18.dp),
+                        border = BorderStroke(1.dp, ArihnaWarmOutline.copy(alpha = 0.75f)),
+                        shadowElevation = 2.dp,
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(
+                                appText(
+                                    "Juz ${meta.juz} · Hizb ${meta.hizb}",
+                                    "الجزء ${toArabicIndic(meta.juz)} · الحزب ${toArabicIndic(meta.hizb)}",
+                                ),
+                                color = ArihnaForest,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp,
+                            )
+                            Text(
+                                appText(
+                                    "Tocca la pagina per nascondere i controlli · pizzica per zoomare",
+                                    "المس الصفحة لإخفاء الأدوات · قرّب بإصبعين للتكبير",
+                                ),
+                                color = ArihnaMutedText,
+                                fontSize = 9.sp,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
                     }
                 }
             }
         }
     }
-}
 
-@Composable
-private fun ZoomableMushafPage(
-    page: Int,
-    onZoomedChange: (Boolean) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    var scale by remember(page) { mutableFloatStateOf(1f) }
-    var offset by remember(page) { mutableStateOf(Offset.Zero) }
-
-    Box(
-        modifier = modifier
-            .pointerInput(page) {
-                awaitEachGesture {
-                    awaitFirstDown(requireUnconsumed = false)
-                    do {
-                        val event = awaitPointerEvent()
-                        val pressedPointers = event.changes.count { it.pressed }
-                        // At 1x a one-finger gesture belongs to the RTL pager. Two fingers enter zoom;
-                        // once zoomed, one finger pans until the user returns to 1x.
-                        if (pressedPointers >= 2 || scale > 1.01f) {
-                            val nextScale = (scale * event.calculateZoom()).coerceIn(1f, 5f)
-                            val pan = event.calculatePan()
-                            scale = nextScale
-                            offset = if (nextScale <= 1.01f) Offset.Zero else offset + pan
-                            onZoomedChange(nextScale > 1.01f)
-                            event.changes.forEach { it.consume() }
-                        }
-                    } while (event.changes.any { it.pressed })
-                }
-            }
-            .testTag("quran-zoomable-page-$page"),
-        contentAlignment = Alignment.Center,
+    @Composable
+    private fun ZoomableMushafPage(
+        page: Int,
+        style: MushafVisualStyle,
+        onZoomedChange: (Boolean) -> Unit,
+        onPageTap: () -> Unit,
+        modifier: Modifier = Modifier,
     ) {
-        NativeMushafPage(
-            page = page,
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
-                    translationX = offset.x
-                    translationY = offset.y
-                },
-        )
+        var scale by remember(page) { mutableFloatStateOf(1f) }
+        var offset by remember(page) { mutableStateOf(Offset.Zero) }
+
+        Box(
+            modifier = modifier
+                .pointerInput(page) {
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        var maxPointers = 1
+                        var travel = 0f
+                        do {
+                            val event = awaitPointerEvent()
+                            val pressedPointers = event.changes.count { it.pressed }
+                            maxPointers = maxOf(maxPointers, pressedPointers)
+                            val pan = event.calculatePan()
+                            travel += pan.getDistance()
+                            if (pressedPointers >= 2 || scale > 1.01f) {
+                                val nextScale = (scale * event.calculateZoom()).coerceIn(1f, 5f)
+                                scale = nextScale
+                                offset = if (nextScale <= 1.01f) Offset.Zero else offset + pan
+                                onZoomedChange(nextScale > 1.01f)
+                                event.changes.forEach { it.consume() }
+                            }
+                        } while (event.changes.any { it.pressed })
+                        if (maxPointers == 1 && travel < 12f) onPageTap()
+                    }
+                }
+                .semantics {
+                    onClick {
+                        onPageTap()
+                        true
+                    }
+                }
+                .testTag("quran-zoomable-page-$page"),
+            contentAlignment = Alignment.Center,
+        ) {
+            PremiumMushafPageFrame(
+                page = page,
+                style = style,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = if (style == MushafVisualStyle.CLASSIC) 5.dp else 1.dp)
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                        translationX = offset.x
+                        translationY = offset.y
+                    },
+            )
+        }
     }
-}
+
+    @Composable
+    private fun MushafStyleMenu(
+        style: MushafVisualStyle,
+        onStyleChange: (MushafVisualStyle) -> Unit,
+    ) {
+        var expanded by remember { mutableStateOf(false) }
+        Box {
+            TextButton(
+                onClick = { expanded = true },
+                modifier = Modifier.heightIn(min = 52.dp).testTag("quran-style-menu"),
+                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 5.dp),
+            ) {
+                Text(
+                    if (style == MushafVisualStyle.CLASSIC) appText("Classico", "كلاسيكي") else appText("Pulito", "بسيط"),
+                    color = ArihnaForest,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 10.sp,
+                )
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            appText("Classico", "كلاسيكي"),
+                            fontWeight = if (style == MushafVisualStyle.CLASSIC) FontWeight.ExtraBold else FontWeight.Medium,
+                        )
+                    },
+                    onClick = {
+                        onStyleChange(MushafVisualStyle.CLASSIC)
+                        expanded = false
+                    },
+                    modifier = Modifier.testTag("quran-style-classic"),
+                )
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            appText("Pulito", "بسيط"),
+                            fontWeight = if (style == MushafVisualStyle.CLEAN) FontWeight.ExtraBold else FontWeight.Medium,
+                        )
+                    },
+                    onClick = {
+                        onStyleChange(MushafVisualStyle.CLEAN)
+                        expanded = false
+                    },
+                    modifier = Modifier.testTag("quran-style-clean"),
+                )
+            }
+        }
+    }
+
+    @Composable
+    private fun PremiumMushafPageFrame(
+        page: Int,
+        style: MushafVisualStyle,
+        modifier: Modifier = Modifier,
+    ) {
+        val classic = style == MushafVisualStyle.CLASSIC
+        Surface(
+            modifier = modifier
+                .aspectRatio(MUSHAF_PAGE_ASPECT_RATIO)
+                .testTag("quran-premium-page-frame"),
+            color = if (classic) Color(0xFFFFFAEC) else Color(0xFFFFFEF9),
+            shape = RoundedCornerShape(if (classic) 16.dp else 6.dp),
+            border = if (classic) {
+                BorderStroke(1.dp, ArihnaDawnGold.copy(alpha = 0.45f))
+            } else {
+                BorderStroke(1.dp, ArihnaWarmOutline.copy(alpha = 0.35f))
+            },
+            shadowElevation = if (classic) 5.dp else 0.dp,
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(if (classic) 3.dp else 0.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                NativeMushafPage(page = page, modifier = Modifier.fillMaxSize())
+            }
+        }
+    }
+
 @Composable
 private fun QuranExplorer(
     surahs: List<MushafSurah>,
