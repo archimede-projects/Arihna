@@ -1,6 +1,9 @@
 package com.archimedeprojects.arihna.feature.quran
 
+import android.content.Context
+import android.graphics.Picture
 import android.graphics.drawable.PictureDrawable
+import android.util.LruCache
 import android.view.View
 import android.widget.ImageView
 import androidx.compose.foundation.layout.Box
@@ -21,6 +24,21 @@ import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+private object MushafPictureCache {
+    private val pictures = LruCache<String, Picture>(12)
+
+    fun load(context: Context, pageName: String): Picture? {
+        pictures.get(pageName)?.let { return it }
+        val picture = runCatching {
+            context.assets.open("mushaf/$pageName.svg").use { input ->
+                SVG.getFromInputStream(input).renderToPicture()
+            }
+        }.getOrNull() ?: return null
+        pictures.put(pageName, picture)
+        return picture
+    }
+}
+
 /**
  * Renders one pinned Muṣḥaf page from assets/mushaf/NNN.svg.
  * The SVG is visual presentation only; textual Quran acceptance still comes from QuranCorpus.
@@ -32,18 +50,15 @@ internal fun NativeMushafPage(
 ) {
     val context = LocalContext.current
     val pageName = String.format(Locale.US, "%03d", page.coerceIn(1, 604))
-    val drawable by produceState<PictureDrawable?>(initialValue = null, pageName) {
+    val picture by produceState<Picture?>(initialValue = null, pageName) {
         value = withContext(Dispatchers.IO) {
-            runCatching {
-                context.assets.open("mushaf/$pageName.svg").use { input ->
-                    PictureDrawable(SVG.getFromInputStream(input).renderToPicture())
-                }
-            }.getOrNull()
+            MushafPictureCache.load(context.applicationContext, pageName)
         }
     }
 
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        if (drawable == null) {
+        val ready = picture
+        if (ready == null) {
             CircularProgressIndicator()
         } else {
             AndroidView(
@@ -55,7 +70,7 @@ internal fun NativeMushafPage(
                         setBackgroundColor(android.graphics.Color.TRANSPARENT)
                     }
                 },
-                update = { image -> image.setImageDrawable(drawable) },
+                update = { image -> image.setImageDrawable(PictureDrawable(ready)) },
                 modifier = Modifier.fillMaxSize(),
             )
         }
