@@ -1,0 +1,45 @@
+name: Quran Tajwid SPEC append builder
+
+on:
+  push:
+    branches:
+      - quran-tajwid-spec-builder
+
+permissions:
+  contents: write
+
+jobs:
+  append-spec:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout builder branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build exact documentation-only SPEC commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          APPROVED='99ed8a0ae257f917443dffd6315057b967fdec9c'
+          FRAGMENT='.github/spec-fragments/quran-tajwid-2026-09-09.md'
+          cp "$FRAGMENT" /tmp/quran-tajwid-spec-fragment.md
+          git fetch origin main
+          REMOTE_MAIN="$(git rev-parse origin/main)"
+          test "$REMOTE_MAIN" = "$APPROVED"
+          git checkout --detach "$APPROVED"
+          cat /tmp/quran-tajwid-spec-fragment.md >> PROJECT_SPEC.md
+          git diff --check
+          test "$(git diff --name-only | wc -l)" -eq 1
+          test "$(git diff --name-only)" = 'PROJECT_SPEC.md'
+          grep -q 'Corano: supporto Mushaf Tajwid a colori' PROJECT_SPEC.md
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add PROJECT_SPEC.md
+          git commit -m 'docs(quran): specify verified Tajwid Mushaf support'
+          SPEC_SHA="$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD^)" = "$APPROVED"
+          test "$(git diff-tree --no-commit-id --name-only -r HEAD)" = 'PROJECT_SPEC.md'
+          git push origin HEAD:main
+          echo "SPEC_SHA=$SPEC_SHA"
