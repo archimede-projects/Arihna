@@ -43,7 +43,7 @@ jobs:
           cp /tmp/quran-tajwid-runtime/tajweed-api-mit.md docs/third-party/tajweed-api-mit.md
 
           git diff --check
-          ./gradlew --no-daemon testDebugUnitTest assembleDebug
+          ./gradlew --no-daemon :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:assembleDebug --stacktrace
 
           CORPUS='app/build/generated/quranAssets/quran/quran-uthmani.txt'
           test -s "$CORPUS"
