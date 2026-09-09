@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: quran-tajwid-runtime-builder
+  cancel-in-progress: true
+
 jobs:
   build-candidate:
     runs-on: ubuntu-24.04
