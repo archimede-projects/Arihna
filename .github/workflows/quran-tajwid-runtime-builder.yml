@@ -30,6 +30,7 @@ jobs:
           git checkout --detach "$SPEC"
 
           python3 /tmp/quran-tajwid-runtime/patch.py
+          python3 /tmp/quran-tajwid-runtime/patch_after.py
           mkdir -p app/src/main/java/com/archimedeprojects/arihna/feature/quran
           mkdir -p app/src/test/java/com/archimedeprojects/arihna/feature/quran
           mkdir -p docs/third-party
@@ -39,6 +40,14 @@ jobs:
 
           git diff --check
           ./gradlew --no-daemon testDebugUnitTest assembleDebug
+
+          CORPUS='app/build/generated/quranAssets/quran/quran-uthmani.txt'
+          test -s "$CORPUS"
+          grep -Fq 'مِن شَرِّ' "$CORPUS"
+          grep -Fq 'مِنۢ بَعْدِ' "$CORPUS"
+          grep -Fq 'أَن يَضْرِبَ' "$CORPUS"
+          grep -Fq 'مِن رَّبِّهِمْ' "$CORPUS"
+          grep -Fq 'إِنَّ' "$CORPUS"
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
