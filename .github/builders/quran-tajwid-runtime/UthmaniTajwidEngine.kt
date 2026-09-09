@@ -1,11 +1,12 @@
 package com.archimedeprojects.arihna.feature.quran
 
 /**
- * Local, offline Tajwid rule matcher for Arihna's Tanzil Uthmani corpus.
+ * Local, offline Tajwid rule matcher for Arihna's pinned Tanzil/Tarteel Uthmani corpus.
  *
  * The rule set is intentionally partial and is surfaced in UI as Beta / main rules.
- * The approach and core rule families are adapted from fcat97/tajweedApi (MIT), but
- * matching here is Uthmani-specific rather than using its IndoPak-only parser directly.
+ * The approach and rule families are adapted from fcat97/tajweedApi (MIT), while this
+ * matcher is specific to the Uthmani encoding used by Arihna instead of the upstream
+ * IndoPak-only parser.
  */
 internal enum class TajwidRule {
     QALQALAH,
@@ -30,7 +31,11 @@ internal data class TajwidSpan(
 internal object UthmaniTajwidEngine {
     private const val SUKUN = '\u0652'
     private const val SMALL_HIGH_DOTLESS_HEAD = '\u06E1'
+    private const val SMALL_HIGH_MEEM = '\u06E2'
+    private const val SMALL_LOW_MEEM = '\u06ED'
     private const val SHADDA = '\u0651'
+
+    private val shortVowels = setOf('\u064E', '\u064F', '\u0650')
     private val tanween = setOf('\u064B', '\u064C', '\u064D')
     private val qalqalahLetters = setOf('ق', 'ط', 'ب', 'ج', 'د')
     private val ikhfaLetters = setOf('ت', 'ث', 'ج', 'د', 'ذ', 'ز', 'س', 'ش', 'ص', 'ض', 'ط', 'ظ', 'ف', 'ق', 'ك')
@@ -54,7 +59,11 @@ internal object UthmaniTajwidEngine {
             val hasSukun = token.marks.any { it == SUKUN || it == SMALL_HIGH_DOTLESS_HEAD }
             val hasShadda = SHADDA in token.marks
             val hasTanween = token.marks.any(tanween::contains)
-            val nunSakin = token.letter == 'ن' && hasSukun
+            val hasMeemMarker = token.marks.any { it == SMALL_HIGH_MEEM || it == SMALL_LOW_MEEM }
+            val bareNuun = token.letter == 'ن' && token.marks.none { mark ->
+                mark in shortVowels || mark in tanween || mark == SHADDA
+            }
+            val nuunSakinCandidate = token.letter == 'ن' && (hasSukun || bareNuun || hasMeemMarker)
 
             if (token.letter in qalqalahLetters && hasSukun) {
                 spans += token.span(TajwidRule.QALQALAH)
@@ -63,7 +72,7 @@ internal object UthmaniTajwidEngine {
                 spans += token.span(TajwidRule.GHUNNAH)
             }
 
-            if (!nunSakin && !hasTanween) return@forEachIndexed
+            if (!nuunSakinCandidate && !hasTanween) return@forEachIndexed
             val next = tokens.getOrNull(index + 1) ?: return@forEachIndexed
             when {
                 next.letter == 'ب' -> spans += token.span(TajwidRule.IQLAB)
