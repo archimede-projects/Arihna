@@ -6,28 +6,31 @@ import org.junit.Test
 
 class UthmaniTajwidEngineTest {
     @Test
-    fun detectsMainRulesOnUthmaniFixtures() {
-        assertRule("يَجْعَلْ", TajwidRule.QALQALAH)
-        assertRule("مِنۡ شَرٍّ", TajwidRule.IKHFA)
-        assertRule("مِنۡ بَعْدِ", TajwidRule.IQLAB)
-        assertRule("مِنۡ وَالٍ", TajwidRule.IDGHAM_WITH_GHUNNAH)
-        assertRule("مِنۡ رَّبِّهِمْ", TajwidRule.IDGHAM_WITHOUT_GHUNNAH)
+    fun detectsMainRulesOnPinnedUthmaniFixtures() {
+        // Exact orthography witnessed in the pinned TarteelAI/quran-assets Uthmani corpus,
+        // including Al-Baqarah 2:25-27 and Al-Falaq 113:2.
+        assertRule("قَبْلُ", TajwidRule.QALQALAH)
+        assertRule("مِن تَحْتِهَا", TajwidRule.IKHFA)
+        assertRule("مِنۢ بَعْدِ", TajwidRule.IQLAB)
+        assertRule("أَن يَضْرِبَ", TajwidRule.IDGHAM_WITH_GHUNNAH)
+        assertRule("مِن رَّبِّهِمْ", TajwidRule.IDGHAM_WITHOUT_GHUNNAH)
         assertRule("إِنَّ", TajwidRule.GHUNNAH)
+        assertRule("مِن شَرِّ", TajwidRule.IKHFA)
     }
 
     @Test
-    fun negativeFixtureDoesNotInventRule() {
-        val spans = UthmaniTajwidEngine.find("مِنۡ أَهْلِ")
+    fun negativeIzharFixtureDoesNotInventRule() {
+        val spans = UthmaniTajwidEngine.find("مِنْهَا")
         assertTrue(spans.isEmpty())
     }
 
     @Test
     fun outputIsDeterministicValidAndNeverMutatesText() {
-        val text = "مِنۡ شَرِّ مَا خَلَقَ"
+        val text = "مِن شَرِّ مَا خَلَقَ"
         val first = UthmaniTajwidEngine.find(text)
         val second = UthmaniTajwidEngine.find(text)
         assertEquals(first, second)
-        assertEquals("مِنۡ شَرِّ مَا خَلَقَ", text)
+        assertEquals("مِن شَرِّ مَا خَلَقَ", text)
         first.forEach { span ->
             assertTrue(span.start >= 0)
             assertTrue(span.endExclusive <= text.length)
@@ -38,7 +41,7 @@ class UthmaniTajwidEngineTest {
 
     @Test
     fun idghamRequiresAWordBoundary() {
-        val spans = UthmaniTajwidEngine.find("دُنۡيَا")
+        val spans = UthmaniTajwidEngine.find("دُنْيَا")
         assertTrue(spans.none { it.rule == TajwidRule.IDGHAM_WITH_GHUNNAH })
     }
 
