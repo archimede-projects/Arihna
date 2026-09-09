@@ -52,6 +52,7 @@ jobs:
           grep -Fq 'أَن يَضْرِبَ' "$CORPUS"
           grep -Fq 'مِن رَّبِّهِمْ' "$CORPUS"
           grep -Fq 'إِنَّ' "$CORPUS"
+          grep -Fq 'مَثَلًۭا مَّا' "$CORPUS"
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
