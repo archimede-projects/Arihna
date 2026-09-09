@@ -73,7 +73,7 @@ internal object UthmaniTajwidEngine {
             }
 
             if (!nuunSakinCandidate && !hasTanween) return@forEachIndexed
-            val next = tokens.getOrNull(index + 1) ?: return@forEachIndexed
+            val next = nextRuleToken(text, tokens, index, hasTanween) ?: return@forEachIndexed
             when {
                 next.letter == 'ب' -> spans += token.span(TajwidRule.IQLAB)
                 next.letter in ikhfaLetters -> spans += token.span(TajwidRule.IKHFA)
@@ -88,6 +88,14 @@ internal object UthmaniTajwidEngine {
             .distinctBy { Triple(it.start, it.endExclusive, it.rule) }
             .sortedWith(compareBy<TajwidSpan> { it.start }.thenBy { it.endExclusive }.thenBy { it.rule.ordinal })
             .also { validate(text, it) }
+    }
+
+    private fun nextRuleToken(text: String, tokens: List<Token>, index: Int, hasTanween: Boolean): Token? {
+        val immediate = tokens.getOrNull(index + 1) ?: return null
+        if (!hasTanween || immediate.letter != 'ا' || hasWordBoundary(text, tokens[index], immediate)) {
+            return immediate
+        }
+        return tokens.getOrNull(index + 2)
     }
 
     private fun Token.span(rule: TajwidRule) = TajwidSpan(start, endExclusive, rule)
