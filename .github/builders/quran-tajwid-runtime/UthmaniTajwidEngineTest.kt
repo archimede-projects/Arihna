@@ -16,6 +16,7 @@ class UthmaniTajwidEngineTest {
         assertRule("مِن رَّبِّهِمْ", TajwidRule.IDGHAM_WITHOUT_GHUNNAH)
         assertRule("إِنَّ", TajwidRule.GHUNNAH)
         assertRule("مِن شَرِّ", TajwidRule.IKHFA)
+        assertRule("مَثَلًۭا مَّا", TajwidRule.IDGHAM_WITH_GHUNNAH)
     }
 
     @Test
