@@ -116,13 +116,13 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
+          import re
+
           p = Path('app/build.gradle.kts')
           s = p.read_text(encoding='utf-8')
-          needle = '''    buildFeatures {
-              compose = true
-              buildConfig = false
-          }
-          '''
+          assert 'signingConfigs {' not in s, 'runtime unexpectedly already contains signing config'
+          match = re.search(r'(?m)^android\s*\{\s*\n', s)
+          assert match is not None, 'android block not found'
           insert = '''    signingConfigs {
               getByName("debug") {
                   storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
@@ -133,9 +133,7 @@ jobs:
           }
 
           '''
-          assert s.count(needle) == 1, 'unexpected android buildFeatures structure'
-          assert 'signingConfigs {' not in s, 'runtime unexpectedly already contains signing config'
-          p.write_text(s.replace(needle, insert + needle, 1), encoding='utf-8')
+          p.write_text(s[:match.end()] + insert + s[match.end():], encoding='utf-8')
           PY
           test "$(git diff --name-only | tr -d '\n')" = 'app/build.gradle.kts'
           grep -Fq 'storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")' app/build.gradle.kts
