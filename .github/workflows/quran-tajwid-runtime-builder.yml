@@ -22,6 +22,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+
       - name: Create and preflight single-commit candidate
         shell: bash
         run: |
@@ -42,6 +51,8 @@ jobs:
           cp /tmp/quran-tajwid-runtime/UthmaniTajwidEngineTest.kt app/src/test/java/com/archimedeprojects/arihna/feature/quran/UthmaniTajwidEngineTest.kt
           cp /tmp/quran-tajwid-runtime/tajweed-api-mit.md docs/third-party/tajweed-api-mit.md
 
+          java -version
+          test "$(java -version 2>&1 | head -n1 | sed -E 's/.*version "([0-9]+).*/\1/')" = '21'
           git diff --check
           ./gradlew --no-daemon :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:assembleDebug --stacktrace
 
