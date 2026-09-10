@@ -41,11 +41,12 @@ jobs:
           RELEASED_RUNTIME='b90473abc2e56111b87901710ae973f0419e345d'
           CANDIDATE_BRANCH='quran-tajwid-mushaf-ui-candidate-1'
           cp .github/builders/quran-tajwid-mushaf-ui/patch.py /tmp/quran-tajwid-mushaf-ui-patch.py
+          cp .github/builders/quran-tajwid-mushaf-ui/run_patch.py /tmp/quran-tajwid-mushaf-ui-run-patch.py
           git fetch origin main
           test "$(git rev-parse origin/main)" = "$RELEASED_RUNTIME"
           git checkout --detach "$SPEC"
 
-          python3 /tmp/quran-tajwid-mushaf-ui-patch.py
+          python3 -u /tmp/quran-tajwid-mushaf-ui-run-patch.py
           git diff --check
 
           CHANGED="$(git diff --name-only | sort)"
@@ -53,19 +54,26 @@ jobs:
             app/src/androidTest/java/com/archimedeprojects/arihna/feature/quran/QuranFullscreenAndroidTest.kt \
             app/src/main/java/com/archimedeprojects/arihna/feature/quran/MushafRepository.kt \
             app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt | sort)"
+          echo "CHANGED_FILES=$CHANGED"
           test "$CHANGED" = "$EXPECTED"
           ! echo "$CHANGED" | grep -Ei 'prayer|location|qibla|alarm|home'
 
-          grep -Fq 'fun hafsPageStarts(context: Context): List<Pair<Int, Int>>' app/src/main/java/com/archimedeprojects/arihna/feature/quran/MushafRepository.kt
-          grep -Fq 'require(starts.size == 604)' app/src/main/java/com/archimedeprojects/arihna/feature/quran/MushafRepository.kt
-          grep -Fq 'quran-mode-tabs' app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt
-          grep -Fq 'quran-tajwid-rtl-pager' app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt
-          grep -Fq 'quran-tajwid-page-surface' app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt
-          grep -Fq 'append("\\u00A0")' app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt
-          grep -Fq 'append("۝${toArabicIndic(ayah.ayah)}")' app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt
-          ! grep -Fq 'private fun TajwidAyahCard' app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt
-          grep -Fq 'WindowInsets.displayCutout.union(WindowInsets.statusBars)' app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt
-          grep -Fq 'Colorazione tajwid · Beta / regole principali' app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt
+          R=app/src/main/java/com/archimedeprojects/arihna/feature/quran/MushafRepository.kt
+          Q=app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt
+          grep -Fq 'fun hafsPageStarts(context: Context): List<Pair<Int, Int>>' "$R"
+          grep -Fq 'require(starts.size == 604)' "$R"
+          grep -Fq 'quran-mode-tabs' "$Q"
+          grep -Fq 'quran-tajwid-rtl-pager' "$Q"
+          grep -Fq 'quran-tajwid-page-surface' "$Q"
+          python3 - <<'PY'
+          from pathlib import Path
+          q=Path('app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt').read_text(encoding='utf-8')
+          assert 'append("\\u00A0")' in q
+          assert 'append("۝${toArabicIndic(ayah.ayah)}")' in q
+          assert 'private fun TajwidAyahCard' not in q
+          PY
+          grep -Fq 'WindowInsets.displayCutout.union(WindowInsets.statusBars)' "$Q"
+          grep -Fq 'Colorazione tajwid · Beta / regole principali' "$Q"
 
           ./gradlew --no-daemon :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:assembleDebug --stacktrace
 
