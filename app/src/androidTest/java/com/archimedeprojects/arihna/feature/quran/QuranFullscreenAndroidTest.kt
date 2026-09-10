@@ -214,21 +214,38 @@ class QuranFullscreenAndroidTest {
 
 
     @Test
-    fun tajwidBetaIsClearlyLabeledAndUsesSeparateSurahBookmarks() {
+    fun tajwidBetaUsesAuthoritativePagePagerInlineLayoutAndSeparatePageBookmarks() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         QuranReadingPrefs.setMode(context, QuranReadingMode.HAFS_TAJWID)
-        QuranReadingPrefs.recordVisitedTajwidSurah(context, 1)
-        QuranReadingPrefs.setTajwidSurahBookmarked(context, 1, false)
-        QuranReadingPrefs.setBookmarked(context, QuranRiwaya.HAFS, 0, false)
+        QuranReadingPrefs.recordVisitedTajwidPage(context, 1)
+        QuranReadingPrefs.setTajwidPageBookmarked(context, 1, false)
+        QuranReadingPrefs.setBookmarked(context, QuranRiwaya.HAFS, 1, false)
+
+        val starts = MushafRepository.hafsPageStarts(context)
+        assertEquals(604, starts.size)
+        assertEquals(1 to 1, starts[0])
+        assertEquals(2 to 1, starts[1])
+        assertEquals(1, MushafRepository.hafsPageIndexForAyah(context, 2, 1))
 
         composeRule.setContent { QuranPlaceholderScreen(PaddingValues(0.dp)) }
         waitForExists("quran-tajwid-beta-reader")
+        waitForExists("quran-tajwid-rtl-pager")
+        waitForExists("quran-tajwid-page-2")
+        composeRule.onNodeWithTag("quran-tajwid-page-context").assertIsDisplayed()
         composeRule.onNodeWithTag("quran-tajwid-beta-disclaimer").assertIsDisplayed()
-        composeRule.onNodeWithTag("quran-tajwid-legend").assertIsDisplayed()
+        composeRule.onNodeWithTag("quran-tajwid-page-surface").assertIsDisplayed()
+        composeRule.onNodeWithTag("quran-mode-tabs").assertIsDisplayed()
+        listOf("quran-mode-hafs", "quran-mode-tajwid", "quran-mode-warsh", "quran-mode-easy").forEach { tag ->
+            composeRule.onNodeWithTag(tag).assertIsDisplayed()
+        }
+        assertEquals(0, composeRule.onAllNodesWithTag("quran-tajwid-ayah-2-1").fetchSemanticsNodes().size)
+
+        composeRule.onNodeWithTag("quran-tajwid-legend-toggle").performClick()
+        waitForExists("quran-tajwid-legend")
         composeRule.onNodeWithTag("quran-tajwid-bookmark").performClick()
         composeRule.runOnIdle {
-            assertTrue(QuranReadingPrefs.isTajwidSurahBookmarked(context, 1))
-            assertFalse(QuranReadingPrefs.isBookmarked(context, QuranRiwaya.HAFS, 0))
+            assertTrue(QuranReadingPrefs.isTajwidPageBookmarked(context, 1))
+            assertFalse(QuranReadingPrefs.isBookmarked(context, QuranRiwaya.HAFS, 1))
         }
     }
 
@@ -236,7 +253,7 @@ class QuranFullscreenAndroidTest {
     fun tajwidFullscreenIsImmersiveAndKeepsZoomControls() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         QuranReadingPrefs.setMode(context, QuranReadingMode.HAFS_TAJWID)
-        QuranReadingPrefs.recordVisitedTajwidSurah(context, 1)
+        QuranReadingPrefs.recordVisitedTajwidPage(context, 1)
         var immersive = false
         composeRule.setContent {
             QuranPlaceholderScreen(
@@ -255,4 +272,13 @@ class QuranFullscreenAndroidTest {
         waitForMissing("quran-tajwid-fullscreen-reader")
         composeRule.runOnIdle { assertFalse(immersive) }
     }
+
+    @Test
+    fun tajwidAyahMarkerIsInlineWithTheAnnotatedAyahText() {
+        val ayah = QuranAyah(2, 1, "الم")
+        val decorated = buildTajwidAnnotatedPageText(listOf(ayah))
+        assertTrue(decorated.text.contains(ayah.text + " ۝١"))
+        assertTrue(decorated.text.startsWith(ayah.text))
+    }
+
 }
