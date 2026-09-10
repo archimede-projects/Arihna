@@ -103,5 +103,5 @@ jobs:
           test "$(git rev-list --count "$SPEC..HEAD")" -eq 1
           test "$(git diff --name-only "$SPEC..HEAD" | wc -l)" -eq 6
           git diff-tree --no-commit-id --name-only -r HEAD | sort
-          git push origin HEAD:"$CANDIDATE_BRANCH"
+          git push origin HEAD:"refs/heads/$CANDIDATE_BRANCH"
           echo "CANDIDATE_SHA=$CANDIDATE_SHA"
