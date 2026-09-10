@@ -6,6 +6,8 @@ import android.content.ContextWrapper
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
@@ -86,6 +88,8 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -109,10 +113,10 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import kotlinx.coroutines.launch
 
-enum class QuranReadingMode { EASY, HAFS_UTHMANI, WARSH_NAFI }
+enum class QuranReadingMode { EASY, HAFS_UTHMANI, HAFS_TAJWID, WARSH_NAFI }
 
 internal fun QuranReadingMode.riwayaOrNull(): QuranRiwaya? = when (this) {
-    QuranReadingMode.HAFS_UTHMANI -> QuranRiwaya.HAFS
+    QuranReadingMode.HAFS_UTHMANI, QuranReadingMode.HAFS_TAJWID -> QuranRiwaya.HAFS
     QuranReadingMode.WARSH_NAFI -> QuranRiwaya.WARSH
     QuranReadingMode.EASY -> null
 }
@@ -138,9 +142,19 @@ fun QuranPlaceholderScreen(
         MushafRepository.surahs(context.applicationContext, activeRiwaya)
     }
     var visualStyle by remember { mutableStateOf(QuranReadingPrefs.visualStyle(context)) }
-    var selectedSurah by remember { mutableIntStateOf(1) }
+    var selectedSurah by remember {
+        mutableIntStateOf(
+            if (mode == QuranReadingMode.HAFS_TAJWID) QuranReadingPrefs.lastTajwidSurah(context) else 1,
+        )
+    }
     var requestedPage by remember {
-        mutableIntStateOf(QuranReadingPrefs.lastPage(context, activeRiwaya))
+        mutableIntStateOf(
+            if (mode == QuranReadingMode.HAFS_TAJWID) {
+                surahs.firstOrNull { it.number == selectedSurah }?.pageNumber?.minus(1)?.coerceIn(0, 603) ?: 0
+            } else {
+                QuranReadingPrefs.lastPage(context, activeRiwaya)
+            },
+        )
     }
     var explorerOpen by remember { mutableStateOf(false) }
     var fullscreenOpen by remember { mutableStateOf(false) }
@@ -161,16 +175,24 @@ fun QuranPlaceholderScreen(
     }
 
     if (fullscreenOpen) {
-        FullscreenMushafReader(
-            startPage = requestedPage,
-            style = visualStyle,
-            riwaya = activeRiwaya,
-            onDismiss = { fullscreenOpen = false },
-            onPageChanged = { pageIndex ->
-                requestedPage = pageIndex
-                MushafRepository.surahForPage(context, activeRiwaya, pageIndex)?.let { selectedSurah = it.number }
-            },
-        )
+        if (mode == QuranReadingMode.HAFS_TAJWID) {
+            FullscreenTajwidReader(
+                corpus = corpus,
+                selectedSurah = selectedSurah,
+                onDismiss = { fullscreenOpen = false },
+            )
+        } else {
+            FullscreenMushafReader(
+                startPage = requestedPage,
+                style = visualStyle,
+                riwaya = activeRiwaya,
+                onDismiss = { fullscreenOpen = false },
+                onPageChanged = { pageIndex ->
+                    requestedPage = pageIndex
+                    MushafRepository.surahForPage(context, activeRiwaya, pageIndex)?.let { selectedSurah = it.number }
+                },
+            )
+        }
         return
     }
 
@@ -187,9 +209,19 @@ fun QuranPlaceholderScreen(
             surah = surahs.lastOrNull { it.pageNumber <= requestedPage + 1 },
             explorerOpen = explorerOpen,
             onModeChange = { selected ->
-                selected.riwayaOrNull()?.let { riwaya ->
-                    requestedPage = QuranReadingPrefs.lastPage(context, riwaya)
-                    selectedSurah = MushafRepository.surahForPage(context, riwaya, requestedPage)?.number ?: 1
+                if (selected == QuranReadingMode.HAFS_TAJWID) {
+                    selectedSurah = QuranReadingPrefs.lastTajwidSurah(context)
+                    requestedPage = MushafRepository.surahs(context, QuranRiwaya.HAFS)
+                        .firstOrNull { it.number == selectedSurah }
+                        ?.pageNumber
+                        ?.minus(1)
+                        ?.coerceIn(0, 603)
+                        ?: 0
+                } else {
+                    selected.riwayaOrNull()?.let { riwaya ->
+                        requestedPage = QuranReadingPrefs.lastPage(context, riwaya)
+                        selectedSurah = MushafRepository.surahForPage(context, riwaya, requestedPage)?.number ?: 1
+                    }
                 }
                 mode = selected
                 QuranReadingPrefs.setMode(context, selected)
@@ -203,11 +235,26 @@ fun QuranPlaceholderScreen(
                 surahs = surahs,
                 currentPage = requestedPage,
                 riwaya = activeRiwaya,
+                tajwidMode = mode == QuranReadingMode.HAFS_TAJWID,
                 onSelectPage = { pageIndex, surahNumber ->
                     requestedPage = pageIndex.coerceIn(0, 603)
-                    if (surahNumber != null) selectedSurah = surahNumber
+                    selectedSurah = if (mode == QuranReadingMode.HAFS_TAJWID) {
+                        surahNumber
+                            ?: MushafRepository.surahForPage(context, QuranRiwaya.HAFS, requestedPage)?.number
+                            ?: selectedSurah
+                    } else {
+                        surahNumber ?: selectedSurah
+                    }
                     explorerOpen = false
                 },
+                modifier = Modifier.weight(1f),
+            )
+        } else if (mode == QuranReadingMode.HAFS_TAJWID) {
+            TajwidQuranReader(
+                corpus = corpus,
+                selectedSurah = selectedSurah,
+                onOpenExplorer = { explorerOpen = true },
+                onOpenFullscreen = { fullscreenOpen = true },
                 modifier = Modifier.weight(1f),
             )
         } else if (mode == QuranReadingMode.HAFS_UTHMANI || mode == QuranReadingMode.WARSH_NAFI) {
@@ -235,7 +282,7 @@ fun QuranPlaceholderScreen(
             )
         }
 
-        QuranAttribution(mode.riwayaOrNull())
+        QuranAttribution(mode)
     }
 }
 
@@ -296,13 +343,23 @@ private fun QuranReaderHeader(
                 }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 FilterChip(
                     selected = mode == QuranReadingMode.HAFS_UTHMANI,
                     onClick = { onModeChange(QuranReadingMode.HAFS_UTHMANI) },
                     label = { Text(appText("Muṣḥaf Ḥafṣ", "مصحف حفص")) },
                     leadingIcon = { Icon(Icons.Rounded.AutoStories, null, Modifier.size(17.dp)) },
                     modifier = Modifier.testTag("quran-mode-hafs"),
+                )
+                FilterChip(
+                    selected = mode == QuranReadingMode.HAFS_TAJWID,
+                    onClick = { onModeChange(QuranReadingMode.HAFS_TAJWID) },
+                    label = { Text(appText("Ḥafṣ Tajwid · Beta", "حفص تجويد · تجريبي")) },
+                    leadingIcon = { Icon(Icons.Rounded.AutoStories, null, Modifier.size(17.dp)) },
+                    modifier = Modifier.testTag("quran-mode-tajwid"),
                 )
                 FilterChip(
                     selected = mode == QuranReadingMode.WARSH_NAFI,
@@ -792,6 +849,7 @@ private fun QuranExplorer(
     surahs: List<MushafSurah>,
     currentPage: Int,
     riwaya: QuranRiwaya,
+    tajwidMode: Boolean,
     onSelectPage: (Int, Int?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -799,8 +857,14 @@ private fun QuranExplorer(
     var query by remember { mutableStateOf("") }
     var view by remember { mutableStateOf(QuranExplorerView.SURAHS) }
     var bookmarkVersion by remember { mutableIntStateOf(0) }
-    val bookmarked = remember(bookmarkVersion, currentPage, riwaya) { QuranReadingPrefs.bookmarkedPages(context, riwaya) }
-    val recent = remember(currentPage, riwaya) { QuranReadingPrefs.recentPages(context, riwaya) }
+    val bookmarked = remember(bookmarkVersion, currentPage, riwaya, tajwidMode) {
+        if (tajwidMode) QuranReadingPrefs.tajwidBookmarkedSurahs(context).toList()
+        else QuranReadingPrefs.bookmarkedPages(context, riwaya)
+    }
+    val recent = remember(currentPage, riwaya, tajwidMode) {
+        if (tajwidMode) QuranReadingPrefs.recentTajwidSurahs(context)
+        else QuranReadingPrefs.recentPages(context, riwaya)
+    }
     val supportsBoundaries = riwaya == QuranRiwaya.HAFS
     val juzPages = remember(context, riwaya) { MushafRepository.juzStartPages(context, riwaya) }
     val hizbPages = remember(context, riwaya) { MushafRepository.hizbStartPages(context, riwaya) }
@@ -887,10 +951,18 @@ private fun QuranExplorer(
                 QuranExplorerView.SURAHS -> items(filteredSurahs, key = { it.number }) { surah ->
                     SurahRow(
                         surah = surah,
-                        bookmarked = (surah.pageNumber - 1) in bookmarked,
+                        bookmarked = if (tajwidMode) surah.number in bookmarked else (surah.pageNumber - 1) in bookmarked,
                         onBookmark = {
-                            val page = (surah.pageNumber - 1).coerceIn(0, 603)
-                            QuranReadingPrefs.setBookmarked(context, riwaya, page, page !in bookmarked)
+                            if (tajwidMode) {
+                                QuranReadingPrefs.setTajwidSurahBookmarked(
+                                    context,
+                                    surah.number,
+                                    surah.number !in bookmarked,
+                                )
+                            } else {
+                                val page = (surah.pageNumber - 1).coerceIn(0, 603)
+                                QuranReadingPrefs.setBookmarked(context, riwaya, page, page !in bookmarked)
+                            }
                             bookmarkVersion++
                         },
                         onClick = { onSelectPage(surah.pageNumber - 1, surah.number) },
@@ -912,11 +984,51 @@ private fun QuranExplorer(
                         onClick = { onSelectPage(hizbPages[index], null) },
                     )
                 }
-                QuranExplorerView.BOOKMARKS -> items(bookmarked.sorted(), key = { it }) { page ->
-                    SavedPageRow(page = page, riwaya = riwaya, onClick = { onSelectPage(page, null) })
+                QuranExplorerView.BOOKMARKS -> {
+                    if (tajwidMode) {
+                        items(bookmarked.sorted(), key = { "tajwid-bookmark-$it" }) { surahNumber ->
+                            surahs.firstOrNull { it.number == surahNumber }?.let { surah ->
+                                SurahRow(
+                                    surah = surah,
+                                    bookmarked = true,
+                                    onBookmark = {
+                                        QuranReadingPrefs.setTajwidSurahBookmarked(context, surah.number, false)
+                                        bookmarkVersion++
+                                    },
+                                    onClick = { onSelectPage(surah.pageNumber - 1, surah.number) },
+                                )
+                            }
+                        }
+                    } else {
+                        items(bookmarked.sorted(), key = { it }) { page ->
+                            SavedPageRow(page = page, riwaya = riwaya, onClick = { onSelectPage(page, null) })
+                        }
+                    }
                 }
-                QuranExplorerView.RECENT -> items(recent, key = { it }) { page ->
-                    SavedPageRow(page = page, riwaya = riwaya, onClick = { onSelectPage(page, null) })
+                QuranExplorerView.RECENT -> {
+                    if (tajwidMode) {
+                        items(recent, key = { "tajwid-recent-$it" }) { surahNumber ->
+                            surahs.firstOrNull { it.number == surahNumber }?.let { surah ->
+                                SurahRow(
+                                    surah = surah,
+                                    bookmarked = surah.number in bookmarked,
+                                    onBookmark = {
+                                        QuranReadingPrefs.setTajwidSurahBookmarked(
+                                            context,
+                                            surah.number,
+                                            surah.number !in bookmarked,
+                                        )
+                                        bookmarkVersion++
+                                    },
+                                    onClick = { onSelectPage(surah.pageNumber - 1, surah.number) },
+                                )
+                            }
+                        }
+                    } else {
+                        items(recent, key = { it }) { page ->
+                            SavedPageRow(page = page, riwaya = riwaya, onClick = { onSelectPage(page, null) })
+                        }
+                    }
                 }
             }
         }
@@ -1072,6 +1184,314 @@ private fun SavedPageRow(page: Int, riwaya: QuranRiwaya, onClick: () -> Unit) {
 }
 
 @Composable
+private fun TajwidQuranReader(
+    corpus: QuranCorpus,
+    selectedSurah: Int,
+    onOpenExplorer: () -> Unit,
+    onOpenFullscreen: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val ayahs = remember(corpus, selectedSurah) { corpus.ayahsForSurah(selectedSurah) }
+    var bookmarkVersion by remember { mutableIntStateOf(0) }
+    var fontScale by remember { mutableFloatStateOf(1f) }
+    val bookmarked = remember(selectedSurah, bookmarkVersion) {
+        QuranReadingPrefs.isTajwidSurahBookmarked(context, selectedSurah)
+    }
+
+    LaunchedEffect(selectedSurah) {
+        QuranReadingPrefs.recordVisitedTajwidSurah(context, selectedSurah)
+    }
+
+    Column(
+        modifier = modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp).testTag("quran-tajwid-beta-reader"),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Surface(
+            color = ArihnaCream,
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, ArihnaDawnGold.copy(alpha = 0.55f)),
+            modifier = Modifier.fillMaxWidth().testTag("quran-tajwid-beta-disclaimer"),
+        ) {
+            Text(
+                appText(
+                    "Colorazione tajwid · Beta / regole principali. Generata localmente: può non coprire tutte le regole del Mushaf Tajwid tradizionale.",
+                    "تلوين التجويد · تجريبي / القواعد الرئيسية. يُولَّد محليًا وقد لا يشمل جميع قواعد مصحف التجويد التقليدي.",
+                ),
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                color = ArihnaMutedText,
+                fontSize = 10.sp,
+                lineHeight = 15.sp,
+            )
+        }
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    appText("Sura $selectedSurah · Tajwid Beta", "سورة ${toArabicIndic(selectedSurah)} · تجويد تجريبي"),
+                    color = ArihnaForest,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 17.sp,
+                )
+                TextButton(onClick = onOpenExplorer, modifier = Modifier.testTag("quran-tajwid-index")) {
+                    Text(appText("Cambia sura / indice", "تغيير السورة / الفهرس"), fontSize = 10.sp)
+                }
+            }
+            TextButton(
+                onClick = { fontScale = (fontScale - 0.1f).coerceAtLeast(0.8f) },
+                modifier = Modifier.testTag("quran-tajwid-zoom-out"),
+            ) { Text("A−", fontWeight = FontWeight.Bold) }
+            TextButton(
+                onClick = { fontScale = (fontScale + 0.1f).coerceAtMost(1.8f) },
+                modifier = Modifier.testTag("quran-tajwid-zoom-in"),
+            ) { Text("A+", fontWeight = FontWeight.Bold) }
+            TextButton(
+                onClick = onOpenFullscreen,
+                modifier = Modifier.testTag("quran-tajwid-fullscreen"),
+            ) {
+                Icon(Icons.Rounded.Fullscreen, null, Modifier.size(19.dp))
+                Spacer(Modifier.width(3.dp))
+                Text(appText("Lettura", "قراءة"), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            }
+            IconButton(
+                onClick = {
+                    QuranReadingPrefs.setTajwidSurahBookmarked(context, selectedSurah, !bookmarked)
+                    bookmarkVersion++
+                },
+                modifier = Modifier.size(52.dp).testTag("quran-tajwid-bookmark"),
+            ) {
+                Icon(
+                    if (bookmarked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
+                    contentDescription = appText("Segnalibro Tajwid", "إشارة تجويد مرجعية"),
+                    tint = if (bookmarked) ArihnaDawnGold else ArihnaGreen,
+                )
+            }
+        }
+
+        TajwidLegend()
+
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().weight(1f).testTag("quran-tajwid-ayah-list"),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(ayahs, key = { "tajwid-${it.surah}:${it.ayah}" }) { ayah ->
+                    TajwidAyahCard(ayah = ayah, corpus = corpus, fontScale = fontScale)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FullscreenTajwidReader(
+    corpus: QuranCorpus,
+    selectedSurah: Int,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    val ayahs = remember(corpus, selectedSurah) { corpus.ayahsForSurah(selectedSurah) }
+    var fontScale by remember { mutableFloatStateOf(1.15f) }
+    var bookmarkVersion by remember { mutableIntStateOf(0) }
+    val bookmarked = remember(selectedSurah, bookmarkVersion) {
+        QuranReadingPrefs.isTajwidSurahBookmarked(context, selectedSurah)
+    }
+
+    BackHandler(onBack = onDismiss)
+    LaunchedEffect(selectedSurah) { QuranReadingPrefs.recordVisitedTajwidSurah(context, selectedSurah) }
+
+    Surface(
+        modifier = Modifier.fillMaxSize().testTag("quran-tajwid-fullscreen-reader"),
+        color = Color(0xFFFFFCF3),
+    ) {
+        Column(Modifier.fillMaxSize()) {
+            Surface(
+                color = ArihnaCream.copy(alpha = 0.97f),
+                border = BorderStroke(1.dp, ArihnaWarmOutline),
+                shadowElevation = 3.dp,
+                modifier = Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.displayCutout.union(WindowInsets.statusBars)),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(52.dp).testTag("quran-tajwid-fullscreen-close")) {
+                        Icon(Icons.Rounded.Close, appText("Chiudi", "إغلاق"), tint = ArihnaForest)
+                    }
+                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            appText("Ḥafṣ Tajwid · Beta", "حفص تجويد · تجريبي"),
+                            color = ArihnaForest,
+                            fontWeight = FontWeight.ExtraBold,
+                        )
+                        Text(
+                            appText("Regole principali · Sura $selectedSurah", "القواعد الرئيسية · سورة ${toArabicIndic(selectedSurah)}"),
+                            color = ArihnaMutedText,
+                            fontSize = 9.sp,
+                        )
+                    }
+                    TextButton(
+                        onClick = { fontScale = (fontScale - 0.1f).coerceAtLeast(0.8f) },
+                        modifier = Modifier.testTag("quran-tajwid-fullscreen-zoom-out"),
+                    ) { Text("A−") }
+                    TextButton(
+                        onClick = { fontScale = (fontScale + 0.1f).coerceAtMost(2.2f) },
+                        modifier = Modifier.testTag("quran-tajwid-fullscreen-zoom-in"),
+                    ) { Text("A+") }
+                    IconButton(
+                        onClick = {
+                            QuranReadingPrefs.setTajwidSurahBookmarked(context, selectedSurah, !bookmarked)
+                            bookmarkVersion++
+                        },
+                        modifier = Modifier.size(52.dp).testTag("quran-tajwid-fullscreen-bookmark"),
+                    ) {
+                        Icon(
+                            if (bookmarked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
+                            appText("Segnalibro", "إشارة مرجعية"),
+                            tint = if (bookmarked) ArihnaDawnGold else ArihnaGreen,
+                        )
+                    }
+                }
+            }
+
+            Text(
+                appText(
+                    "Beta: colorazione algoritmica delle regole principali, non Mushaf Tajwid completo.",
+                    "تجريبي: تلوين خوارزمي للقواعد الرئيسية، وليس مصحف تجويد كاملًا.",
+                ),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 7.dp).testTag("quran-tajwid-fullscreen-disclaimer"),
+                textAlign = TextAlign.Center,
+                color = ArihnaMutedText,
+                fontSize = 9.sp,
+            )
+
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .pointerInput(selectedSurah) {
+                            awaitEachGesture {
+                                awaitFirstDown(requireUnconsumed = false)
+                                do {
+                                    val event = awaitPointerEvent()
+                                    if (event.changes.count { it.pressed } >= 2) {
+                                        fontScale = (fontScale * event.calculateZoom()).coerceIn(0.8f, 2.2f)
+                                        event.changes.forEach { it.consume() }
+                                    }
+                                } while (event.changes.any { it.pressed })
+                            }
+                        }
+                        .padding(horizontal = 12.dp)
+                        .testTag("quran-tajwid-fullscreen-content"),
+                    verticalArrangement = Arrangement.spacedBy(9.dp),
+                ) {
+                    items(ayahs, key = { "tajwid-full-${it.surah}:${it.ayah}" }) { ayah ->
+                        TajwidAyahCard(ayah = ayah, corpus = corpus, fontScale = fontScale)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TajwidLegend() {
+    Row(
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).testTag("quran-tajwid-legend"),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        TajwidRule.entries.forEach { rule ->
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = ArihnaCream,
+                border = BorderStroke(1.dp, tajwidColor(rule).copy(alpha = 0.65f)),
+            ) {
+                Text(
+                    tajwidRuleLabel(rule),
+                    color = tajwidColor(rule),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 9.sp,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TajwidAyahCard(ayah: QuranAyah, corpus: QuranCorpus, fontScale: Float) {
+    val spans = remember(ayah.text) { UthmaniTajwidEngine.find(ayah.text) }
+    val decorated = remember(ayah.text, spans) {
+        buildAnnotatedString {
+            append(ayah.text)
+            spans.forEach { span ->
+                addStyle(SpanStyle(color = tajwidColor(span.rule)), span.start, span.endExclusive)
+            }
+        }
+    }
+    val juz = corpus.juzAt(ayah.surah, ayah.ayah)
+    val hizb = corpus.hizbAt(ayah.surah, ayah.ayah)
+    Card(
+        modifier = Modifier.fillMaxWidth().testTag("quran-tajwid-ayah-${ayah.surah}-${ayah.ayah}"),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = ArihnaCream),
+        border = BorderStroke(1.dp, ArihnaWarmOutline),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
+            val markerParts = mutableListOf<String>()
+            if (juz != null) markerParts += appText("Juz $juz", "الجزء ${toArabicIndic(juz)}")
+            if (hizb != null) markerParts += appText("Hizb $hizb", "الحزب ${toArabicIndic(hizb)}")
+            if (markerParts.isNotEmpty()) {
+                Text(
+                    markerParts.joinToString("  •  "),
+                    color = ArihnaDawnGold,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            Text(
+                text = decorated,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.End,
+                fontSize = (29f * fontScale).sp,
+                lineHeight = (47f * fontScale).sp,
+                color = ArihnaInk,
+                fontWeight = FontWeight.Medium,
+            )
+            Text(
+                text = "﴿${toArabicIndic(ayah.ayah)}﴾",
+                color = ArihnaDawnGold,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.End),
+            )
+        }
+    }
+}
+
+private fun tajwidColor(rule: TajwidRule): Color = when (rule) {
+    TajwidRule.QALQALAH -> Color(0xFFC62828)
+    TajwidRule.IKHFA -> Color(0xFF7B1FA2)
+    TajwidRule.IQLAB -> Color(0xFF1565C0)
+    TajwidRule.IDGHAM_WITH_GHUNNAH -> Color(0xFF00897B)
+    TajwidRule.IDGHAM_WITHOUT_GHUNNAH -> Color(0xFF6D4C41)
+    TajwidRule.GHUNNAH -> Color(0xFFE65100)
+}
+
+@Composable
+private fun tajwidRuleLabel(rule: TajwidRule): String = when (rule) {
+    TajwidRule.QALQALAH -> appText("Qalqalah", "قلقلة")
+    TajwidRule.IKHFA -> appText("Ikhfāʾ", "إخفاء")
+    TajwidRule.IQLAB -> appText("Iqlāb", "إقلاب")
+    TajwidRule.IDGHAM_WITH_GHUNNAH -> appText("Idghām + ghunnah", "إدغام بغنة")
+    TajwidRule.IDGHAM_WITHOUT_GHUNNAH -> appText("Idghām", "إدغام بلا غنة")
+    TajwidRule.GHUNNAH -> appText("Ghunnah", "غنة")
+}
+
+@Composable
 private fun EasyQuranReader(
     corpus: QuranCorpus,
     selectedSurah: Int,
@@ -1148,18 +1568,22 @@ private fun QuranAyahCard(ayah: QuranAyah, corpus: QuranCorpus) {
 }
 
 @Composable
-private fun QuranAttribution(riwaya: QuranRiwaya?) {
+private fun QuranAttribution(mode: QuranReadingMode) {
     HorizontalDivider(color = ArihnaWarmOutline.copy(alpha = 0.65f))
-    val credit = when (riwaya) {
-        QuranRiwaya.WARSH -> appText(
+    val credit = when (mode) {
+        QuranReadingMode.WARSH_NAFI -> appText(
             "Warsh: pagine King Fahd Complex (uso digitale/app consentito; no stampa commerciale) · metadati Quranpedia CC0 · offline",
             "ورش: صفحات مجمع الملك فهد للاستخدام الرقمي والتطبيقي · بيانات Quranpedia CC0 · دون اتصال",
         )
-        QuranRiwaya.HAFS -> appText(
+        QuranReadingMode.HAFS_UTHMANI -> appText(
             "Testo: Tanzil/Tarteel CC BY 3.0 · pagine Ḥafṣ: batoulapps/quran-svg MIT · tutto offline",
             "النص: تنزيل/ترتيل CC BY 3.0 · صفحات حفص: batoulapps/quran-svg MIT · دون اتصال",
         )
-        null -> appText(
+        QuranReadingMode.HAFS_TAJWID -> appText(
+            "Testo Uthmani: Tanzil/Tarteel CC BY 3.0 · colorazione locale beta, logica adattata da fcat97/tajweedApi MIT · QCF V4 non incluso",
+            "النص العثماني: تنزيل/ترتيل CC BY 3.0 · تلوين محلي تجريبي بمنطق مقتبس من fcat97/tajweedApi MIT · QCF V4 غير مضمن",
+        )
+        QuranReadingMode.EASY -> appText(
             "Testo: Tanzil/Tarteel CC BY 3.0 · tutto offline",
             "النص: تنزيل/ترتيل CC BY 3.0 · يعمل دون اتصال",
         )

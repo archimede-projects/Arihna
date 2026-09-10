@@ -164,6 +164,9 @@ internal object QuranReadingPrefs {
     private const val KEY_BOOKMARKS_PREFIX = "mushaf_bookmarks_v2_"
     private const val KEY_LAST_PAGE_PREFIX = "last_mushaf_page_v2_"
     private const val KEY_RECENT_PREFIX = "recent_mushaf_pages_v2_"
+    private const val KEY_TAJWID_BOOKMARKS = "tajwid_bookmarked_surahs_v1"
+    private const val KEY_TAJWID_LAST_SURAH = "tajwid_last_surah_v1"
+    private const val KEY_TAJWID_RECENT = "tajwid_recent_surahs_v1"
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     private fun suffix(riwaya: QuranRiwaya) = riwaya.name.lowercase()
@@ -223,6 +226,44 @@ internal object QuranReadingPrefs {
             else -> ""
         }.orEmpty()
         return raw.split(',').mapNotNull { it.toIntOrNull() }.filter { it in 0..603 }.distinct()
+    }
+
+    fun tajwidBookmarkedSurahs(context: Context): Set<Int> =
+        prefs(context).getStringSet(KEY_TAJWID_BOOKMARKS, emptySet()).orEmpty()
+            .mapNotNull { it.toIntOrNull() }
+            .filter { it in 1..114 }
+            .toSet()
+
+    fun isTajwidSurahBookmarked(context: Context, surah: Int): Boolean =
+        surah.coerceIn(1, 114) in tajwidBookmarkedSurahs(context)
+
+    fun setTajwidSurahBookmarked(context: Context, surah: Int, bookmarked: Boolean) {
+        val safe = surah.coerceIn(1, 114)
+        val set = tajwidBookmarkedSurahs(context).map(Int::toString).toMutableSet()
+        if (bookmarked) set += safe.toString() else set -= safe.toString()
+        prefs(context).edit().putStringSet(KEY_TAJWID_BOOKMARKS, set).apply()
+    }
+
+    fun lastTajwidSurah(context: Context): Int =
+        prefs(context).getInt(KEY_TAJWID_LAST_SURAH, 1).coerceIn(1, 114)
+
+    fun recentTajwidSurahs(context: Context): List<Int> =
+        prefs(context).getString(KEY_TAJWID_RECENT, "").orEmpty()
+            .split(',')
+            .mapNotNull { it.toIntOrNull() }
+            .filter { it in 1..114 }
+            .distinct()
+
+    fun recordVisitedTajwidSurah(context: Context, surah: Int) {
+        val safe = surah.coerceIn(1, 114)
+        val recent = recentTajwidSurahs(context).toMutableList().apply {
+            remove(safe)
+            add(0, safe)
+        }.take(8)
+        prefs(context).edit()
+            .putInt(KEY_TAJWID_LAST_SURAH, safe)
+            .putString(KEY_TAJWID_RECENT, recent.joinToString(","))
+            .apply()
     }
 
     fun mode(context: Context): QuranReadingMode = runCatching {

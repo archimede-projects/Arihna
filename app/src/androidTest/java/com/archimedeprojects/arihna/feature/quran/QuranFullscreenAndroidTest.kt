@@ -211,4 +211,48 @@ class QuranFullscreenAndroidTest {
             .performSemanticsAction(SemanticsActions.OnClick)
         waitForExists("quran-fullscreen-chrome")
     }
+
+
+    @Test
+    fun tajwidBetaIsClearlyLabeledAndUsesSeparateSurahBookmarks() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        QuranReadingPrefs.setMode(context, QuranReadingMode.HAFS_TAJWID)
+        QuranReadingPrefs.recordVisitedTajwidSurah(context, 1)
+        QuranReadingPrefs.setTajwidSurahBookmarked(context, 1, false)
+        QuranReadingPrefs.setBookmarked(context, QuranRiwaya.HAFS, 0, false)
+
+        composeRule.setContent { QuranPlaceholderScreen(PaddingValues(0.dp)) }
+        waitForExists("quran-tajwid-beta-reader")
+        composeRule.onNodeWithTag("quran-tajwid-beta-disclaimer").assertIsDisplayed()
+        composeRule.onNodeWithTag("quran-tajwid-legend").assertIsDisplayed()
+        composeRule.onNodeWithTag("quran-tajwid-bookmark").performClick()
+        composeRule.runOnIdle {
+            assertTrue(QuranReadingPrefs.isTajwidSurahBookmarked(context, 1))
+            assertFalse(QuranReadingPrefs.isBookmarked(context, QuranRiwaya.HAFS, 0))
+        }
+    }
+
+    @Test
+    fun tajwidFullscreenIsImmersiveAndKeepsZoomControls() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        QuranReadingPrefs.setMode(context, QuranReadingMode.HAFS_TAJWID)
+        QuranReadingPrefs.recordVisitedTajwidSurah(context, 1)
+        var immersive = false
+        composeRule.setContent {
+            QuranPlaceholderScreen(
+                contentPadding = PaddingValues(0.dp),
+                onImmersiveChanged = { immersive = it },
+            )
+        }
+        waitForExists("quran-tajwid-fullscreen")
+        composeRule.onNodeWithTag("quran-tajwid-fullscreen").performClick()
+        waitForExists("quran-tajwid-fullscreen-reader")
+        composeRule.onNodeWithTag("quran-tajwid-fullscreen-disclaimer").assertIsDisplayed()
+        composeRule.onNodeWithTag("quran-tajwid-fullscreen-zoom-in").assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag("quran-tajwid-fullscreen-zoom-out").assertIsDisplayed().performClick()
+        composeRule.runOnIdle { assertTrue(immersive) }
+        composeRule.onNodeWithTag("quran-tajwid-fullscreen-close").performClick()
+        waitForMissing("quran-tajwid-fullscreen-reader")
+        composeRule.runOnIdle { assertFalse(immersive) }
+    }
 }
