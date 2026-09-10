@@ -58,12 +58,36 @@ jobs:
 
           CORPUS='app/build/generated/quranAssets/quran/quran-uthmani.txt'
           test -s "$CORPUS"
-          grep -Fq 'مِن شَرِّ' "$CORPUS"
-          grep -Fq 'مِنۢ بَعْدِ' "$CORPUS"
-          grep -Fq 'أَن يَضْرِبَ' "$CORPUS"
-          grep -Fq 'مِن رَّبِّهِمْ' "$CORPUS"
-          grep -Fq 'إِنَّ' "$CORPUS"
-          grep -Fq 'مَثَلًۭا مَّا' "$CORPUS"
+          python3 - <<'PY'
+          from pathlib import Path
+          import unicodedata
+
+          path = Path('app/build/generated/quranAssets/quran/quran-uthmani.txt')
+          verses = {}
+          for raw in path.read_text(encoding='utf-8').splitlines():
+              parts = raw.split('|', 2)
+              if len(parts) == 3 and parts[0].isdigit() and parts[1].isdigit():
+                  verses[(int(parts[0]), int(parts[1]))] = parts[2]
+          assert len(verses) == 6236, len(verses)
+          assert len({s for s, _ in verses}) == 114
+
+          def letters(text: str) -> str:
+              normalized = unicodedata.normalize('NFD', text)
+              return ''.join(ch for ch in normalized if unicodedata.category(ch)[0] != 'M')
+
+          checks = {
+              (113, 2): ('من شر',),
+              (2, 26): ('ان يضرب', 'مثلا ما', 'من ربهم'),
+              (2, 27): ('من بعد',),
+          }
+          for key, phrases in checks.items():
+              assert key in verses, key
+              value = letters(verses[key])
+              compact = ' '.join(value.split())
+              print(f'UTHMANI_FIXTURE {key[0]}:{key[1]} {compact}')
+              for phrase in phrases:
+                  assert phrase in compact, (key, phrase, compact)
+          PY
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
