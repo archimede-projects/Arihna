@@ -28,41 +28,12 @@ jobs:
           set -euo pipefail
           BASE_SHA='b90473abc2e56111b87901710ae973f0419e345d'
           SPEC_BRANCH='spec/quran-tajwid-mushaf-ui-20260910'
+          cp .github/builders/quran-tajwid-mushaf-ui-spec/spec_append.md /tmp/tajwid-ui-spec-append.md
           git fetch origin main
           test "$(git rev-parse origin/main)" = "$BASE_SHA"
           git checkout --detach "$BASE_SHA"
           ! grep -Fq 'Corano: Muṣḥaf Tajwid page-first UX remediation' PROJECT_SPEC.md
-          cat >> PROJECT_SPEC.md <<'EOF'
-
-### 2026-09-10 — Corano: Muṣḥaf Tajwid page-first UX remediation — APPROVED
-
-Real-device feedback from the verified Tajwid Beta APK showed that the first runtime is functionally correct but visually does not yet satisfy the requested Muṣḥaf reading experience. The observed defects are product defects, not merely cosmetic polish: one card per āyah destroys page continuity; the āyah marker is rendered in a separate `Text` and can fall onto an isolated line; the Tajwid mode header can show a misleading Hafs page context; the horizontal mode chips are clipped on the primary phone width; the always-visible six-rule legend and large disclaimer consume too much reading space.
-
-Approved remediation:
-
-- Keep the existing locally generated **`Colorazione tajwid · Beta / regole principali`** engine and its legal/provenance constraints unchanged. QCF V4 remains separately **BLOCKED** and must not be bundled.
-- Change `Ḥafṣ Tajwid · Beta` from a sura-card text reader to a **page-first Muṣḥaf-style reader** driven by the already pinned authoritative Hafs `QuranData.Page` starts from `quran/quran-data.js`. There are exactly 604 pages; do not invent page boundaries.
-- The visible current page in Tajwid must therefore be a real Hafs page number. Selecting a sura, Juz or Hizb opens the authoritative page containing that boundary. Swiping pages is RTL/right-to-left, matching the existing Hafs Muṣḥaf reader.
-- Within a Tajwid page, Arabic text is visually continuous. Do **not** render one Material card per āyah. Use one paper-like page surface and continuous Arabic text blocks, splitting only where a genuine sura boundary requires a sura heading/Basmala.
-- The āyah number/ornament must be appended **inline inside the same annotated Arabic text flow** as its āyah, never as a separate trailing `Text`. It must not become an orphan row below the verse. A Unicode Arabic end-of-āyah marker plus Arabic-Indic digits is acceptable when no separately redistributable traditional glyph asset is available.
-- Apply Tajwid color spans only to the original pinned Uthmani text ranges. The displayed text content remains unchanged apart from UI-only separators/āyah markers and sura-heading/Basmala presentation; the engine must not mutate Quran source text.
-- Preserve right-to-left shaping, diacritics and combining marks. Use restrained Quran-reading typography and page-like line spacing; do not claim that the system font is a QCF/traditional printed Muṣḥaf font.
-- When a page begins a new sura, show a centered Arabic sura heading. Show the Basmala before the sura body where traditionally applicable, without duplicating Quran 1:1 and without adding it before Sura 9.
-- Replace the permanently scrolling/clipped row of four reading-mode chips with a compact mode selector that is fully usable at Galaxy S25 width and exposes all four modes without partial clipping.
-- In Tajwid mode, keep the Beta status clearly visible but compact. The explanatory disclaimer must no longer dominate the reading viewport.
-- Make the six-rule Tajwid legend compact/collapsible instead of permanently consuming a full horizontal strip. All six labels/colors remain available to the user.
-- Keep A−/A+, immersive `Lettura`, pinch zoom in fullscreen, S25 cutout/status-bar safety, sura/Juz/Hizb index, and bookmarks/recent state.
-- Tajwid navigation/bookmark state becomes **page-based and separately namespaced** from ordinary Hafs/Warsh state. Existing Tajwid sura bookmarks/last/recent from the first Beta may be migrated to the corresponding authoritative sura-start pages; they must never be silently reinterpreted as ordinary Hafs bookmarks.
-- Do not change Prayer, Location, Qibla, alarms, Home or unrelated visual behavior in this remediation.
-
-Acceptance/gate additions:
-
-- Unit or instrumentation coverage proves the 604 authoritative Hafs page starts are exposed without fallback/invented boundaries and map known boundaries correctly.
-- Instrumentation on Tajwid proves an RTL page pager exists, a real page context is shown, mode selection is not a clipped horizontal strip, and the body uses a continuous page surface rather than one card per āyah.
-- A regression assertion proves the āyah marker is generated inline in the annotated page text.
-- Existing Tajwid engine deterministic/no-overlap/no-text-mutation tests remain green.
-- Exact-SHA gate remains mandatory on API 28 and API 36 before non-forced fast-forward promotion. Release remains prerelease with persistent signer, redownload, APK SHA-256 and signer verification before handoff.
-EOF
+          cat /tmp/tajwid-ui-spec-append.md >> PROJECT_SPEC.md
           test "$(git diff --name-only | tr -d '\n')" = 'PROJECT_SPEC.md'
           git diff --check
           git config user.name 'github-actions[bot]'
@@ -70,5 +41,6 @@ EOF
           git add PROJECT_SPEC.md
           git commit -m 'spec(quran): approve page-first Tajwid Mushaf remediation'
           test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          test "$(git rev-list --count "$BASE_SHA..HEAD")" -eq 1
           git push origin HEAD:"refs/heads/$SPEC_BRANCH"
           echo "SPEC_SHA=$(git rev-parse HEAD)"
