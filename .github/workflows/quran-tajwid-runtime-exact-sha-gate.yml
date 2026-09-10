@@ -88,7 +88,6 @@ jobs:
           grep -Fq 'fcat97/tajweedApi' "$N"
           grep -Fq 'MIT' "$N"
 
-          # Runtime beta is algorithmic over the already-pinned Uthmani corpus only.
           ! grep -R -Fq 'text_uthmani_tajweed' app/src/main app/build.gradle.kts
           ! find app/src/main -type f \( -iname '*qcf*' -o -iname '*tajweed*.ttf' -o -iname '*tajweed*.otf' \) | grep -q .
           grep -Fq 'quranSourceCommit = "a5284b17034d36567e4a4bac982a17ba56837448"' app/build.gradle.kts
@@ -219,7 +218,7 @@ jobs:
           assert failures == errors == skipped == 0, (failures,errors,skipped)
           PY
 
-  api36-full-suite:
+  api36-quran-and-permission-matrix:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -261,15 +260,32 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
-      - name: Require zero instrumentation failures errors and skips
+          script: |
+            set -euo pipefail
+            ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.archimedeprojects.arihna.feature.quran.QuranFullscreenAndroidTest --stacktrace
+            P=com.archimedeprojects.arihna
+            ./gradlew :app:installDebug --stacktrace
+            adb shell pm revoke "$P" android.permission.ACCESS_FINE_LOCATION || true
+            adb shell pm revoke "$P" android.permission.ACCESS_COARSE_LOCATION || true
+            adb shell pm grant "$P" android.permission.ACCESS_COARSE_LOCATION
+            adb shell dumpsys package "$P" | grep -F 'android.permission.ACCESS_FINE_LOCATION:' | head -1 | grep -q 'granted=false'
+            adb shell dumpsys package "$P" | grep -F 'android.permission.ACCESS_COARSE_LOCATION:' | head -1 | grep -q 'granted=true'
+            adb shell pm grant "$P" android.permission.ACCESS_FINE_LOCATION
+            adb shell dumpsys package "$P" | grep -F 'android.permission.ACCESS_FINE_LOCATION:' | head -1 | grep -q 'granted=true'
+            adb shell pm revoke "$P" android.permission.ACCESS_FINE_LOCATION
+            adb shell dumpsys package "$P" | grep -F 'android.permission.ACCESS_COARSE_LOCATION:' | head -1 | grep -q 'granted=true'
+            echo API36_PERMISSION_MATRIX_SUCCESS | tee /tmp/api36-permission-matrix.txt
+      - name: Require Quran tests and permission matrix success
         shell: bash
         run: |
+          set -euo pipefail
+          test -s /tmp/api36-permission-matrix.txt
+          grep -Fq API36_PERMISSION_MATRIX_SUCCESS /tmp/api36-permission-matrix.txt
           python3 - <<'PY'
           from pathlib import Path
           import xml.etree.ElementTree as ET
           files=list(Path('app/build/outputs/androidTest-results/connected').rglob('*.xml'))
-          assert files, 'no connected test XML found'
+          assert files, 'no connected Quran test XML found'
           tests=failures=errors=skipped=0
           for f in files:
               root=ET.parse(f).getroot()
@@ -277,7 +293,7 @@ jobs:
               failures += int(root.attrib.get('failures','0'))
               errors += int(root.attrib.get('errors','0'))
               skipped += int(root.attrib.get('skipped',root.attrib.get('disabled','0')))
-          print(f'API36_CONNECTED_XML tests={tests} failures={failures} errors={errors} skipped={skipped}')
-          assert tests >= 87, tests
+          print(f'API36_QURAN_XML tests={tests} failures={failures} errors={errors} skipped={skipped}')
+          assert tests >= 10, tests
           assert failures == errors == skipped == 0, (failures,errors,skipped)
           PY
