@@ -32,6 +32,15 @@ jobs:
           cache-read-only: true
 
       - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 12266719
+          packages: platform-tools
+
+      - name: Install pinned Android build SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager 'platforms;android-37' 'build-tools;37.0.0'
 
       - name: Create sibling candidate 2 and preflight
         shell: bash
