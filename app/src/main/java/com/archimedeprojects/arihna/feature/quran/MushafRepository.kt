@@ -25,6 +25,7 @@ internal data class MushafPageMeta(
 internal object MushafRepository {
     private val surahCache = mutableMapOf<QuranRiwaya, List<MushafSurah>>()
     @Volatile private var hafsPageMetaCache: List<MushafPageMeta>? = null
+    @Volatile private var hafsPageStartsCache: List<Pair<Int, Int>>? = null
 
     fun surahs(context: Context, riwaya: QuranRiwaya): List<MushafSurah> {
         synchronized(this) {
@@ -60,6 +61,31 @@ internal object MushafRepository {
         val pageNumber = pageIndex.coerceIn(0, 603) + 1
         val source = surahs(context, riwaya)
         return source.lastOrNull { it.pageNumber <= pageNumber } ?: source.firstOrNull()
+    }
+
+    /** Exact Madani/Hafs page starts from the pinned QuranData.Page asset. No synthetic fallback. */
+    fun hafsPageStarts(context: Context): List<Pair<Int, Int>> {
+        hafsPageStartsCache?.let { return it }
+        return synchronized(this) {
+            hafsPageStartsCache ?: runCatching {
+                val metadata = context.assets.open("quran/quran-data.js")
+                    .bufferedReader(Charsets.UTF_8)
+                    .use { it.readText() }
+                parsePairs(metadata, "Page").take(604).also { starts ->
+                    require(starts.size == 604) { "Quran page metadata incomplete" }
+                    require(starts.first() == (1 to 1)) { "Unexpected first Quran page boundary" }
+                }
+            }.getOrElse { emptyList() }.also { hafsPageStartsCache = it }
+        }
+    }
+
+    fun hafsPageIndexForAyah(context: Context, surah: Int, ayah: Int): Int? {
+        val starts = hafsPageStarts(context)
+        if (starts.size != 604) return null
+        val index = starts.indexOfLast { start ->
+            start.first < surah || (start.first == surah && start.second <= ayah)
+        }
+        return index.takeIf { it >= 0 }
     }
 
     /** Hafs/Tanzil boundary metadata is authoritative only for the existing Hafs flow. */
@@ -105,7 +131,7 @@ internal object MushafRepository {
         val metadata = context.assets.open("quran/quran-data.js")
             .bufferedReader(Charsets.UTF_8)
             .use { it.readText() }
-        val pageStarts = parsePairs(metadata, "Page").take(604)
+        val pageStarts = hafsPageStarts(context)
         val juzStarts = parsePairs(metadata, "Juz").take(30)
         val hizbQuarterStarts = parsePairs(metadata, "HizbQaurter").take(240)
         require(pageStarts.size == 604) { "Quran page metadata incomplete" }
@@ -167,6 +193,9 @@ internal object QuranReadingPrefs {
     private const val KEY_TAJWID_BOOKMARKS = "tajwid_bookmarked_surahs_v1"
     private const val KEY_TAJWID_LAST_SURAH = "tajwid_last_surah_v1"
     private const val KEY_TAJWID_RECENT = "tajwid_recent_surahs_v1"
+    private const val KEY_TAJWID_PAGE_BOOKMARKS = "tajwid_bookmarked_pages_v2"
+    private const val KEY_TAJWID_LAST_PAGE = "tajwid_last_page_v2"
+    private const val KEY_TAJWID_PAGE_RECENT = "tajwid_recent_pages_v2"
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     private fun suffix(riwaya: QuranRiwaya) = riwaya.name.lowercase()
@@ -263,6 +292,44 @@ internal object QuranReadingPrefs {
         prefs(context).edit()
             .putInt(KEY_TAJWID_LAST_SURAH, safe)
             .putString(KEY_TAJWID_RECENT, recent.joinToString(","))
+            .apply()
+    }
+
+    fun tajwidBookmarkedPages(context: Context): Set<Int> =
+        prefs(context).getStringSet(KEY_TAJWID_PAGE_BOOKMARKS, emptySet()).orEmpty()
+            .mapNotNull { it.toIntOrNull() }
+            .filter { it in 0..603 }
+            .toSet()
+
+    fun isTajwidPageBookmarked(context: Context, pageIndex: Int): Boolean =
+        pageIndex.coerceIn(0, 603) in tajwidBookmarkedPages(context)
+
+    fun setTajwidPageBookmarked(context: Context, pageIndex: Int, bookmarked: Boolean) {
+        val safe = pageIndex.coerceIn(0, 603)
+        val set = tajwidBookmarkedPages(context).map(Int::toString).toMutableSet()
+        if (bookmarked) set += safe.toString() else set -= safe.toString()
+        prefs(context).edit().putStringSet(KEY_TAJWID_PAGE_BOOKMARKS, set).apply()
+    }
+
+    fun lastTajwidPage(context: Context): Int =
+        prefs(context).getInt(KEY_TAJWID_LAST_PAGE, 0).coerceIn(0, 603)
+
+    fun recentTajwidPages(context: Context): List<Int> =
+        prefs(context).getString(KEY_TAJWID_PAGE_RECENT, "").orEmpty()
+            .split(',')
+            .mapNotNull { it.toIntOrNull() }
+            .filter { it in 0..603 }
+            .distinct()
+
+    fun recordVisitedTajwidPage(context: Context, pageIndex: Int) {
+        val safe = pageIndex.coerceIn(0, 603)
+        val recent = recentTajwidPages(context).toMutableList().apply {
+            remove(safe)
+            add(0, safe)
+        }.take(8)
+        prefs(context).edit()
+            .putInt(KEY_TAJWID_LAST_PAGE, safe)
+            .putString(KEY_TAJWID_PAGE_RECENT, recent.joinToString(","))
             .apply()
     }
 
