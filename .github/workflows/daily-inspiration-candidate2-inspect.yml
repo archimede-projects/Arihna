@@ -1,0 +1,34 @@
+name: Daily inspiration candidate2 inspect
+
+on:
+  push:
+    branches:
+      - driver/daily-inspiration-variety-candidate-2-inspect-20260916
+    paths:
+      - .github/workflows/daily-inspiration-candidate2-inspect.yml
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 08eb114b6eec46ceee2cef65451302ac03b7e0fa
+          fetch-depth: 1
+      - name: Print inspiration card source
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt')
+          lines = p.read_text(encoding='utf-8').splitlines()
+          hits = [i for i,l in enumerate(lines) if 'DailyInspirationCard' in l]
+          print('HITS', hits)
+          for h in hits:
+              start=max(0,h-12); end=min(len(lines),h+130)
+              print(f'--- lines {start+1}-{end} around hit {h+1} ---')
+              for i in range(start,end): print(f'{i+1:04d}: {lines[i]}')
+          PY
