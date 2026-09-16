@@ -33,6 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.archimedeprojects.arihna.core.i18n.appText
@@ -55,8 +56,8 @@ internal data class DailyInspiration(
 
 /**
  * Only directly sourced Quran / sahih hadith text is presented as Quran or hadith.
- * Free-form encouragement lives in the separate DailyAction model below and is not
- * attributed to scripture.
+ * Original Arihna encouragement is explicitly labeled as non-scripture, while DailyAction
+ * remains practical guidance and is never attributed to Quran or hadith.
  */
 internal val curatedDailyInspirations = listOf(
     DailyInspiration(
@@ -95,7 +96,7 @@ internal val curatedDailyInspirations = listOf(
         reference = "Sahih al-Bukhari 2989",
         translationItalian = "Una buona parola è carità.",
     ),
-)
+) + additionalDailyInspirations
 
 internal data class DailyAction(
     val arabic: String,
@@ -135,7 +136,7 @@ internal val curatedDailyActions = listOf(
         "ادْعُ الْيَوْمَ لِشَخْصٍ آخَرَ بِدَعْوَةٍ جَمِيلَةٍ فِي ظَهْرِ الْغَيْبِ.",
         "Fai oggi una bella duʿā per un'altra persona, senza che lo sappia.",
     ),
-)
+) + additionalDailyActions
 
 internal fun dailyInspirationFor(date: LocalDate): DailyInspiration {
     val index = Math.floorMod(date.toEpochDay(), curatedDailyInspirations.size.toLong()).toInt()
@@ -164,8 +165,8 @@ internal fun DailyInspirationCard(localDate: LocalDate) {
         border = BorderStroke(1.dp, ArihnaDawnGold.copy(alpha = 0.48f)),
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 17.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(7.dp),
+            modifier = Modifier.padding(horizontal = 17.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -189,15 +190,19 @@ internal fun DailyInspirationCard(localDate: LocalDate) {
                 inspiration.text,
                 modifier = Modifier.fillMaxWidth().testTag("home-inspiration-arabic"),
                 textAlign = TextAlign.End,
-                fontSize = 24.sp,
-                lineHeight = 38.sp,
+                fontSize = 22.sp,
+                lineHeight = 30.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = ArihnaInk,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
             Text(
                 inspiration.translationItalian,
                 style = MaterialTheme.typography.bodySmall,
                 color = ArihnaMutedText,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
