@@ -2530,3 +2530,18 @@ Acceptance/gate additions:
 - A regression assertion proves the āyah marker is generated inline in the annotated page text.
 - Existing Tajwid engine deterministic/no-overlap/no-text-mutation tests remain green.
 - Exact-SHA gate remains mandatory on API 28 and API 36 before non-forced fast-forward promotion. Release remains prerelease with persistent signer, redownload, APK SHA-256 and signer verification before handoff.
+
+### Daily inspiration variety expansion — APPROVED 2026-09-16
+
+User feedback established that the current Home daily inspiration corpus is too small and visibly repeats. The existing implementation has only six inspirations, selected deterministically by civil date, so exact repetition occurs every six days. The daily-action corpus is also too small at eight entries.
+
+Approved correction:
+
+- Keep daily content fully offline and deterministic for the same civil date.
+- Expand `curatedDailyInspirations` to at least **60 unique entries** so that a 60-day consecutive window contains no exact repeated inspiration text.
+- Keep sourced scripture clearly separated from original motivational copy. Quran and hadith entries must have explicit references. Original Arihna encouragement must use an explicit non-scripture source label such as `Promemoria Arihna ö non è una citazione`;$it must never be presented as Quran, hadith, or a prophetic statement.
+- Preserve Arabic-first presentation with Italian support text.
+- Expand `curatedDailyActions` to at least **30 unique practical positive actions**. Actions are original guidance, not scripture, and must not be attributed to Quran or hadith.
+- Add unit tests that require: inspiration corpus size >= 60; unique inspiration text count equals corpus size; no exact inspiration repeat across 60 consecutive civil dates; action corpus size >= 30; unique Arabic and Italian action text; deterministic same-date selection; sourced entries have nonblank explicit references; original Arihna reminders are explicitly marked non-scripture.
+- Do not change Prayer, Location, Qibla, alarm scheduling, Quran reading, or permission behavior in this milestone.
+- Runtime candidate must be exactly one direct child of this SPEC commit. Gate must include JVM/unit build plus the existing Android API28 full regression and API36 smoke/Quran-permission regression before any non-forced fast-forward promotion to `main`.
