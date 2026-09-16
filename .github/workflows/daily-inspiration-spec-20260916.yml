@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - driver/daily-inspiration-spec-20260916
-    paths:
-      - .github/workflows/daily-inspiration-spec-20260916.yml
 
 permissions:
   contents: write
@@ -18,29 +16,15 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-      - name: Verify exact promoted base and append approved spec
+      - name: Append approved spec and fast-forward main
         shell: bash
+        env:
+          SPEC_PAYLOAD_B64: CiMjIyBEYWlseSBpbnNwaXJhdGlvbiB2YXJpZXR5IGV4cGFuc2lvbiDigJQgQVBQUk9WRUQgMjAyNi0wOS0xNgoKVXNlciBmZWVkYmFjayBlc3RhYmxpc2hlZCB0aGF0IHRoZSBjdXJyZW50IEhvbWUgZGFpbHkgaW5zcGlyYXRpb24gY29ycHVzIGlzIHRvbyBzbWFsbCBhbmQgdmlzaWJseSByZXBlYXRzLiBUaGUgZXhpc3RpbmcgaW1wbGVtZW50YXRpb24gaGFzIG9ubHkgc2l4IGluc3BpcmF0aW9ucywgc2VsZWN0ZWQgZGV0ZXJtaW5pc3RpY2FsbHkgYnkgY2l2aWwgZGF0ZSwgc28gZXhhY3QgcmVwZXRpdGlvbiBvY2N1cnMgZXZlcnkgc2l4IGRheXMuIFRoZSBkYWlseS1hY3Rpb24gY29ycHVzIGlzIGFsc28gdG9vIHNtYWxsIGF0IGVpZ2h0IGVudHJpZXMuCgpBcHByb3ZlZCBjb3JyZWN0aW9uOgoKLSBLZWVwIGRhaWx5IGNvbnRlbnQgZnVsbHkgb2ZmbGluZSBhbmQgZGV0ZXJtaW5pc3RpYyBmb3IgdGhlIHNhbWUgY2l2aWwgZGF0ZS4KLSBFeHBhbmQgYGN1cmF0ZWREYWlseUluc3BpcmF0aW9uc2AgdG8gYXQgbGVhc3QgKio2MCB1bmlxdWUgZW50cmllcyoqIHNvIHRoYXQgYSA2MC1kYXkgY29uc2VjdXRpdmUgd2luZG93IGNvbnRhaW5zIG5vIGV4YWN0IHJlcGVhdGVkIGluc3BpcmF0aW9uIHRleHQuCi0gS2VlcCBzb3VyY2VkIHNjcmlwdHVyZSBjbGVhcmx5IHNlcGFyYXRlZCBmcm9tIG9yaWdpbmFsIG1vdGl2YXRpb25hbCBjb3B5LiBRdXJhbiBhbmQgaGFkaXRoIGVudHJpZXMgbXVzdCBoYXZlIGV4cGxpY2l0IHJlZmVyZW5jZXMuIE9yaWdpbmFsIEFyaWhuYSBlbmNvdXJhZ2VtZW50IG11c3QgdXNlIGFuIGV4cGxpY2l0IG5vbi1zY3JpcHR1cmUgc291cmNlIGxhYmVsIHN1Y2ggYXMgYFByb21lbW9yaWEgQXJpaG5hIMO2IG5vbiDDqCB1bmEgY2l0YXppb25lYDskaXQgbXVzdCBuZXZlciBiZSBwcmVzZW50ZWQgYXMgUXVyYW4sIGhhZGl0aCwgb3IgYSBwcm9waGV0aWMgc3RhdGVtZW50LgotIFByZXNlcnZlIEFyYWJpYy1maXJzdCBwcmVzZW50YXRpb24gd2l0aCBJdGFsaWFuIHN1cHBvcnQgdGV4dC4KLSBFeHBhbmQgYGN1cmF0ZWREYWlseUFjdGlvbnNgIHRvIGF0IGxlYXN0ICoqMzAgdW5pcXVlIHByYWN0aWNhbCBwb3NpdGl2ZSBhY3Rpb25zKiouIEFjdGlvbnMgYXJlIG9yaWdpbmFsIGd1aWRhbmNlLCBub3Qgc2NyaXB0dXJlLCBhbmQgbXVzdCBub3QgYmUgYXR0cmlidXRlZCB0byBRdXJhbiBvciBoYWRpdGguCi0gQWRkIHVuaXQgdGVzdHMgdGhhdCByZXF1aXJlOiBpbnNwaXJhdGlvbiBjb3JwdXMgc2l6ZSA+PSA2MDsgdW5pcXVlIGluc3BpcmF0aW9uIHRleHQgY291bnQgZXF1YWxzIGNvcnB1cyBzaXplOyBubyBleGFjdCBpbnNwaXJhdGlvbiByZXBlYXQgYWNyb3NzIDYwIGNvbnNlY3V0aXZlIGNpdmlsIGRhdGVzOyBhY3Rpb24gY29ycHVzIHNpemUgPj0gMzA7IHVuaXF1ZSBBcmFiaWMgYW5kIEl0YWxpYW4gYWN0aW9uIHRleHQ7IGRldGVybWluaXN0aWMgc2FtZS1kYXRlIHNlbGVjdGlvbjsgc291cmNlZCBlbnRyaWVzIGhhdmUgbm9uYmxhbmsgZXhwbGljaXQgcmVmZXJlbmNlczsgb3JpZ2luYWwgQXJpaG5hIHJlbWluZGVycyBhcmUgZXhwbGljaXRseSBtYXJrZWQgbm9uLXNjcmlwdHVyZS4KLSBEbyBub3QgY2hhbmdlIFByYXllciwgTG9jYXRpb24sIFFpYmxhLCBhbGFybSBzY2hlZHVsaW5nLCBRdXJhbiByZWFkaW5nLCBvciBwZXJtaXNzaW9uIGJlaGF2aW9yIGluIHRoaXMgbWlsZXN0b25lLgotIFJ1bnRpbWUgY2FuZGlkYXRlIG11c3QgYmUgZXhhY3RseSBvbmUgZGlyZWN0IGNoaWxkIG9mIHRoaXMgU1BFQyBjb21taXQuIEdhdGUgbXVzdCBpbmNsdWRlIEpWTS91bml0IGJ1aWxkIHBsdXMgdGhlIGV4aXN0aW5nIEFuZHJvaWQgQVBJMjggZnVsbCByZWdyZXNzaW9uIGFuZCBBUEkzNiBzbW9rZS9RdXJhbi1wZXJtaXNzaW9uIHJlZ3Jlc3Npb24gYmVmb3JlIGFueSBub24tZm9yY2VkIGZhc3QtZm9yd2FyZCBwcm9tb3Rpb24gdG8gYG1haW5gLgo=
         run: |
           set -euo pipefail
           BASE='30550305c7e6ec77abf35e9e6e53162ec8369e8a'
           test "$(git rev-parse HEAD)" = "$BASE"
-          cat >> PROJECT_SPEC.md <<'EOF'
-
-### Daily inspiration variety expansion — APPROVED 2026-09-16
-
-User feedback established that the current Home daily inspiration corpus is too small and visibly repeats. The existing implementation has only six inspirations, selected deterministically by civil date, so exact repetition occurs every six days. The daily-action corpus is also too small at eight entries.
-
-Approved correction:
-
-- Keep daily content fully offline and deterministic for the same civil date.
-- Expand `curatedDailyInspirations` to at least **60 unique entries** so that a 60-day consecutive window contains no exact repeated inspiration text.
-- Keep sourced scripture clearly separated from original motivational copy. Quran and hadith entries must have explicit references. Original Arihna encouragement must use an explicit non-scripture source label such as `Promemoria Arihna · non è una citazione`; it must never be presented as Quran, hadith, or a prophetic statement.
-- Preserve Arabic-first presentation with Italian support text.
-- Expand `curatedDailyActions` to at least **30 unique practical positive actions**. Actions are original guidance, not scripture, and must not be attributed to Quran or hadith.
-- Add unit tests that require: inspiration corpus size >= 60; unique inspiration text count equals corpus size; no exact inspiration repeat across 60 consecutive civil dates; action corpus size >= 30; unique Arabic and Italian action text; deterministic same-date selection; sourced entries have nonblank explicit references; original Arihna reminders are explicitly marked non-scripture.
-- Do not change Prayer, Location, Qibla, alarm scheduling, Quran reading, or permission behavior in this milestone.
-- Runtime candidate must be exactly one direct child of this SPEC commit. Gate must include JVM/unit build plus the existing Android API28 full regression and API36 smoke/Quran-permission regression before any non-forced fast-forward promotion to `main`.
-EOF
+          printf '%s' "$SPEC_PAYLOAD_B64" | base64 -d >> PROJECT_SPEC.md
           git diff --check
           test "$(git diff --name-only)" = 'PROJECT_SPEC.md'
           git config user.name 'github-actions[bot]'
