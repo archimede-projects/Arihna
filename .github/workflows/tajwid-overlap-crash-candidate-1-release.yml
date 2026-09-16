@@ -1,0 +1,228 @@
+name: Tajwid overlap crash fix verified prerelease
+
+on:
+  push:
+    branches:
+      - driver/tajwid-overlap-crash-candidate-1-release-20260916
+    paths:
+      - .github/workflows/tajwid-overlap-crash-candidate-1-release.yml
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  build-verify-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      RUNTIME_SHA: be4af47d4f5b267e47eac09d761775a2d99bf0db
+      SPEC_SHA: 5b6f77bf1a7ee8634e74f46918b7f7263142316b
+      VERIFIED_GATE_RUN: '35110928396'
+      VERIFIED_STATIC_JOB: '104844112728'
+      VERIFIED_API28_JOB: '104844112681'
+      VERIFIED_API36_JOB: '104844112243'
+      SIGNING_SOURCE_SHA: ce23a7f78695be95c7f8dfd2bcedbe22544da94c
+      DEBUG_CERT_SHA256_COMPACT: 1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa
+      DEBUG_KEYSTORE_SHA256: bc9057f26ad6de7efb70a5df06effb1ed259f1d015c3f062d0f757b3f0983b72
+      GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
+      FROZEN_ASSET_RELEASE: settings-s25-premium-3f28b6f0-20260906
+      FROZEN_ASSET_APK: arihna-settings-s25-premium.apk
+      PACKAGE_NAME: com.archimedeprojects.arihna
+      RELEASE_TAG: quran-tajwid-crashfix-be4af47d-20260916
+      APK_NAME: arihna-quran-tajwid-crashfix.apk
+
+    steps:
+      - name: Checkout exact promoted runtime
+        uses: actions/checkout@v4
+        with:
+          ref: be4af47d4f5b267e47eac09d761775a2d99bf0db
+          fetch-depth: 0
+
+      - name: Verify promoted runtime and definitive gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RUNTIME_SHA"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          test "$(git rev-list --parents -n1 HEAD | wc -w)" -eq 2
+          git fetch origin main --force
+          test "$(git rev-parse origin/main)" = "$RUNTIME_SHA"
+          for JOB in "$VERIFIED_STATIC_JOB" "$VERIFIED_API28_JOB" "$VERIFIED_API36_JOB"; do
+            ACTUAL="$(gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$JOB" --jq '[(.id|tostring),(.run_id|tostring),.status,.conclusion] | join(" ")')"
+            test "$ACTUAL" = "$JOB $VERIFIED_GATE_RUN completed success"
+          done
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$VERIFIED_GATE_RUN" --jq '[.status,.conclusion] | join(" ")')" = 'completed success'
+          ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 12266719
+          packages: platform-tools
+
+      - name: Restore frozen GeoNames and persistent signer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames "$HOME/.android"
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+          git fetch --depth=1 origin location-step5-device-test
+          git cat-file -e "$SIGNING_SOURCE_SHA^{commit}"
+          git show "$SIGNING_SOURCE_SHA:.github/test-signing/arihna-debug.keystore.b64" | base64 --decode > "$HOME/.android/debug.keystore"
+          test "$(sha256sum "$HOME/.android/debug.keystore" | awk '{print $1}')" = "$DEBUG_KEYSTORE_SHA256"
+
+      - name: Verify Tajwid crash fix release contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          E=app/src/main/java/com/archimedeprojects/arihna/feature/quran/UthmaniTajwidEngine.kt
+          T=app/src/test/java/com/archimedeprojects/arihna/feature/quran/UthmaniTajwidEngineTest.kt
+          A=app/src/androidTest/java/com/archimedeprojects/arihna/feature/quran/TajwidCrashRegressionAndroidTest.kt
+          grep -Fq 'val contextualRule = if (nuunSakinCandidate || hasTanween)' "$E"
+          grep -Fq 'if (contextualRule != null)' "$E"
+          grep -Fq 'shaddaTanwinIdghamFixtureUsesOneContextualSpanWithoutCrash' "$T"
+          grep -Fq 'shaddaTanwinIqlabFixtureUsesOneContextualSpanWithoutCrash' "$T"
+          grep -Fq 'pinnedHafsCorpusProducesOnlyValidNonOverlappingTajwidSpans' "$A"
+          grep -Fq 'assertEquals(6236, corpus.ayahs.size)' "$A"
+          grep -Fq 'applicationId = "com.archimedeprojects.arihna"' app/build.gradle.kts
+          grep -Fq 'minSdk = 28' app/build.gradle.kts
+          grep -Fq 'compileSdk = 37' app/build.gradle.kts
+          grep -Fq 'targetSdk = 37' app/build.gradle.kts
+          ! grep -Fq 'android.permission.ACCESS_BACKGROUND_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -Fq 'android.permission.USE_EXACT_ALARM' app/src/main/AndroidManifest.xml
+
+      - name: Apply transient persistent debug signing config
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path('app/build.gradle.kts')
+          s = p.read_text(encoding='utf-8')
+          assert 'signingConfigs {' not in s, 'runtime unexpectedly already contains signing config'
+          match = re.search(r'(?m)^android\s*\{\s*\n', s)
+          assert match is not None, 'android block not found'
+          insert = '''    signingConfigs {
+              getByName("debug") {
+                  storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
+                  storePassword = "android"
+                  keyAlias = "androiddebugkey"
+                  keyPassword = "android"
+              }
+          }
+
+          '''
+          p.write_text(s[:match.end()] + insert + s[match.end():], encoding='utf-8')
+          PY
+          test "$(git diff --name-only | tr -d '\n')" = 'app/build.gradle.kts'
+          grep -Fq 'keyAlias = "androiddebugkey"' app/build.gradle.kts
+
+      - name: Build exact promoted runtime
+        run: ./gradlew --no-daemon :app:assembleDebug --stacktrace
+
+      - name: Verify APK package SDK assets signer and digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          root=Path('app/build/generated/quranAssets'); q=root/'quran'
+          verses=[]
+          for line in (q/'quran-uthmani.txt').read_text(encoding='utf-8').splitlines():
+              p=line.split('|',2)
+              if len(p)==3 and p[0].isdigit() and p[1].isdigit(): verses.append(p)
+          assert len(verses)==6236
+          assert len({v[0] for v in verses})==114
+          assert len(list((root/'mushaf').glob('[0-9][0-9][0-9].svg')))==604
+          assert len(json.loads((root/'mushaf-surah.json').read_text(encoding='utf-8')))==114
+          assert len(list((root/'mushaf-warsh').glob('[0-9][0-9][0-9].svg')))==604
+          warsh=json.loads((root/'mushaf-warsh-surah.json').read_text(encoding='utf-8'))
+          assert len(warsh)==114
+          assert sum(int(s['ayahCount']) for s in warsh)==6214
+          PY
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          test -x "$APKSIGNER"
+          test -x "$AAPT"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee /tmp/apksigner.txt
+          tr '[:upper:]' '[:lower:]' < /tmp/apksigner.txt | tr -d ':' | grep -F "$DEBUG_CERT_SHA256_COMPACT"
+          "$AAPT" dump badging "$APK" | tee /tmp/badging.txt
+          grep -F "package: name='$PACKAGE_NAME'" /tmp/badging.txt
+          grep -F "sdkVersion:'28'" /tmp/badging.txt
+          grep -F "targetSdkVersion:'37'" /tmp/badging.txt
+          grep -F "compileSdkVersion='37'" /tmp/badging.txt
+          test "$(unzip -p "$APK" assets/geonames/cities.db | sha256sum | awk '{print $1}')" = "$GEONAMES_SHA256"
+          test "$(unzip -l "$APK" 'assets/mushaf/*.svg' | awk '$4 ~ /^assets\/mushaf\/[0-9][0-9][0-9]\.svg$/ {c++} END{print c+0}')" -eq 604
+          test "$(unzip -l "$APK" 'assets/mushaf-warsh/*.svg' | awk '$4 ~ /^assets\/mushaf-warsh\/[0-9][0-9][0-9]\.svg$/ {c++} END{print c+0}')" -eq 604
+          cp "$APK" "$APK_NAME"
+          sha256sum "$APK_NAME" | awk '{print $1}' > /tmp/apk-sha256.txt
+          stat -c '%s' "$APK_NAME" > /tmp/apk-size.txt
+          echo "FINAL_APK_SHA256=$(cat /tmp/apk-sha256.txt)"
+          echo "FINAL_APK_SIZE=$(cat /tmp/apk-size.txt)"
+
+      - name: Publish verified prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK_SHA="$(cat /tmp/apk-sha256.txt)"
+          APK_SIZE="$(cat /tmp/apk-size.txt)"
+          gh release create "$RELEASE_TAG" "$APK_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$RUNTIME_SHA" \
+            --title 'Arihna — Tajwid crash fix — S25 validation' \
+            --prerelease \
+            --notes "Galaxy S25 corrective validation build after the Tajwid paging crash reported on the previous prerelease. SPEC $SPEC_SHA; runtime $RUNTIME_SHA; exact-SHA gate $VERIFIED_GATE_RUN PASS (static/JVM, API28 full suite, API36 Quran/permission matrix). The fix prevents same-range GHUNNAH/contextual tanwin overlap and the gate runs the Tajwid matcher across all 6,236 pinned Hafs Uthmani ayat. APK bytes $APK_SIZE; APK SHA-256 $APK_SHA. Physical Galaxy S25 revalidation remains required."
+
+      - name: Redownload and verify published APK and release metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_SHA="$(cat /tmp/apk-sha256.txt)"
+          git fetch origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse "$RELEASE_TAG^{commit}")" = "$RUNTIME_SHA"
+          JSON="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")"
+          test "$(jq -r '.draft' <<<"$JSON")" = false
+          test "$(jq -r '.prerelease' <<<"$JSON")" = true
+          test "$(jq -r '.tag_name' <<<"$JSON")" = "$RELEASE_TAG"
+          test "$(jq -r '.target_commitish' <<<"$JSON")" = "$RUNTIME_SHA"
+          test "$(jq '.assets | length' <<<"$JSON")" = 1
+          test "$(jq -r '.assets[0].name' <<<"$JSON")" = "$APK_NAME"
+          test "$(jq -r '.assets[0].state' <<<"$JSON")" = uploaded
+          ASSET_DIGEST="$(jq -r '.assets[0].digest // empty' <<<"$JSON")"
+          test -n "$ASSET_DIGEST"
+          test "$ASSET_DIGEST" = "sha256:$EXPECTED_SHA"
+          rm -rf /tmp/releasecheck && mkdir -p /tmp/releasecheck
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "$APK_NAME" --dir /tmp/releasecheck
+          DOWNLOADED="/tmp/releasecheck/$APK_NAME"
+          DOWNLOADED_SHA="$(sha256sum "$DOWNLOADED" | awk '{print $1}')"
+          test "$DOWNLOADED_SHA" = "$EXPECTED_SHA"
+          test "$(stat -c '%s' "$DOWNLOADED")" = "$(cat /tmp/apk-size.txt)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          "$APKSIGNER" verify --verbose --print-certs "$DOWNLOADED" | tee /tmp/release-apksigner.txt
+          tr '[:upper:]' '[:lower:]' < /tmp/release-apksigner.txt | tr -d ':' | grep -F "$DEBUG_CERT_SHA256_COMPACT"
+          echo "VERIFIED_RELEASE_URL=$(jq -r '.html_url' <<<"$JSON")"
+          echo "VERIFIED_ASSET_URL=$(jq -r '.assets[0].browser_download_url' <<<"$JSON")"
+          echo "VERIFIED_APK_SHA256=$EXPECTED_SHA"
+          echo "VERIFIED_SIGNER_SHA256=$DEBUG_CERT_SHA256_COMPACT"
