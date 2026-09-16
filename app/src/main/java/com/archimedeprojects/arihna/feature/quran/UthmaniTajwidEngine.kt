@@ -68,19 +68,31 @@ internal object UthmaniTajwidEngine {
             if (token.letter in qalqalahLetters && hasSukun) {
                 spans += token.span(TajwidRule.QALQALAH)
             }
-            if ((token.letter == 'ن' || token.letter == 'م') && hasShadda) {
-                spans += token.span(TajwidRule.GHUNNAH)
+
+            val contextualRule = if (nuunSakinCandidate || hasTanween) {
+                val next = nextRuleToken(text, tokens, index, hasTanween)
+                when {
+                    next == null -> null
+                    next.letter == 'ب' -> TajwidRule.IQLAB
+                    next.letter in ikhfaLetters -> TajwidRule.IKHFA
+                    hasWordBoundary(text, token, next) && next.letter in idghamWithGhunnahLetters ->
+                        TajwidRule.IDGHAM_WITH_GHUNNAH
+                    hasWordBoundary(text, token, next) && next.letter in idghamWithoutGhunnahLetters ->
+                        TajwidRule.IDGHAM_WITHOUT_GHUNNAH
+                    else -> null
+                }
+            } else {
+                null
             }
 
-            if (!nuunSakinCandidate && !hasTanween) return@forEachIndexed
-            val next = nextRuleToken(text, tokens, index, hasTanween) ?: return@forEachIndexed
-            when {
-                next.letter == 'ب' -> spans += token.span(TajwidRule.IQLAB)
-                next.letter in ikhfaLetters -> spans += token.span(TajwidRule.IKHFA)
-                hasWordBoundary(text, token, next) && next.letter in idghamWithGhunnahLetters ->
-                    spans += token.span(TajwidRule.IDGHAM_WITH_GHUNNAH)
-                hasWordBoundary(text, token, next) && next.letter in idghamWithoutGhunnahLetters ->
-                    spans += token.span(TajwidRule.IDGHAM_WITHOUT_GHUNNAH)
+            // A shadda+tanwin token can satisfy both intrinsic ghunnah and a contextual
+            // tanwin transition. The display model uses one color per character range,
+            // so the more specific contextual rule wins rather than emitting two
+            // identical overlapping spans (which would violate the matcher invariant).
+            if (contextualRule != null) {
+                spans += token.span(contextualRule)
+            } else if ((token.letter == 'ن' || token.letter == 'م') && hasShadda) {
+                spans += token.span(TajwidRule.GHUNNAH)
             }
         }
 

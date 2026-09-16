@@ -32,12 +32,7 @@ class UthmaniTajwidEngineTest {
         val second = UthmaniTajwidEngine.find(text)
         assertEquals(first, second)
         assertEquals("مِن شَرِّ مَا خَلَقَ", text)
-        first.forEach { span ->
-            assertTrue(span.start >= 0)
-            assertTrue(span.endExclusive <= text.length)
-            assertTrue(span.endExclusive > span.start)
-        }
-        first.zipWithNext().forEach { (a, b) -> assertTrue(a.endExclusive <= b.start) }
+        assertValidNonOverlapping(text, first)
     }
 
     @Test
@@ -46,7 +41,34 @@ class UthmaniTajwidEngineTest {
         assertTrue(spans.none { it.rule == TajwidRule.IDGHAM_WITH_GHUNNAH })
     }
 
+    @Test
+    fun shaddaTanwinIdghamFixtureUsesOneContextualSpanWithoutCrash() {
+        // An-Naml 27:10 / Al-Qasas 28:31 contain this exact pinned-corpus sequence.
+        val text = "كَأَنَّهَا جَآنٌّ وَلَّىٰ مُدْبِرًا"
+        val spans = UthmaniTajwidEngine.find(text)
+        assertTrue(spans.any { it.rule == TajwidRule.IDGHAM_WITH_GHUNNAH })
+        assertValidNonOverlapping(text, spans)
+    }
+
+    @Test
+    fun shaddaTanwinIqlabFixtureUsesOneContextualSpanWithoutCrash() {
+        // An-Nahl 16:106 contains this exact pinned-corpus sequence.
+        val text = "وَقَلْبُهُۥ مُطْمَئِنٌّۢ بِٱلْإِيمَـٰنِ"
+        val spans = UthmaniTajwidEngine.find(text)
+        assertTrue(spans.any { it.rule == TajwidRule.IQLAB })
+        assertValidNonOverlapping(text, spans)
+    }
+
     private fun assertRule(text: String, rule: TajwidRule) {
         assertTrue("Expected $rule in $text", UthmaniTajwidEngine.find(text).any { it.rule == rule })
+    }
+
+    private fun assertValidNonOverlapping(text: String, spans: List<TajwidSpan>) {
+        spans.forEach { span ->
+            assertTrue(span.start >= 0)
+            assertTrue(span.endExclusive <= text.length)
+            assertTrue(span.endExclusive > span.start)
+        }
+        spans.zipWithNext().forEach { (a, b) -> assertTrue(a.endExclusive <= b.start) }
     }
 }
