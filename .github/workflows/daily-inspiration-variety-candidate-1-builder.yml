@@ -1,0 +1,92 @@
+name: Daily inspiration variety candidate 1 builder
+
+on:
+  push:
+    branches:
+      - driver/daily-inspiration-variety-candidate-1-20260916
+    paths:
+      - .github/workflows/daily-inspiration-variety-candidate-1-builder.yml
+
+permissions:
+  contents: write
+
+jobs:
+  build-candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 08eb114b6eec46ceee2cef65451302ac03b7e0fa
+          fetch-depth: 0
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 12266719
+          packages: platform-tools
+      - name: Create direct-child runtime candidate and preflight
+        shell: bash
+        env:
+          CATALOG_Z: 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
+          TEST_Z: eNqtVt1O40YUvs9TjHKDLQUruyul6gVoDTFaJDaqEtq9Waka7BNyYDLjnRlHZCFXlVqJ1+hFpV6Vt0nepmecxMTBJkA7QsL2nL/vO39JeXzNL4HFahxwHY9wDAmkWl1BbA19wZHkwRC4zTQEIzWGRgPHqdKWXfEJDyzJB2cq5qLLLayvlL4MrjKJNgiNAW0Dnv+LvmVcmB1C5zqrsHMOxjYasSAZ1uUopqfSpKi5RSXdHbttMDofczn3NMwkMyAIBUmcmoHlFwJOlB7wMRzjBPN4Q5n0YQgaZAwm1BDdpAJjtJ6/sufOhAuWkDA7YAXQQA299+33nRb7scU6fiG7idNLtuIk754z5LdY7dW2KceGF2ckBck2bkqPEOyWET16jSJA01P2SHB5TSBmbzRn4YbSIaf0Fo+45rEFzfYPN15Qsr2vWbvTbu8FQf50crLHZs5jiTil8RIlF2FeSERhrfMhCme4DIcdHLCwf/qpF/7ajz6f9rpRnx5Oon7UO47YrApd2eOSj2ic2qlXTe6WfMHBNcrEuW/O/57/s/htcT9/YPM/5w+L+8Ufi9/nfzWfYDUq0zEku0FSRP8d58rbboDFN3fWWjnM0o07pUoylmtrvqAdec1jpblUrOmzu7t6qQEf4YhxsX+UXVOlIMmXXMxaxevyYtao6Fp8JIzcppn5xM0Ab+z0Z4nfMujyae5OZTa6oWLsQ0rTyZRa9iXFbvA7sMMD1mnXtO+zmq36HI95+thFbBZYNQCaKLnadsU48qrnyjv688vCjgOHnhS89hnLpEVB4Z/5K5dVQyX3EKQiM07TQ+v7T8pphbfTbj362IGiNnmG8g7npHKspOWUyi6aVPApJO5jMWxp8C77LbRW40Xmwn0ydDcKgSBXoaubx1vEuZhcW24YDIpAvcqmWeoE8QqFt6nqGPFfrVW0zMtUm0t+mv4zZKfKoMUJ5DUY5pvObbFfqPUgWW68UPMLjInuHkxA/6TBgkzO1REMYo2pW+qv23U/lKkdojZ2nZxlBMUqK+cACFmyS7JUj7nt1kpzo3FqmnuFv+jrDy/p602lckuvb4o+4DmTlZ3wf7lAywVyucNHLfJidS1DffMCf627Vdiv/emxtiOVhLKh5zZPlUy+d5qFz1lj1vgX9MqW0w==
+        run: |
+          set -euo pipefail
+          SPEC='08eb114b6eec46ceee2cef65451302ac03b7e0fa'
+          CANDIDATE_BRANCH='daily-inspiration-variety-candidate-1'
+          test "$(git rev-parse HEAD)" = "$SPEC"
+          git fetch origin main --force
+          test "$(git rev-parse origin/main)" = "$SPEC"
+          python3 -c "import os,base64,zlib,pathlib; p=pathlib.Path('app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspirationCatalog.kt'); p.write_bytes(zlib.decompress(base64.b64decode(os.environ['CATALOG_Z'])))"
+          python3 -c "import os,base64,zlib,pathlib; p=pathlib.Path('app/src/test/java/com/archimedeprojects/arihna/feature/home/DailyInspirationTest.kt'); p.write_bytes(zlib.decompress(base64.b64decode(os.environ['TEST_Z'])))"
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspiration.kt')
+          s = p.read_text(encoding='utf-8')
+          old_comment = '''/**
+           * Only directly sourced Quran / sahih hadith text is presented as Quran or hadith.
+           * Free-form encouragement lives in the separate DailyAction model below and is not
+           * attributed to scripture.
+           */'''
+          new_comment = '''/**
+           * Only directly sourced Quran / sahih hadith text is presented as Quran or hadith.
+           * Original Arihna encouragement is explicitly labeled as non-scripture, while DailyAction
+           * remains practical guidance and is never attributed to Quran or hadith.
+           */'''
+          assert s.count(old_comment) == 1, s.count(old_comment)
+          s = s.replace(old_comment, new_comment)
+          old_inspiration_end = ')\n\ninternal data class DailyAction('
+          assert s.count(old_inspiration_end) == 1, s.count(old_inspiration_end)
+          s = s.replace(old_inspiration_end, ') + additionalDailyInspirations\n\ninternal data class DailyAction(', 1)
+          old_action_end = ')\n\ninternal fun dailyInspirationFor'
+          assert s.count(old_action_end) == 1, s.count(old_action_end)
+          s = s.replace(old_action_end, ') + additionalDailyActions\n\ninternal fun dailyInspirationFor', 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+          git diff --check
+          mapfile -t CHANGED < <(git status --short | sed 's/^...//' | sort)
+          printf 'CHANGED=%s\n' "${CHANGED[*]}"
+          test "${#CHANGED[@]}" -eq 3
+          test "${CHANGED[0]}" = 'app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspiration.kt'
+          test "${CHANGED[1]}" = 'app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspirationCatalog.kt'
+          test "${CHANGED[2]}" = 'app/src/test/java/com/archimedeprojects/arihna/feature/home/DailyInspirationTest.kt'
+          ! printf '%s\n' "${CHANGED[@]}" | grep -Ei 'prayer|location|qibla|alarm|quran'
+          grep -Fq 'Promemoria Arihna · non è una citazione' app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspirationCatalog.kt
+          test "$(grep -c '    DailyInspiration(' app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspirationCatalog.kt)" -eq 54
+          test "$(grep -c '    DailyAction(' app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspirationCatalog.kt)" -eq 22
+          grep -Fq 'inspirationCorpusHasSixtyUniqueDaysWithoutExactRepeats' app/src/test/java/com/archimedeprojects/arihna/feature/home/DailyInspirationTest.kt
+          ./gradlew --no-daemon :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:assembleDebug --stacktrace
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspiration.kt app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspirationCatalog.kt app/src/test/java/com/archimedeprojects/arihna/feature/home/DailyInspirationTest.kt
+          git commit -m 'feat(home): expand daily inspiration variety'
+          test "$(git rev-parse HEAD^)" = "$SPEC"
+          test "$(git rev-list --count "$SPEC..HEAD")" -eq 1
+          test "$(git diff --name-only "$SPEC..HEAD" | wc -l)" -eq 3
+          git push origin HEAD:"refs/heads/$CANDIDATE_BRANCH"
+          echo "CANDIDATE_SHA=$(git rev-parse HEAD)"
