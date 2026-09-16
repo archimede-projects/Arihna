@@ -55,8 +55,8 @@ internal data class DailyInspiration(
 
 /**
  * Only directly sourced Quran / sahih hadith text is presented as Quran or hadith.
- * Free-form encouragement lives in the separate DailyAction model below and is not
- * attributed to scripture.
+ * Original Arihna encouragement is explicitly labeled as non-scripture, while DailyAction
+ * remains practical guidance and is never attributed to Quran or hadith.
  */
 internal val curatedDailyInspirations = listOf(
     DailyInspiration(
@@ -95,7 +95,7 @@ internal val curatedDailyInspirations = listOf(
         reference = "Sahih al-Bukhari 2989",
         translationItalian = "Una buona parola è carità.",
     ),
-)
+) + additionalDailyInspirations
 
 internal data class DailyAction(
     val arabic: String,
@@ -135,7 +135,7 @@ internal val curatedDailyActions = listOf(
         "ادْعُ الْيَوْمَ لِشَخْصٍ آخَرَ بِدَعْوَةٍ جَمِيلَةٍ فِي ظَهْرِ الْغَيْبِ.",
         "Fai oggi una bella duʿā per un'altra persona, senza che lo sappia.",
     ),
-)
+) + additionalDailyActions
 
 internal fun dailyInspirationFor(date: LocalDate): DailyInspiration {
     val index = Math.floorMod(date.toEpochDay(), curatedDailyInspirations.size.toLong()).toInt()
