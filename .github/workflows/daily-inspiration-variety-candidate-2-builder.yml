@@ -1,0 +1,140 @@
+name: Daily inspiration variety candidate 2 builder
+
+on:
+  push:
+    branches:
+      - driver/daily-inspiration-variety-candidate-2-builder-20260916
+    paths:
+      - .github/workflows/daily-inspiration-variety-candidate-2-builder.yml
+
+permissions:
+  contents: write
+
+jobs:
+  build-candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      SPEC_SHA: 08eb114b6eec46ceee2cef65451302ac03b7e0fa
+      FAILED_CANDIDATE_SHA: f97aa55d1e403dc744f904af3fde64105c012315
+      CANDIDATE_BRANCH: daily-inspiration-variety-candidate-2
+      GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
+      FROZEN_ASSET_RELEASE: settings-s25-premium-3f28b6f0-20260906
+      FROZEN_ASSET_APK: arihna-settings-s25-premium.apk
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 08eb114b6eec46ceee2cef65451302ac03b7e0fa
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 12266719
+          packages: platform-tools
+
+      - name: Prepare sibling candidate working tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SPEC_SHA"
+          git fetch origin daily-inspiration-variety-candidate-1 --force
+          test "$(git rev-parse "$FAILED_CANDIDATE_SHA^")" = "$SPEC_SHA"
+          git cherry-pick --no-commit "$FAILED_CANDIDATE_SHA"
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspiration.kt')
+          s = p.read_text(encoding='utf-8')
+
+          old_import = 'import androidx.compose.ui.text.style.TextAlign\n'
+          new_import = 'import androidx.compose.ui.text.style.TextAlign\nimport androidx.compose.ui.text.style.TextOverflow\n'
+          assert s.count(old_import) == 1
+          s = s.replace(old_import, new_import, 1)
+
+          old_layout = '''        Column(\n            modifier = Modifier.padding(horizontal = 17.dp, vertical = 14.dp),\n            verticalArrangement = Arrangement.spacedBy(7.dp),\n        ) {'''
+          new_layout = '''        Column(\n            modifier = Modifier.padding(horizontal = 17.dp, vertical = 12.dp),\n            verticalArrangement = Arrangement.spacedBy(5.dp),\n        ) {'''
+          assert s.count(old_layout) == 1
+          s = s.replace(old_layout, new_layout, 1)
+
+          old_arabic = '''            Text(\n                inspiration.text,\n                modifier = Modifier.fillMaxWidth().testTag("home-inspiration-arabic"),\n                textAlign = TextAlign.End,\n                fontSize = 24.sp,\n                lineHeight = 38.sp,\n                fontWeight = FontWeight.SemiBold,\n                color = ArihnaInk,\n            )'''
+          new_arabic = '''            Text(\n                inspiration.text,\n                modifier = Modifier.fillMaxWidth().testTag("home-inspiration-arabic"),\n                textAlign = TextAlign.End,\n                fontSize = 22.sp,\n                lineHeight = 30.sp,\n                fontWeight = FontWeight.SemiBold,\n                color = ArihnaInk,\n                maxLines = 2,\n                overflow = TextOverflow.Ellipsis,\n            )'''
+          assert s.count(old_arabic) == 1
+          s = s.replace(old_arabic, new_arabic, 1)
+
+          old_it = '''            Text(\n                inspiration.translationItalian,\n                style = MaterialTheme.typography.bodySmall,\n                color = ArihnaMutedText,\n            )'''
+          new_it = '''            Text(\n                inspiration.translationItalian,\n                style = MaterialTheme.typography.bodySmall,\n                color = ArihnaMutedText,\n                maxLines = 2,\n                overflow = TextOverflow.Ellipsis,\n            )'''
+          assert s.count(old_it) >= 1
+          s = s.replace(old_it, new_it, 1)
+
+          p.write_text(s, encoding='utf-8')
+          PY
+
+          EXPECTED=$'app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspiration.kt\napp/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspirationCatalog.kt\napp/src/test/java/com/archimedeprojects/arihna/feature/home/DailyInspirationTest.kt'
+          ACTUAL="$(git diff --name-only HEAD | sort)"
+          test "$ACTUAL" = "$EXPECTED"
+          grep -Fq 'maxLines = 2' app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspiration.kt
+          grep -Fq 'overflow = TextOverflow.Ellipsis' app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspiration.kt
+          grep -Fq 'Promemoria Arihna · non è una citazione' app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspirationCatalog.kt
+
+      - name: Restore frozen GeoNames
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+
+      - name: JVM build preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:assembleDebug --stacktrace
+
+      - name: Enable KVM
+        run: sudo chmod 666 /dev/kvm || true
+
+      - name: API28 Home regression preflight
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 28
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-boot-timeout: 600
+          script: ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.archimedeprojects.arihna.feature.home.HomePrayerScheduleScreenAndroidTest --stacktrace
+
+      - name: Commit and push single direct-child candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspiration.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspirationCatalog.kt \
+            app/src/test/java/com/archimedeprojects/arihna/feature/home/DailyInspirationTest.kt
+          git commit -m 'feat(home): expand daily inspiration variety compact preview'
+          CANDIDATE_SHA="$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          test "$(git rev-list --count "$SPEC_SHA..HEAD")" -eq 1
+          EXPECTED=$'app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspiration.kt\napp/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspirationCatalog.kt\napp/src/test/java/com/archimedeprojects/arihna/feature/home/DailyInspirationTest.kt'
+          ACTUAL="$(git diff-tree --no-commit-id --name-only -r HEAD | sort)"
+          test "$ACTUAL" = "$EXPECTED"
+          git push origin "HEAD:refs/heads/$CANDIDATE_BRANCH"
+          echo "CANDIDATE_SHA=$CANDIDATE_SHA"
