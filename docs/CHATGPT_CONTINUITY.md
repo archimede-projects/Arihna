@@ -1,6 +1,6 @@
 # Arihna — ChatGPT continuity state
 
-> Persistent cross-chat handoff file. This file lives only on branch `chat-context` and must not be merged into `main` as part of app runtime work.
+> Persistent cross-chat handoff file. This is a Markdown file (`docs/CHATGPT_CONTINUITY.md`) stored on a dedicated `chat-context` branch so continuity updates do not advance or alter the runtime branch `main`.
 
 ## Mandatory protocol for every future chat
 
@@ -10,6 +10,10 @@
 4. Never modify `main` merely to update chat context. Context commits belong only on `chat-context`.
 5. If GitHub write access is unavailable in a future chat, state that the continuity file could not be updated in that turn; do not pretend it was updated.
 6. When the user opens a fresh chat and pastes the bootstrap prompt, read this file first, then continue directly without asking them to repeat history unless essential information is genuinely missing.
+
+## Why a separate branch
+
+The continuity artifact **is already a `.md` file**. It is intentionally kept on `chat-context` rather than `main` because every continuity update creates a Git commit. If the file lived on `main`, every user prompt would move `main`, which would break the invariant that `main` points to the exact verified runtime/release commit and would complicate SPEC-first lineage and exact-SHA release verification. The branch is only an isolated storage location for the Markdown file; it is not an app-development branch and must not be merged into `main`.
 
 ## User working style
 
@@ -89,12 +93,13 @@ Frozen GeoNames asset historically used:
 
 ## Latest user request / handoff
 
-2026-09-16: User asked to move to a new chat because the current chat has become slow. They requested a prompt that allows the new chat to continue exactly where this one stopped, plus a persistent GitHub file that is read in every new chat and updated after every future user prompt.
+2026-09-16: User asked why a branch was created instead of a Markdown file.
 
-Action taken:
-- Created dedicated branch `chat-context` from current `main`.
-- Created this continuity file and established the update protocol above.
+Answer/state:
+- The continuity artifact is already the Markdown file `docs/CHATGPT_CONTINUITY.md`.
+- It is stored on the dedicated `chat-context` branch solely so frequent context updates do not move `main` away from the exact verified runtime SHA.
+- Keeping it off `main` preserves clean SPEC/runtime lineage and release verification.
 
 Next action:
 - In the new chat, read this file first.
-- Continue from the verified APK/release state above and from whatever the user asks next, likely S25 validation feedback or the next requested feature/fix.
+- Continue from the verified APK/release state above and from whatever the user asks next.
