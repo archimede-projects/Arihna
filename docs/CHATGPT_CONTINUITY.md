@@ -36,7 +36,7 @@
 - Repo: `archimede-projects/Arihna`
 - Runtime branch: `main`
 - Continuity branch: `chat-context`
-- Live `main` rechecked 2026-09-17 after stable publication: `be4af47d4f5b267e47eac09d761775a2d99bf0db`
+- Live `main` rechecked 2026-09-17: `be4af47d4f5b267e47eac09d761775a2d99bf0db`
 - Runtime: `fix(quran): prevent Tajwid overlap crash`
 - Parent SPEC: `5b6f77bf1a7ee8634e74f46918b7f7263142316b`
 - Exact-SHA gate `35110928396`: completed/success; static `104844112728`, API28 `104844112681`, API36 `104844112243` all success.
@@ -50,45 +50,31 @@
 - `draft=false`, `prerelease=false`
 - Stable release workflow run: `35188236936`, completed/success
 - Stable job: `105094843337`, success
-- Successful critical steps: verify exact runtime/lineage/gate/source prerelease; verify physically validated APK bytes/signature; publish stable; redownload and verify published stable release.
 - Exactly one stable asset: `arihna.apk`
 - Size: `386929193` bytes
 - SHA-256: `a0c91c24846480037d17d493481795c7cb7c0a441c484845ef61c24206b6f5ed`
 - Signer certificate SHA-256: `1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa`
-- Download URL: `https://github.com/archimede-projects/Arihna/releases/download/arihna-stable-be4af47d-20260917/arihna.apk`
-- Release URL: `https://github.com/archimede-projects/Arihna/releases/tag/arihna-stable-be4af47d-20260917`
 - Stable APK is byte-identical to the physically S25-validated prerelease asset `arihna-quran-tajwid-crashfix.apk`.
 
 ## Relevant correction history
 
 The prior physical S25 Tajwid paging crash was caused by overlapping Tajwid spans for shadda+tanwin/contextual rules. Runtime `be4af47d...` makes the contextual rule win and includes regression coverage across all 6,236 pinned Hafs Uthmani ayat. User subsequently confirmed the crash is resolved and completed the wider smoke pass.
 
-Corrective prerelease retained as validation history:
-- tag `quran-tajwid-crashfix-be4af47d-20260916`
-- workflow run `35112140220` success
-- asset `arihna-quran-tajwid-crashfix.apk`
-- same SHA-256/size/signer as the stable APK.
+The first stable-publication workflow attempt `35188163125` failed before publication because `setup-android` requested obsolete SDK package `tools`; no release was published. The release-only workflow was corrected on its driver branch and second run `35188236936` completed successfully, including redownload verification. No runtime/app code changed.
 
 ## Latest user request / what was done
 
-2026-09-17: User authorized proceeding with the stable release after completing the physical S25 smoke validation.
+2026-09-17: User is installing the stable APK and asked what the next step should be.
 
 Actually done this turn:
-- Reverified live `main` and source prerelease before release work.
-- Created release-only branch `driver/stable-be4af47d-release-20260917` from exact runtime; `main` was not moved.
-- Chose to publish the exact bytes already physically tested rather than rebuild a new APK.
-- First stable workflow run `35188163125` / job `105094624760` failed before APK download/publication because `android-actions/setup-android@v3` defaulted to obsolete SDK package `tools`; no stable release was published by this failed attempt.
-- Read the job log, identified `Failed to find package 'tools'`, and corrected only the release workflow to request `platform-tools`; workflow-fix commit `9cee4b2d1739068d2aa4204e27b26918703262d4` on the release branch.
-- Second run `35188236936` / job `105094843337` completed successfully.
-- The source APK was verified for exact size, SHA-256 and persistent signer before publication.
-- Published stable release `arihna-stable-be4af47d-20260917` as non-prerelease.
-- Redownloaded the published stable APK in CI and successfully reverified size, SHA-256 and signer.
-- Rechecked live release metadata and rechecked that `main` remains unchanged at `be4af47d...`.
-- No runtime/app code change was made for stable publication.
+- Rechecked live `main`; it remains `be4af47d4f5b267e47eac09d761775a2d99bf0db`.
+- Rechecked live stable release metadata; `arihna-stable-be4af47d-20260917` remains non-prerelease, targets the same runtime and exposes the same single verified APK digest/size.
+- No code, release, tag or `main` ref was changed.
+- Defined the post-install sequence: because the stable APK is byte-identical to the already physically validated prerelease, only a short install/open sanity check is needed; no full smoke rerun is required unless the user observes a problem.
 
 ## Current state / exact next action
 
-- Stable baseline is now secured and physically S25-validated.
-- `main` remains `be4af47d4f5b267e47eac09d761775a2d99bf0db`; stable APK is verified and published.
-- No release blocker is currently known.
-- Exact next action: begin future product improvement planning with one narrow user-prioritized objective at a time, SPEC-first, preserving this stable baseline. Candidate areas include Quran usability, Home/daily inspiration polish, settings/accessibility, or another user-selected enhancement.
+- Stable baseline is secured and physically validated; no known blocker.
+- Immediate next action: user installs the stable APK, opens it once and confirms normal launch/basic state preservation. If that is clean, consider the stable milestone closed.
+- Next engineering objective after that: start a narrow post-stable hardening SPEC, prioritizing Quran robustness (rapid paging, Hafs/Tajwid/Warsh switching, bookmarks/fullscreen/state restoration and long-session memory/performance) before adding broader new features.
+- After hardening, select one user-prioritized product improvement at a time, SPEC-first.
