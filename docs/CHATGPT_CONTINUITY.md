@@ -5,160 +5,87 @@
 ## Mandatory protocol
 
 1. At the start of every Arihna chat, read this file first from `archimede-projects/Arihna`, branch `chat-context`.
-2. Treat it as handoff context, but verify live GitHub state before claiming current SHAs, PASS, releases or APK verification.
-3. After every user prompt, replace/update this file on `chat-context` before the final answer. Record: latest request, what was actually done, verified identifiers/results, failures/problems, current state and exact next action.
-4. Never move `main` merely for continuity updates. Never merge `chat-context` into `main`.
+2. Verify live GitHub state before claiming current SHAs, PASS, releases or APK verification.
+3. After every user prompt, update/replace this file on `chat-context` before the final answer with: latest request, what was actually done, verified identifiers/results, failures/problems, current state and exact next action.
+4. Never move `main` for continuity updates. Never merge `chat-context` into `main`.
 5. Never store passwords, tokens, private keys or sensitive data here.
-6. If write access is unavailable, say so explicitly instead of pretending this file was updated.
+6. If write access is unavailable, say so explicitly.
 
 ## User working style
 
-- Language: Italian.
-- Execute directly and keep status concise.
-- During long GitHub/CI work, give brief progress updates while working.
-- Do not claim PASS, release readiness or APK verification without real evidence.
-- User performs final physical Android validation on a Galaxy S25.
-- When context is sufficient, proceed without unnecessary questions.
-- User explicitly values transparent status reporting; if any required continuity/update step is incomplete, say so rather than implying success.
+- Language: Italian; operational and concise.
+- Proceed directly when context is sufficient; avoid unnecessary questions.
+- During long GitHub/CI work, give brief progress updates.
+- Never claim PASS/release/APK verification without evidence.
+- Final physical Android validation is performed by the user on a Galaxy S25.
+- Be transparent about incomplete or failed steps.
 
 ## Engineering / release discipline
 
 - SPEC-first.
 - Runtime candidate = exactly one commit, direct child of its SPEC.
-- Failed replacement candidates must be siblings from the same SPEC, not descendants of a failed candidate.
-- Full exact-SHA gates include API 28 and API 36.
+- Replacement candidates after failure must be siblings from the same SPEC.
+- Full exact-SHA gates include API28 and API36.
 - Promote `main` only after required gates are green, via non-forced fast-forward.
 - Use the persistent Arihna signer.
 - S25 validation builds are GitHub prereleases.
-- Before handoff: redownload published APK and verify SHA-256 and signer.
-- Preserve unrelated features unless SPEC explicitly changes them.
+- Before handoff, redownload the published APK and verify SHA-256 + signer.
+- Preserve unrelated features unless the SPEC explicitly changes them.
 
-## Repository
+## Repository / current verified baseline
 
 - Repo: `archimede-projects/Arihna`
 - Runtime branch: `main`
 - Continuity branch: `chat-context`
 - Continuity file: `docs/CHATGPT_CONTINUITY.md`
-
-## Current live-verified runtime/release state
-
-Rechecked live on GitHub on 2026-09-17 after the Tajwid crash correction:
-
-- `main`: `be4af47d4f5b267e47eac09d761775a2d99bf0db`
-- Runtime message: `fix(quran): prevent Tajwid overlap crash`
+- Live `main` rechecked 2026-09-17: `be4af47d4f5b267e47eac09d761775a2d99bf0db`
+- Runtime: `fix(quran): prevent Tajwid overlap crash`
 - Parent SPEC: `5b6f77bf1a7ee8634e74f46918b7f7263142316b`
-- SPEC message: `spec(quran): prevent Tajwid overlap crash`
-- Runtime is exactly one direct child of the SPEC.
-- Exact-SHA gate run: `35110928396`
-  - live status: `completed`
-  - live conclusion: `success`
-  - static/JVM/build job: `104844112728` = `success`
-  - API28 full-suite job: `104844112681` = `success`
-  - API36 Quran/permission-matrix job: `104844112243` = `success`
-- Gate coverage added by this correction includes an Android regression that loads all 6,236 pinned Hafs Uthmani ayat and runs the Tajwid matcher over the complete corpus, requiring valid non-overlapping spans and no exception.
-- Release workflow run: `35112140220`
-  - live status: `completed`
-  - live conclusion: `success`
-  - release job: `104848314994` = `success`
-  - successful release steps include exact promoted-runtime verification, definitive gate verification, persistent signer restoration, APK build, package/SDK/assets/signer/digest verification, prerelease publication, and redownload/reverification of the published APK.
-- Release tag: `quran-tajwid-crashfix-be4af47d-20260916`
-- Release title: `Arihna — Tajwid crash fix — S25 validation`
-- Release targets runtime `be4af47d4f5b267e47eac09d761775a2d99bf0db`, `draft=false`, `prerelease=true`.
-- Exactly one release asset:
-  - `arihna-quran-tajwid-crashfix.apk`
-  - bytes: `386929193`
-  - live GitHub asset digest: `sha256:a0c91c24846480037d17d493481795c7cb7c0a441c484845ef61c24206b6f5ed`
-  - URL: `https://github.com/archimede-projects/Arihna/releases/download/quran-tajwid-crashfix-be4af47d-20260916/arihna-quran-tajwid-crashfix.apk`
-- Persistent signer certificate SHA-256 verified by the release workflow, including after redownload: `1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa`
-- Persistent signer source commit: `ce23a7f78695be95c7f8dfd2bcedbe22544da94c`
-- Keystore SHA-256 checked by the release workflow: `bc9057f26ad6de7efb70a5df06effb1ed259f1d015c3f062d0f757b3f0983b72`
+- Exact-SHA gate previously live-verified: run `35110928396`, completed/success; static `104844112728`, API28 `104844112681`, API36 `104844112243` all success.
+- Corrective prerelease previously live-verified: `quran-tajwid-crashfix-be4af47d-20260916`
+- Release workflow run: `35112140220`, completed/success, including published-APK redownload verification.
+- APK: `arihna-quran-tajwid-crashfix.apk`
+- APK size: `386929193` bytes
+- APK SHA-256: `a0c91c24846480037d17d493481795c7cb7c0a441c484845ef61c24206b6f5ed`
+- Persistent signer certificate SHA-256: `1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa`
 - Package: `com.archimedeprojects.arihna`; minSdk 28, targetSdk 37, compileSdk 37.
-- The corrected APK is CI/release-verified, but final physical Galaxy S25 revalidation of the corrected build is still user-side and has not yet been reported.
+- Open GitHub issues rechecked 2026-09-17: none.
 
-## Tajwid crash report and correction
+## Tajwid crash status
 
-### User report
+The previous physical S25 crash while paging Tajwid was traced to overlapping Tajwid spans for shadda+tanwin/contextual rules. The promoted fix makes the contextual rule win and adds regression coverage across all 6,236 pinned Hafs Uthmani ayat.
 
-On 2026-09-16 the user installed the previous daily-inspiration prerelease on a physical Galaxy S25 and reported that Arihna crashed while paging through Tajwid. Android displayed: `Si è verificato un problema con Arihna` / `Applicazione Arihna chiusa a causa di un bug.`
+Physical revalidation update from user on 2026-09-17: user reports that the Quran can now be paged successfully on the Galaxy S25. Treat the specific previously reported paging crash as physically resolved for the observed path. Do not generalize this to every Arihna feature without separate smoke validation.
 
-This physical result invalidated the previous prerelease for Tajwid validation even though its prior CI was green.
+## Preserved shipped scope
 
-### Root cause identified
+- Quran: Hafs/Tajwid/Warsh, bookmarks/fullscreen and existing page behavior.
+- Home/Hijri and daily inspiration; daily-inspiration corpus/compact preview feature remains preserved.
+- Prayer times, location, Qibla, alarms and permission flows.
+- Frozen GeoNames/persistent signer workflow remains part of release discipline.
 
-Inspection of the pinned Hafs Uthmani corpus and `UthmaniTajwidEngine` found a deterministic overlap failure:
+## Next objectives — prioritized
 
-- Some tokens contain shadda plus tanwin and also qualify for a context-sensitive tanwin transition rule.
-- Real pinned-corpus examples include `جَآنٌّ وَلَّىٰ` and `مُطْمَئِنٌّۢ بِٱلْإِيمَـٰنِ`.
-- The old matcher could emit generic `GHUNNAH` and a contextual rule such as `IDGHAM_WITH_GHUNNAH` or `IQLAB` on the same character range.
-- The engine's validator requires Tajwid spans to be non-overlapping, so page composition could throw while scrolling to an affected ayah.
-
-### Corrective implementation
-
-SPEC: `5b6f77bf1a7ee8634e74f46918b7f7263142316b`
-
-Runtime candidate/promoted fix: `be4af47d4f5b267e47eac09d761775a2d99bf0db`
-
-Changed scope:
-
-- `app/src/main/java/com/archimedeprojects/arihna/feature/quran/UthmaniTajwidEngine.kt`
-  - computes the context-sensitive tanwin rule first;
-  - when a token would otherwise produce both generic GHUNNAH and a contextual rule on the same range, the more specific contextual display rule wins;
-  - preserves the deterministic, in-bounds, non-overlapping span invariant.
-- `app/src/test/java/com/archimedeprojects/arihna/feature/quran/UthmaniTajwidEngineTest.kt`
-  - adds exact pinned-corpus regression fixtures for shadda+tanwin IDGHAM and IQLAB cases.
-- `app/src/androidTest/java/com/archimedeprojects/arihna/feature/quran/TajwidCrashRegressionAndroidTest.kt`
-  - loads the complete pinned Hafs corpus;
-  - asserts exactly 6,236 ayat;
-  - runs the Tajwid matcher over every ayah;
-  - validates all spans are in bounds, non-empty and non-overlapping.
-
-Narrow-scope intent preserved: no intentional behavior change to Prayer, Location, Qibla, alarms, Home, daily inspiration, permissions, Hafs page mapping/artwork, Warsh behavior, bookmarks or fullscreen behavior beyond what was required for this crash fix.
-
-## Previous shipped Home feature preserved
-
-The earlier Home daily-inspiration feature remains part of the runtime lineage and was not intentionally changed by the Tajwid correction:
-
-- curated inspiration corpus expanded to at least 60 unique days;
-- positive daily actions expanded to at least 30;
-- Home preview limited to compact two-line text with ellipsis;
-- full content remains available in the detail dialog.
-
-Previous runtime before the Tajwid correction was `c07663fcc61101a75e2b78ba550ccc6f60e38b35` (`feat(home): expand daily inspiration variety compact preview`). Its prerelease `home-daily-inspiration-variety-c07663fc-20260916` is the build on which the user reported the physical Tajwid crash and should not be used for final Tajwid validation.
-
-## Important preserved project history
-
-Previously integrated work includes Quran/Hafs/Tajwid/Warsh, Home/Hijri, alarms, location, prayer and Qibla. Inspect GitHub history for exact implementation details; do not casually rewrite those areas during narrow tasks.
-
-Persistent signer source historically/currently used for S25 validation builds:
-- branch `location-step5-device-test`
-- commit `ce23a7f78695be95c7f8dfd2bcedbe22544da94c`
-- certificate SHA-256 `1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa`
-- keystore SHA-256 `bc9057f26ad6de7efb70a5df06effb1ed259f1d015c3f062d0f757b3f0983b72`
-
-Frozen GeoNames asset historically/currently used:
-- release `settings-s25-premium-3f28b6f0-20260906`
-- APK `arihna-settings-s25-premium.apk`
-- `cities.db` SHA-256 `7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb`
+1. **S25 stabilization smoke pass**: exercise Hafs/Tajwid/Warsh navigation, bookmarks/fullscreen, cold start/resume, Prayer, Location, Qibla, alarms and permission flows on the physical S25. Record any failure before new feature work.
+2. **Stable release milestone**: if the smoke pass is green and no code changes are needed, publish a stable/non-prerelease release from the same verified runtime `be4af47d...`, preserving signer and redownload verification. If any defect appears, fix SPEC-first before stable release.
+3. **Quran quality hardening**: add/expand regressions around rapid paging, mode switches Hafs/Tajwid/Warsh, state restoration/bookmarks/fullscreen and memory/performance on long sessions; no visual/behavioral rewrite unless a SPEC asks for it.
+4. **Core reliability hardening**: physical S25 checks for alarm delivery, reboot/background behavior, location changes, prayer recalculation and Qibla sensor/location transitions, with API28/API36 gates for any fixes.
+5. **Next product feature**: after stabilization, choose one narrow SPEC-driven improvement rather than broad refactoring. Candidate areas: Quran usability, Home polish/daily inspiration, or settings/accessibility. Do not start one until the stable baseline is secured or the user explicitly reprioritizes.
 
 ## Latest user request / what was done
 
-2026-09-17: The user asked to complete the continuity update that had been transparently reported as incomplete after the Tajwid crash-fix/release work.
+2026-09-17: User reported the corrected build now allows paging through the Quran and asked for the next project objectives.
 
 Actually done this turn:
-
-- Re-read the current continuity file from `chat-context` before modifying it.
-- Reverified live GitHub `main` and confirmed it remains `be4af47d4f5b267e47eac09d761775a2d99bf0db`, direct child of SPEC `5b6f77bf1a7ee8634e74f46918b7f7263142316b`.
-- Reverified exact-SHA gate run `35110928396` is still `completed/success`.
-- Reverified release workflow run `35112140220` is still `completed/success`.
-- Reverified prerelease `quran-tajwid-crashfix-be4af47d-20260916`, its target runtime, single APK asset, byte size and live GitHub SHA-256 digest.
-- Re-read the release workflow definition and confirmed the persistent signer fingerprint, keystore hash, exact-runtime/gate checks, published-APK redownload check, downloaded SHA/size check and signer verification are encoded in the successful workflow.
-- Replaced this continuity file on `chat-context` with the complete Tajwid crash/fix/release state.
-- No app/runtime code and no `main` ref were changed in this continuity-only turn.
+- Recorded the positive physical S25 result for the previously failing paging path.
+- Re-read continuity state.
+- Rechecked live `main`; it remains `be4af47d4f5b267e47eac09d761775a2d99bf0db` with parent SPEC `5b6f77bf1a7ee8634e74f46918b7f7263142316b`.
+- Checked open GitHub issues; none are open.
+- No runtime/app code, release, tag or `main` ref was changed.
+- Defined the prioritized roadmap above.
 
 ## Current state / exact next action
 
-- `main` is the verified Tajwid crash-fix runtime `be4af47d4f5b267e47eac09d761775a2d99bf0db`.
-- Corrective S25 prerelease is `quran-tajwid-crashfix-be4af47d-20260916` with APK `arihna-quran-tajwid-crashfix.apk` and SHA-256 `a0c91c24846480037d17d493481795c7cb7c0a441c484845ef61c24206b6f5ed`.
-- CI/release verification is complete and green.
-- Remaining validation: user installs the corrected APK on the physical Galaxy S25 and stress-pages through Tajwid, especially across many pages. Record the physical result when reported.
-- If the corrected build still crashes, treat it as a new physical validation failure: do not amend the promoted runtime blindly; gather the new failing page/ayah or Android crash evidence, create a new SPEC-first correction, and preserve the same exact-SHA/release discipline.
+- Tajwid/Quran paging crash: physically resolved for the user-observed S25 path.
+- Current runtime remains the verified crash-fix SHA above.
+- Exact next action: run a short physical S25 stabilization smoke pass across the remaining core areas. If green, prepare a stable release from the unchanged verified runtime; if any failure appears, stop and create a narrow SPEC-first correction.
