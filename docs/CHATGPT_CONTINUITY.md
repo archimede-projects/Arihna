@@ -31,7 +31,7 @@
 - Before handoff, redownload the published APK and verify SHA-256 + signer.
 - Preserve unrelated features unless the SPEC explicitly changes them.
 
-## Repository / stable verified baseline
+## Stable verified baseline
 
 - Repo: `archimede-projects/Arihna`
 - Runtime branch: `main`
@@ -50,31 +50,31 @@
 - `draft=false`, `prerelease=false`
 - Stable release workflow run: `35188236936`, completed/success
 - Stable job: `105094843337`, success
-- Exactly one stable asset: `arihna.apk`
+- Stable asset: `arihna.apk`
 - Size: `386929193` bytes
 - SHA-256: `a0c91c24846480037d17d493481795c7cb7c0a441c484845ef61c24206b6f5ed`
 - Signer certificate SHA-256: `1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa`
 - Stable APK is byte-identical to the physically S25-validated prerelease asset `arihna-quran-tajwid-crashfix.apk`.
+- The user has now installed the stable APK on the Galaxy S25 and confirmed the install/open sanity check is clean.
 
 ## Relevant correction history
 
-The prior physical S25 Tajwid paging crash was caused by overlapping Tajwid spans for shadda+tanwin/contextual rules. Runtime `be4af47d...` makes the contextual rule win and includes regression coverage across all 6,236 pinned Hafs Uthmani ayat. User subsequently confirmed the crash is resolved and completed the wider smoke pass.
+The prior S25 Tajwid paging crash was caused by overlapping Tajwid spans for shadda+tanwin/contextual rules. Runtime `be4af47d...` makes the contextual rule win and includes regression coverage across all 6,236 pinned Hafs Uthmani ayat. User confirmed the crash is resolved.
 
-The first stable-publication workflow attempt `35188163125` failed before publication because `setup-android` requested obsolete SDK package `tools`; no release was published. The release-only workflow was corrected on its driver branch and second run `35188236936` completed successfully, including redownload verification. No runtime/app code changed.
+The first stable-publication workflow attempt `35188163125` failed before publication because `setup-android` requested obsolete SDK package `tools`; no release was published. The release-only workflow was corrected and second run `35188236936` completed successfully, including redownload verification. No runtime/app code changed.
 
 ## Latest user request / what was done
 
-2026-09-17: User is installing the stable APK and asked what the next step should be.
+2026-09-17: User replied `Pulita`, confirming that the stable APK installation/open check on Galaxy S25 completed cleanly.
 
 Actually done this turn:
-- Rechecked live `main`; it remains `be4af47d4f5b267e47eac09d761775a2d99bf0db`.
-- Rechecked live stable release metadata; `arihna-stable-be4af47d-20260917` remains non-prerelease, targets the same runtime and exposes the same single verified APK digest/size.
-- No code, release, tag or `main` ref was changed.
-- Defined the post-install sequence: because the stable APK is byte-identical to the already physically validated prerelease, only a short install/open sanity check is needed; no full smoke rerun is required unless the user observes a problem.
+- Rechecked live `main`; it still points to `be4af47d4f5b267e47eac09d761775a2d99bf0db`.
+- Recorded the user's clean stable install/open result.
+- No runtime/app code, release, tag or `main` ref was changed.
 
 ## Current state / exact next action
 
-- Stable baseline is secured and physically validated; no known blocker.
-- Immediate next action: user installs the stable APK, opens it once and confirms normal launch/basic state preservation. If that is clean, consider the stable milestone closed.
-- Next engineering objective after that: start a narrow post-stable hardening SPEC, prioritizing Quran robustness (rapid paging, Hafs/Tajwid/Warsh switching, bookmarks/fullscreen/state restoration and long-session memory/performance) before adding broader new features.
-- After hardening, select one user-prioritized product improvement at a time, SPEC-first.
+- Stable milestone is now fully closed: CI verified, published stable APK verified, broader S25 smoke already passed, and the final stable install/open sanity check is clean.
+- No known blocker remains.
+- Exact next action: begin one narrow post-stable hardening objective, SPEC-first. Recommended first target: Quran robustness under rapid paging, Hafs/Tajwid/Warsh switching, bookmarks/fullscreen/state restoration and long-session memory/performance, while preserving the stable baseline.
+- After hardening, proceed to one user-prioritized product improvement at a time.
