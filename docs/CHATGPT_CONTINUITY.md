@@ -23,58 +23,79 @@
 ## Engineering / release discipline
 
 - SPEC-first for runtime/code changes.
-- Runtime candidate = exactly one commit, direct child of its SPEC; replacement candidates after failure must be siblings from the same SPEC.
+- Candidate = exactly one commit, direct child of its SPEC; replacement candidates after failure must be siblings from the same SPEC.
 - Full exact-SHA gates include API28 and API36.
 - Promote `main` only after required gates are green, via non-forced fast-forward.
-- Use the persistent Arihna signer.
-- S25 validation builds are GitHub prereleases; stable release may reuse byte-identical physically validated APK bytes when runtime is unchanged.
-- Before handoff, redownload the published APK and verify SHA-256 + signer.
+- Use the persistent Arihna signer for user APKs.
+- S25 validation builds are GitHub prereleases; stable release may reuse byte-identical physically validated APK bytes when production runtime is unchanged.
+- Before APK handoff, redownload the published APK and verify SHA-256 + signer.
 - Preserve unrelated features unless the SPEC explicitly changes them.
 
-## Stable verified baseline
+## Current repository state
 
 - Repo: `archimede-projects/Arihna`
-- Runtime branch: `main`
-- Continuity branch: `chat-context`
-- Live `main` rechecked 2026-09-17: `be4af47d4f5b267e47eac09d761775a2d99bf0db`
-- Runtime: `fix(quran): prevent Tajwid overlap crash`
-- Parent SPEC: `5b6f77bf1a7ee8634e74f46918b7f7263142316b`
-- Exact-SHA gate `35110928396`: completed/success; static `104844112728`, API28 `104844112681`, API36 `104844112243` all success.
-- Physical Galaxy S25 stabilization smoke: user reports PASS/no blocker for Hafs/Tajwid/Warsh navigation, bookmarks/fullscreen, app reopen/cold-start behavior, Prayer, Location, Qibla, alarms and permissions.
+- `main` live-verified after post-stable hardening: `4588088ae459b7ac8811fed359e83192bb0681bd`
+- `main` head message: `test(quran): add post-stable hardening regressions`
+- Parent SPEC: `50471062331499be5364cbebbfe4dc6f9b084610`
+- Previous production runtime / stable APK code baseline remains `be4af47d4f5b267e47eac09d761775a2d99bf0db`.
+- The two commits added after `be4af47...` are SPEC documentation + Android instrumentation tests only; no production source/assets/manifest/Gradle runtime behavior changed.
 
-### Stable release
+## Stable user baseline
 
-- Tag: `arihna-stable-be4af47d-20260917`
+- Stable tag: `arihna-stable-be4af47d-20260917`
 - Title: `Arihna — Stable — S25 validated`
-- Target runtime: `be4af47d4f5b267e47eac09d761775a2d99bf0db`
+- Target production runtime: `be4af47d4f5b267e47eac09d761775a2d99bf0db`
 - `draft=false`, `prerelease=false`
-- Stable release workflow run: `35188236936`, completed/success
-- Stable job: `105094843337`, success
-- Stable asset: `arihna.apk`
+- Stable workflow `35188236936` / job `105094843337`: success, including published-APK redownload verification.
+- APK: `arihna.apk`
 - Size: `386929193` bytes
 - SHA-256: `a0c91c24846480037d17d493481795c7cb7c0a441c484845ef61c24206b6f5ed`
 - Signer certificate SHA-256: `1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa`
-- Stable APK is byte-identical to the physically S25-validated prerelease asset `arihna-quran-tajwid-crashfix.apk`.
-- The user has now installed the stable APK on the Galaxy S25 and confirmed the install/open sanity check is clean.
+- User physically validated broader smoke on Galaxy S25 and then installed/opened the stable APK cleanly.
+- No new APK is required for the post-stable test-only hardening because AndroidTest/spec files are not packaged into the app.
 
-## Relevant correction history
+## Tajwid correction history
 
-The prior S25 Tajwid paging crash was caused by overlapping Tajwid spans for shadda+tanwin/contextual rules. Runtime `be4af47d...` makes the contextual rule win and includes regression coverage across all 6,236 pinned Hafs Uthmani ayat. User confirmed the crash is resolved.
+The prior S25 Tajwid paging crash was caused by overlapping shadda+tanwin/contextual Tajwid spans. Runtime `be4af47...` makes the contextual rule win and includes regression coverage across all 6,236 pinned Hafs Uthmani ayat. User confirmed the crash is resolved.
 
-The first stable-publication workflow attempt `35188163125` failed before publication because `setup-android` requested obsolete SDK package `tools`; no release was published. The release-only workflow was corrected and second run `35188236936` completed successfully, including redownload verification. No runtime/app code changed.
+## Post-stable Quran hardening — completed
 
-## Latest user request / what was done
+User request on 2026-09-17: `Ok andiamo avanti` — proceed with the planned post-stable hardening.
 
-2026-09-17: User replied `Pulita`, confirming that the stable APK installation/open check on Galaxy S25 completed cleanly.
+SPEC:
+- branch `spec/quran-post-stable-hardening-20260917`
+- SHA `50471062331499be5364cbebbfe4dc6f9b084610`
+- parent `be4af47d4f5b267e47eac09d761775a2d99bf0db`
 
-Actually done this turn:
-- Rechecked live `main`; it still points to `be4af47d4f5b267e47eac09d761775a2d99bf0db`.
-- Recorded the user's clean stable install/open result.
-- No runtime/app code, release, tag or `main` ref was changed.
+Candidate:
+- branch `candidate/quran-post-stable-hardening-v1-20260917`
+- SHA `4588088ae459b7ac8811fed359e83192bb0681bd`
+- direct child of SPEC, exactly one candidate commit
+- only changed candidate file: `app/src/androidTest/java/com/archimedeprojects/arihna/feature/quran/QuranPostStableHardeningAndroidTest.kt`
+- no production code changed
+
+Added regressions:
+1. `longSessionHistoriesStayBoundedSeparatedAndClamped`: 64 repeated Hafs/Warsh/Tajwid history writes; validates 8-entry MRU, uniqueness, bounds and clamping.
+2. `repeatedModeSwitchingRestoresIndependentPagesAndBookmarks`: repeated Hafs → Tajwid → Warsh → Hafs switching; validates per-mode page restoration and bookmark separation.
+3. `repeatedFullscreenCyclesResetImmersiveAndKeepPerModePageState`: repeated fullscreen open/close for Hafs/Tajwid/Warsh; validates immersive reset and page-state preservation.
+
+Exact-SHA gate:
+- run `35210107445`: completed/success
+- static/build job `105165336825`: success
+- API28 full-suite job `105165337102`: success
+- API36 Quran-hardening + permission-matrix job `105165337134`: success
+- exact lineage/scope, frozen GeoNames, unit/build/AndroidTest compile, Quran corpus/assets, API28 full suite, API36 Quran hardening/Tajwid regression and permission matrix all passed their configured invariants.
+- No raw exact connected-test count was separately recorded; do not invent one.
+
+Promotion:
+- `main` was live-rechecked at `be4af47...` after the gate.
+- Promoted to `4588088ae459b7ac8811fed359e83192bb0681bd` using `force=false`.
+- Live recheck confirmed `main=4588088...` and parent SPEC `5047106...`.
+- Stress tests exposed no deterministic production defect, so no corrective runtime candidate was needed.
 
 ## Current state / exact next action
 
-- Stable milestone is now fully closed: CI verified, published stable APK verified, broader S25 smoke already passed, and the final stable install/open sanity check is clean.
-- No known blocker remains.
-- Exact next action: begin one narrow post-stable hardening objective, SPEC-first. Recommended first target: Quran robustness under rapid paging, Hafs/Tajwid/Warsh switching, bookmarks/fullscreen/state restoration and long-session memory/performance, while preserving the stable baseline.
-- After hardening, proceed to one user-prioritized product improvement at a time.
+- Stable user-facing milestone is closed and remains the physically validated `arihna-stable-be4af47d-20260917` APK.
+- Quran post-stable hardening is also closed and integrated in `main`; it improves repository regression protection only, not app bytes/features.
+- No known blocker is open.
+- Exact next product step: choose one narrow **user-visible improvement**, then execute it SPEC-first. Good candidate areas are Quran usability, Home/daily-inspiration polish, or Settings/accessibility. Do not combine multiple product areas into one candidate.
