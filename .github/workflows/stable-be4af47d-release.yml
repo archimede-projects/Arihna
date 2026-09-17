@@ -1,0 +1,139 @@
+name: Stable S25-validated release
+
+on:
+  push:
+    branches:
+      - driver/stable-be4af47d-release-20260917
+    paths:
+      - .github/workflows/stable-be4af47d-release.yml
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  verify-and-publish-stable:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      RUNTIME_SHA: be4af47d4f5b267e47eac09d761775a2d99bf0db
+      SPEC_SHA: 5b6f77bf1a7ee8634e74f46918b7f7263142316b
+      VERIFIED_GATE_RUN: '35110928396'
+      VERIFIED_STATIC_JOB: '104844112728'
+      VERIFIED_API28_JOB: '104844112681'
+      VERIFIED_API36_JOB: '104844112243'
+      SOURCE_RELEASE_TAG: quran-tajwid-crashfix-be4af47d-20260916
+      SOURCE_APK: arihna-quran-tajwid-crashfix.apk
+      EXPECTED_APK_SHA256: a0c91c24846480037d17d493481795c7cb7c0a441c484845ef61c24206b6f5ed
+      EXPECTED_APK_SIZE: '386929193'
+      SIGNER_SHA256_COMPACT: 1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa
+      RELEASE_TAG: arihna-stable-be4af47d-20260917
+      STABLE_APK: arihna.apk
+
+    steps:
+      - name: Checkout exact stable runtime
+        uses: actions/checkout@v4
+        with:
+          ref: be4af47d4f5b267e47eac09d761775a2d99bf0db
+          fetch-depth: 0
+
+      - name: Verify runtime lineage gate and source prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RUNTIME_SHA"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          test "$(git rev-list --parents -n1 HEAD | wc -w)" -eq 2
+          git fetch origin main --force
+          test "$(git rev-parse origin/main)" = "$RUNTIME_SHA"
+
+          for JOB in "$VERIFIED_STATIC_JOB" "$VERIFIED_API28_JOB" "$VERIFIED_API36_JOB"; do
+            ACTUAL="$(gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$JOB" --jq '[(.id|tostring),(.run_id|tostring),.status,.conclusion] | join(" ")')"
+            test "$ACTUAL" = "$JOB $VERIFIED_GATE_RUN completed success"
+          done
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$VERIFIED_GATE_RUN" --jq '[.status,.conclusion] | join(" ")')" = 'completed success'
+
+          SRC="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$SOURCE_RELEASE_TAG")"
+          test "$(jq -r '.draft' <<<"$SRC")" = false
+          test "$(jq -r '.prerelease' <<<"$SRC")" = true
+          test "$(jq -r '.target_commitish' <<<"$SRC")" = "$RUNTIME_SHA"
+          test "$(jq '.assets | length' <<<"$SRC")" = 1
+          test "$(jq -r '.assets[0].name' <<<"$SRC")" = "$SOURCE_APK"
+          test "$(jq -r '.assets[0].state' <<<"$SRC")" = uploaded
+          test "$(jq -r '.assets[0].size' <<<"$SRC")" = "$EXPECTED_APK_SIZE"
+          test "$(jq -r '.assets[0].digest' <<<"$SRC")" = "sha256:$EXPECTED_APK_SHA256"
+          ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Download and verify physically validated APK bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/source-apk
+          mkdir -p /tmp/source-apk
+          gh release download "$SOURCE_RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "$SOURCE_APK" --dir /tmp/source-apk
+          SOURCE="/tmp/source-apk/$SOURCE_APK"
+          test -s "$SOURCE"
+          test "$(stat -c '%s' "$SOURCE")" = "$EXPECTED_APK_SIZE"
+          test "$(sha256sum "$SOURCE" | awk '{print $1}')" = "$EXPECTED_APK_SHA256"
+
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -n "$APKSIGNER"
+          test -x "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs "$SOURCE" | tee /tmp/source-apksigner.txt
+          tr '[:upper:]' '[:lower:]' < /tmp/source-apksigner.txt | tr -d ':' | grep -F "$SIGNER_SHA256_COMPACT"
+
+          cp "$SOURCE" "$STABLE_APK"
+          test "$(sha256sum "$STABLE_APK" | awk '{print $1}')" = "$EXPECTED_APK_SHA256"
+
+      - name: Publish stable release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" "$STABLE_APK" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$RUNTIME_SHA" \
+            --title 'Arihna — Stable — S25 validated' \
+            --notes "Stable Arihna release from runtime $RUNTIME_SHA (SPEC $SPEC_SHA). Exact-SHA gate $VERIFIED_GATE_RUN passed static/JVM, API28 and API36. The user physically validated the core smoke pass on Galaxy S25, including Quran Hafs/Tajwid/Warsh navigation, bookmarks/fullscreen, app reopen, prayer, location, Qibla, alarms and permissions. This stable APK is byte-identical to the physically validated prerelease asset $SOURCE_APK: SHA-256 $EXPECTED_APK_SHA256; bytes $EXPECTED_APK_SIZE; signer SHA-256 $SIGNER_SHA256_COMPACT."
+
+      - name: Redownload and verify published stable release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse "$RELEASE_TAG^{commit}")" = "$RUNTIME_SHA"
+
+          JSON="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")"
+          test "$(jq -r '.draft' <<<"$JSON")" = false
+          test "$(jq -r '.prerelease' <<<"$JSON")" = false
+          test "$(jq -r '.tag_name' <<<"$JSON")" = "$RELEASE_TAG"
+          test "$(jq -r '.target_commitish' <<<"$JSON")" = "$RUNTIME_SHA"
+          test "$(jq '.assets | length' <<<"$JSON")" = 1
+          test "$(jq -r '.assets[0].name' <<<"$JSON")" = "$STABLE_APK"
+          test "$(jq -r '.assets[0].state' <<<"$JSON")" = uploaded
+          test "$(jq -r '.assets[0].size' <<<"$JSON")" = "$EXPECTED_APK_SIZE"
+          test "$(jq -r '.assets[0].digest' <<<"$JSON")" = "sha256:$EXPECTED_APK_SHA256"
+
+          rm -rf /tmp/stable-release && mkdir -p /tmp/stable-release
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "$STABLE_APK" --dir /tmp/stable-release
+          DOWNLOADED="/tmp/stable-release/$STABLE_APK"
+          test "$(stat -c '%s' "$DOWNLOADED")" = "$EXPECTED_APK_SIZE"
+          test "$(sha256sum "$DOWNLOADED" | awk '{print $1}')" = "$EXPECTED_APK_SHA256"
+
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          "$APKSIGNER" verify --verbose --print-certs "$DOWNLOADED" | tee /tmp/stable-apksigner.txt
+          tr '[:upper:]' '[:lower:]' < /tmp/stable-apksigner.txt | tr -d ':' | grep -F "$SIGNER_SHA256_COMPACT"
+
+          echo "VERIFIED_STABLE_RELEASE_URL=$(jq -r '.html_url' <<<"$JSON")"
+          echo "VERIFIED_STABLE_ASSET_URL=$(jq -r '.assets[0].browser_download_url' <<<"$JSON")"
+          echo "VERIFIED_STABLE_APK_SHA256=$EXPECTED_APK_SHA256"
+          echo "VERIFIED_STABLE_SIGNER_SHA256=$SIGNER_SHA256_COMPACT"
