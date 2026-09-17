@@ -22,71 +22,73 @@
 
 ## Engineering / release discipline
 
-- SPEC-first.
-- Runtime candidate = exactly one commit, direct child of its SPEC.
-- Replacement candidates after failure must be siblings from the same SPEC.
+- SPEC-first for runtime/code changes.
+- Runtime candidate = exactly one commit, direct child of its SPEC; replacement candidates after failure must be siblings from the same SPEC.
 - Full exact-SHA gates include API28 and API36.
 - Promote `main` only after required gates are green, via non-forced fast-forward.
 - Use the persistent Arihna signer.
-- S25 validation builds are GitHub prereleases.
+- S25 validation builds are GitHub prereleases; stable release may reuse byte-identical physically validated APK bytes when runtime is unchanged.
 - Before handoff, redownload the published APK and verify SHA-256 + signer.
 - Preserve unrelated features unless the SPEC explicitly changes them.
 
-## Repository / current verified baseline
+## Repository / stable verified baseline
 
 - Repo: `archimede-projects/Arihna`
 - Runtime branch: `main`
 - Continuity branch: `chat-context`
-- Continuity file: `docs/CHATGPT_CONTINUITY.md`
-- Live `main` rechecked 2026-09-17: `be4af47d4f5b267e47eac09d761775a2d99bf0db`
+- Live `main` rechecked 2026-09-17 after stable publication: `be4af47d4f5b267e47eac09d761775a2d99bf0db`
 - Runtime: `fix(quran): prevent Tajwid overlap crash`
 - Parent SPEC: `5b6f77bf1a7ee8634e74f46918b7f7263142316b`
-- Exact-SHA gate: run `35110928396`, completed/success; static `104844112728`, API28 `104844112681`, API36 `104844112243` all success.
-- Corrective prerelease: `quran-tajwid-crashfix-be4af47d-20260916`
-- Release workflow run: `35112140220`, completed/success, including published-APK redownload verification.
-- APK: `arihna-quran-tajwid-crashfix.apk`
-- APK size: `386929193` bytes
-- APK SHA-256: `a0c91c24846480037d17d493481795c7cb7c0a441c484845ef61c24206b6f5ed`
-- Persistent signer certificate SHA-256: `1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa`
-- Package: `com.archimedeprojects.arihna`; minSdk 28, targetSdk 37, compileSdk 37.
+- Exact-SHA gate `35110928396`: completed/success; static `104844112728`, API28 `104844112681`, API36 `104844112243` all success.
+- Physical Galaxy S25 stabilization smoke: user reports PASS/no blocker for Hafs/Tajwid/Warsh navigation, bookmarks/fullscreen, app reopen/cold-start behavior, Prayer, Location, Qibla, alarms and permissions.
 
-## Physical Galaxy S25 validation
+### Stable release
 
-The Tajwid paging crash was traced to overlapping Tajwid spans for shadda+tanwin/contextual rules. The promoted fix makes the contextual rule win and adds regression coverage across all 6,236 pinned Hafs Uthmani ayat.
+- Tag: `arihna-stable-be4af47d-20260917`
+- Title: `Arihna — Stable — S25 validated`
+- Target runtime: `be4af47d4f5b267e47eac09d761775a2d99bf0db`
+- `draft=false`, `prerelease=false`
+- Stable release workflow run: `35188236936`, completed/success
+- Stable job: `105094843337`, success
+- Successful critical steps: verify exact runtime/lineage/gate/source prerelease; verify physically validated APK bytes/signature; publish stable; redownload and verify published stable release.
+- Exactly one stable asset: `arihna.apk`
+- Size: `386929193` bytes
+- SHA-256: `a0c91c24846480037d17d493481795c7cb7c0a441c484845ef61c24206b6f5ed`
+- Signer certificate SHA-256: `1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa`
+- Download URL: `https://github.com/archimede-projects/Arihna/releases/download/arihna-stable-be4af47d-20260917/arihna.apk`
+- Release URL: `https://github.com/archimede-projects/Arihna/releases/tag/arihna-stable-be4af47d-20260917`
+- Stable APK is byte-identical to the physically S25-validated prerelease asset `arihna-quran-tajwid-crashfix.apk`.
 
-User validation status on 2026-09-17:
+## Relevant correction history
 
-- Quran paging after the Tajwid fix: PASS on physical Galaxy S25.
-- User additionally confirms the full stabilization smoke set previously requested has already been exercised and appears all good: Hafs/Tajwid/Warsh navigation, bookmarks/fullscreen, app reopen/cold-start behavior, Prayer, Location, Qibla, alarms and permission flows.
-- Treat the current S25 smoke-validation milestone as complete based on the user's physical testing.
-- No currently reported physical regression is blocking stabilization.
+The prior physical S25 Tajwid paging crash was caused by overlapping Tajwid spans for shadda+tanwin/contextual rules. Runtime `be4af47d...` makes the contextual rule win and includes regression coverage across all 6,236 pinned Hafs Uthmani ayat. User subsequently confirmed the crash is resolved and completed the wider smoke pass.
 
-## Preserved shipped scope
-
-- Quran: Hafs/Tajwid/Warsh, bookmarks/fullscreen and existing page behavior.
-- Home/Hijri and daily inspiration; daily-inspiration corpus/compact preview feature remains preserved.
-- Prayer times, location, Qibla, alarms and permission flows.
-- Frozen GeoNames/persistent signer workflow remains part of release discipline.
-
-## Next objectives — prioritized
-
-1. **Stable release milestone**: prepare/publish a stable non-prerelease release from the unchanged verified runtime `be4af47d...`, preserving the signer and published-APK redownload/digest verification. Do not add unrelated feature work into this release step.
-2. **Post-stable hardening**: expand regressions around Quran rapid paging, Hafs/Tajwid/Warsh switching, state restoration/bookmarks/fullscreen, long-session memory/performance, alarms/background/reboot, location changes, prayer recalculation and Qibla transitions.
-3. **Future product improvements**: after the stable baseline is secured, choose one narrow SPEC-driven improvement at a time. Candidate areas remain Quran usability, Home/daily inspiration polish, settings/accessibility or other user-prioritized enhancements. Avoid broad refactors.
+Corrective prerelease retained as validation history:
+- tag `quran-tajwid-crashfix-be4af47d-20260916`
+- workflow run `35112140220` success
+- asset `arihna-quran-tajwid-crashfix.apk`
+- same SHA-256/size/signer as the stable APK.
 
 ## Latest user request / what was done
 
-2026-09-17: User clarified that the full point-1 S25 smoke pass had already been completed and everything appears to be working. User also confirmed interest in future app improvements, but only after stabilization/release work.
+2026-09-17: User authorized proceeding with the stable release after completing the physical S25 smoke validation.
 
 Actually done this turn:
-- Re-read continuity state.
-- Rechecked live `main`; it remains `be4af47d4f5b267e47eac09d761775a2d99bf0db`, direct child of SPEC `5b6f77bf1a7ee8634e74f46918b7f7263142316b`.
-- Rechecked the corrective prerelease still targets the same runtime and still exposes the same single APK with SHA-256 `a0c91c24846480037d17d493481795c7cb7c0a441c484845ef61c24206b6f5ed`.
-- Recorded the user's full physical Galaxy S25 smoke validation as complete.
-- No runtime/app code, release, tag or `main` ref was changed in this turn.
+- Reverified live `main` and source prerelease before release work.
+- Created release-only branch `driver/stable-be4af47d-release-20260917` from exact runtime; `main` was not moved.
+- Chose to publish the exact bytes already physically tested rather than rebuild a new APK.
+- First stable workflow run `35188163125` / job `105094624760` failed before APK download/publication because `android-actions/setup-android@v3` defaulted to obsolete SDK package `tools`; no stable release was published by this failed attempt.
+- Read the job log, identified `Failed to find package 'tools'`, and corrected only the release workflow to request `platform-tools`; workflow-fix commit `9cee4b2d1739068d2aa4204e27b26918703262d4` on the release branch.
+- Second run `35188236936` / job `105094843337` completed successfully.
+- The source APK was verified for exact size, SHA-256 and persistent signer before publication.
+- Published stable release `arihna-stable-be4af47d-20260917` as non-prerelease.
+- Redownloaded the published stable APK in CI and successfully reverified size, SHA-256 and signer.
+- Rechecked live release metadata and rechecked that `main` remains unchanged at `be4af47d...`.
+- No runtime/app code change was made for stable publication.
 
 ## Current state / exact next action
 
-- Current runtime remains the verified Tajwid crash-fix SHA above.
-- CI/release verification is green and the user has now completed the requested physical S25 smoke validation with no reported blocker.
-- Exact next action: prepare and publish the stable non-prerelease release from this unchanged runtime using the existing release discipline. Future feature improvements come after that stable baseline is secured.
+- Stable baseline is now secured and physically S25-validated.
+- `main` remains `be4af47d4f5b267e47eac09d761775a2d99bf0db`; stable APK is verified and published.
+- No release blocker is currently known.
+- Exact next action: begin future product improvement planning with one narrow user-prioritized objective at a time, SPEC-first, preserving this stable baseline. Candidate areas include Quran usability, Home/daily inspiration polish, settings/accessibility, or another user-selected enhancement.
