@@ -8,6 +8,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -92,6 +93,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
@@ -873,6 +875,7 @@ private fun QuranExplorer(
 ) {
     val context = LocalContext.current
     var query by remember { mutableStateOf("") }
+    var pageInput by remember { mutableStateOf("") }
     var view by remember { mutableStateOf(QuranExplorerView.SURAHS) }
     var bookmarkVersion by remember { mutableIntStateOf(0) }
     val bookmarked = remember(bookmarkVersion, currentPage, riwaya, tajwidMode) {
@@ -886,6 +889,7 @@ private fun QuranExplorer(
     val supportsBoundaries = riwaya == QuranRiwaya.HAFS
     val juzPages = remember(context, riwaya) { MushafRepository.juzStartPages(context, riwaya) }
     val hizbPages = remember(context, riwaya) { MushafRepository.hizbStartPages(context, riwaya) }
+    val parsedPage = pageInput.toIntOrNull()?.takeIf { it in 1..604 }
     val filteredSurahs = remember(query, surahs) {
         val needle = query.trim().lowercase()
         if (needle.isBlank()) surahs else surahs.filter {
@@ -907,6 +911,35 @@ private fun QuranExplorer(
             fontSize = 17.sp,
             modifier = Modifier.testTag("quran-global-index-title"),
         )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            OutlinedTextField(
+                value = pageInput,
+                onValueChange = { raw ->
+                    pageInput = raw.filter { it in '0'..'9' }.take(3)
+                },
+                modifier = Modifier.weight(1f).testTag("quran-page-jump-input"),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                label = { Text(appText("Vai a pagina", "اذهب إلى صفحة")) },
+                placeholder = {
+                    Text(appText((currentPage + 1).toString(), toArabicIndic(currentPage + 1)))
+                },
+                shape = RoundedCornerShape(18.dp),
+            )
+            OutlinedButton(
+                onClick = { parsedPage?.let { page -> onSelectPage(page - 1, null) } },
+                enabled = parsedPage != null,
+                modifier = Modifier.heightIn(min = 56.dp).testTag("quran-page-jump-go"),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+            ) {
+                Text(appText("Vai", "اذهب"), fontWeight = FontWeight.Bold)
+            }
+        }
 
         Row(
             modifier = Modifier.fillMaxWidth(),

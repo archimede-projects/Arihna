@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.click
 import androidx.compose.ui.unit.dp
@@ -279,6 +280,45 @@ class QuranFullscreenAndroidTest {
         val decorated = buildTajwidAnnotatedPageText(listOf(ayah))
         assertTrue(decorated.text.contains(ayah.text + " ۝١"))
         assertTrue(decorated.text.startsWith(ayah.text))
+    }
+
+    @Test
+    fun directPageJumpWorksAcrossHafsTajwidAndWarsh() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        QuranReadingPrefs.setMode(context, QuranReadingMode.HAFS_UTHMANI)
+        QuranReadingPrefs.recordVisitedPage(context, QuranRiwaya.HAFS, 0)
+        QuranReadingPrefs.recordVisitedPage(context, QuranRiwaya.WARSH, 0)
+        QuranReadingPrefs.recordVisitedTajwidPage(context, 0)
+
+        composeRule.setContent { QuranPlaceholderScreen(PaddingValues(0.dp)) }
+
+        composeRule.onNodeWithTag("quran-surah-selector").performClick()
+        waitForExists("quran-page-jump-input")
+        composeRule.onNodeWithTag("quran-page-jump-input").performTextInput("321")
+        composeRule.onNodeWithTag("quran-page-jump-go").performClick()
+        waitForExists("quran-mushaf-page-321")
+
+        composeRule.onNodeWithTag("quran-mode-tajwid").performClick()
+        waitForExists("quran-tajwid-beta-reader")
+        composeRule.onNodeWithTag("quran-surah-selector").performClick()
+        waitForExists("quran-page-jump-input")
+        composeRule.onNodeWithTag("quran-page-jump-input").performTextInput("77")
+        composeRule.onNodeWithTag("quran-page-jump-go").performClick()
+        waitForExists("quran-tajwid-page-77")
+
+        composeRule.onNodeWithTag("quran-mode-warsh").performClick()
+        waitForExists("quran-mushaf-riwaya-warsh")
+        composeRule.onNodeWithTag("quran-surah-selector").performClick()
+        waitForExists("quran-page-jump-input")
+        composeRule.onNodeWithTag("quran-page-jump-input").performTextInput("604")
+        composeRule.onNodeWithTag("quran-page-jump-go").performClick()
+        waitForExists("quran-mushaf-page-604")
+
+        composeRule.runOnIdle {
+            assertEquals(320, QuranReadingPrefs.lastPage(context, QuranRiwaya.HAFS))
+            assertEquals(76, QuranReadingPrefs.lastTajwidPage(context))
+            assertEquals(603, QuranReadingPrefs.lastPage(context, QuranRiwaya.WARSH))
+        }
     }
 
 }
