@@ -3,110 +3,104 @@
 > Persistent cross-chat handoff file on dedicated branch `chat-context`. It must never be merged into `main`.
 
 ## Mandatory protocol
-
-1. At the start of every Arihna chat, read this file first from `archimede-projects/Arihna`, branch `chat-context`.
-2. Verify live GitHub state before claiming current SHAs, PASS, releases or APK verification.
-3. After every user prompt, update/replace this file on `chat-context` before the final answer with: latest request, what was actually done, verified identifiers/results, failures/problems, current state and exact next action.
-4. Never move `main` for continuity updates. Never merge `chat-context` into `main`.
-5. Never store passwords, tokens, private keys or sensitive data here.
-6. If write access is unavailable, say so explicitly.
+1. Read this file first for every Arihna prompt.
+2. Live-verify GitHub before claiming current SHA/PASS/release/APK state.
+3. After every user prompt, replace/update this file with request, actual work, verified identifiers, failures, current state, exact next action.
+4. Never move `main` for continuity; never merge `chat-context` into `main`.
+5. Never store secrets.
+6. If GitHub write access is unavailable, say so.
 
 ## User working style
-
-- Language: Italian; operational and concise.
-- Proceed directly when context is sufficient; avoid unnecessary questions.
-- During long GitHub/CI work, give brief progress updates.
+- Italian, concise, operational.
+- Proceed when context is sufficient; avoid unnecessary questions.
+- Give brief progress updates during long CI/release work.
 - Never claim PASS/release/APK verification without evidence.
-- Final physical Android validation is performed by the user on a Galaxy S25.
-- Be transparent about incomplete or failed steps.
+- Physical Android validation is performed by the user on Galaxy S25.
 
 ## Engineering / release discipline
-
 - SPEC-first for runtime/code changes.
-- Candidate = exactly one commit, direct child of its SPEC; replacement candidates after failure must be siblings from the same SPEC.
+- Candidate = exactly one commit, direct child of SPEC; failed replacements are siblings from same SPEC.
 - Full exact-SHA gates include API28 and API36.
-- Promote `main` only after required gates are green, via non-forced fast-forward.
-- Use the persistent Arihna signer for user APKs.
-- User-facing changed runtimes go to an S25 validation prerelease first.
-- Before APK handoff, redownload the published APK and verify SHA-256 + signer.
-- Preserve unrelated features unless the SPEC explicitly changes them.
+- Promote `main` only after green gates via non-forced fast-forward.
+- User-facing changed runtimes go to S25 prerelease first.
+- Use persistent Arihna signer and redownload published APK to verify SHA-256 + signer before handoff.
+- Preserve unrelated features unless SPEC changes them.
 
 ## Prior stable baseline
-
-- Stable tag: `arihna-stable-be4af47d-20260917`
-- Runtime: `be4af47d4f5b267e47eac09d761775a2d99bf0db`
-- APK `arihna.apk`, size `386929193` bytes
+- Stable tag `arihna-stable-be4af47d-20260917`
+- Runtime `be4af47d4f5b267e47eac09d761775a2d99bf0db`
+- APK `arihna.apk`, size `386929193`
 - SHA-256 `a0c91c24846480037d17d493481795c7cb7c0a441c484845ef61c24206b6f5ed`
 - Signer cert SHA-256 `1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa`
-- User physically validated the broader Galaxy S25 smoke and clean stable install/open.
-- This remains the last physically validated stable user baseline until the new page-jump runtime is validated.
+- User previously passed broad Galaxy S25 smoke and clean stable install/open.
+- This remains last physically validated stable baseline until the new page-jump runtime is validated.
 
 ## Post-stable Quran hardening — completed
-
 - SPEC `50471062331499be5364cbebbfe4dc6f9b084610`
-- test-only candidate/main lineage `4588088ae459b7ac8811fed359e83192bb0681bd`
+- test-only main lineage `4588088ae459b7ac8811fed359e83192bb0681bd`
 - gate `35210107445`: completed/success
-- Added stress regressions for long histories, repeated Hafs/Tajwid/Warsh switching, bookmark separation, fullscreen cycles and state restoration.
+- Added regressions for long histories, repeated Hafs/Tajwid/Warsh switching, bookmark separation, fullscreen cycles and state restoration.
 - No production behavior changed in that cycle.
 
-## Quran direct page jump — current changed runtime
-
-User request on 2026-09-18: `Procedi` after agreeing to move to the first user-visible post-hardening Quran improvement.
+## Quran direct page jump — promoted, awaiting S25 validation
 
 ### SPEC
 - branch `spec/quran-direct-page-jump-20260918`
 - SHA `e680659976010d8e8bfe2e62da862567230b5554`
 - parent/base `4588088ae459b7ac8811fed359e83192bb0681bd`
-- goal: add direct navigation to exact Mushaf page 1..604 from the Quran explorer, preserving all existing navigation and unrelated app features.
+- scope: direct exact-page navigation 1..604 from Quran explorer; preserve all existing navigation and unrelated app features.
 
-### Candidate / main
+### Candidate / current main
 - branch `candidate/quran-direct-page-jump-v1-20260918`
-- candidate SHA `977fbde989facc3b392f6af5a65449a5322d58c6`
-- direct child of SPEC; exactly one candidate commit
-- changed candidate files only:
+- SHA `977fbde989facc3b392f6af5a65449a5322d58c6`
+- direct child of SPEC, exactly one candidate commit
+- changed files:
   1. `app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt`
   2. `app/src/androidTest/java/com/archimedeprojects/arihna/feature/quran/QuranFullscreenAndroidTest.kt`
-- UI: Quran index now has a bilingual `Vai a pagina` / direct-page field with numeric keyboard, valid domain 1..604, explicit enabled `Vai` action, stable tags `quran-page-jump-input` and `quran-page-jump-go`.
-- A valid selection closes the explorer and routes to the exact page using the existing reader state flow.
-- Regression `directPageJumpWorksAcrossHafsTajwidAndWarsh` jumps to page 321 in Hafs, 77 in Tajwid and 604 in Warsh and verifies persisted page indices.
-- No Quran corpus/artwork/Tajwid-rule/bookmark-schema/fullscreen/Prayer/Location/Qibla/alarm/Home/Settings/permission changes.
+- UI: bilingual `Vai a pagina` control, numeric input, valid domain 1..604, explicit `Vai` action.
+- Regression `directPageJumpWorksAcrossHafsTajwidAndWarsh`: pages 321 Hafs, 77 Tajwid, 604 Warsh + persisted state.
+- No corpus/artwork/Tajwid rule/bookmark schema/fullscreen/Prayer/Location/Qibla/alarm/Home/Settings/permission changes.
+- Live rechecked 2026-09-21: `main = 977fbde989facc3b392f6af5a65449a5322d58c6`.
 
 ### Exact-SHA gate
 - driver `driver/quran-direct-page-jump-v1-gate-20260918`
 - driver commit `e130718e3ca444dcae687a94423b9e5b9bfeb8ee`
 - run `35325258945`: completed/success
-- static/build job `105536706783`: success
-- API28 full-suite job `105536706741`: success
-- API36 Quran + hardening + Tajwid + permission-matrix job `105536706685`: success
-- Do not invent raw test counts beyond configured gate invariants.
-
-### Promotion
-- Before promotion, live `main` was rechecked at `4588088...`.
-- Promoted with `force=false`.
-- Live recheck confirms current `main = 977fbde989facc3b392f6af5a65449a5322d58c6`.
+- static/build `105536706783`: success
+- API28 full suite `105536706741`: success
+- API36 Quran + hardening + Tajwid + permission matrix `105536706685`: success
+- Do not invent raw connected-test counts beyond configured invariants.
 
 ### S25 validation prerelease
 - release driver `driver/quran-direct-page-jump-v1-release-20260918`
-- release driver commit `d3ebba79c6d2c28db9fb0b75df7affd6aa6e8390`
-- release workflow run `35326339850`, job `105540154182`: completed/success
-- workflow verified promoted runtime + definitive gate, restored frozen GeoNames and persistent signer, built exact runtime, verified APK, published prerelease, redownloaded it and reverified published SHA/size/signer/metadata.
+- driver commit `d3ebba79c6d2c28db9fb0b75df7affd6aa6e8390`
+- release run `35326339850`, job `105540154182`: completed/success
 - tag `quran-page-jump-977fbde9-20260918`
 - title `Arihna — Quran page jump — S25 validation`
 - release id `391334028`
 - target `977fbde989facc3b392f6af5a65449a5322d58c6`
 - `draft=false`, `prerelease=true`
-- single asset `arihna-quran-page-jump.apk`
-- asset id `572225953`
-- size `386945577` bytes
+- asset `arihna-quran-page-jump.apk`, id `572225953`
+- size `386945577`
 - SHA-256 `002d640a734eadf46b141b4489ae3c26d2803d9d49b4bacc772f7c678ab20813`
-- signer certificate expected/verified: `1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa`
-- download URL: `https://github.com/archimede-projects/Arihna/releases/download/quran-page-jump-977fbde9-20260918/arihna-quran-page-jump.apk`
-- release page: `https://github.com/archimede-projects/Arihna/releases/tag/quran-page-jump-977fbde9-20260918`
+- signer cert verified `1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa`
+- direct download: https://github.com/archimede-projects/Arihna/releases/download/quran-page-jump-977fbde9-20260918/arihna-quran-page-jump.apk
+- release page: https://github.com/archimede-projects/Arihna/releases/tag/quran-page-jump-977fbde9-20260918
+- Live rechecked 2026-09-21: release metadata still matches; run/job remain success.
+
+## Latest user prompt / what was done
+2026-09-21 user sent `?`, asking for status after the long-running gate/release work.
+
+Actually done:
+- Read this continuity file from `chat-context`.
+- Live-verified `main` at `977fbde989facc3b392f6af5a65449a5322d58c6`.
+- Live-verified exact-SHA gate run `35325258945` completed/success and all three required jobs success.
+- Live-verified S25 prerelease `quran-page-jump-977fbde9-20260918`, release run `35326339850` and job `105540154182` all successful.
+- No code/ref/release changes were made this turn.
 
 ## Current state / exact next action
-
-- Repository/CI status: no known blocker; direct-page runtime is promoted and exact-SHA gate is green.
-- User-facing status: new runtime is **not yet physically validated**. The prior stable APK remains the last physically validated stable baseline.
-- Exact next action: user installs the `quran-page-jump-977fbde9-20260918` prerelease on Galaxy S25 and validates the new Quran index direct-page control in Hafs, Tajwid and Warsh, including edge pages 1 and 604.
-- If physical validation is clean, publish/advance the new runtime to stable without unrelated feature changes, with the usual post-publication APK redownload/signature verification.
-- If physical validation fails, record exact mode/page/screenshot where possible and create a sibling corrective candidate from the same SPEC; do not blindly amend the failed candidate.
+- Repository/CI/release side is complete and green.
+- New page-jump runtime is **not yet physically validated**.
+- Exact next action: user installs `arihna-quran-page-jump.apk` on Galaxy S25 and validates direct-page navigation in Hafs, Tajwid and Warsh, including pages 1 and 604.
+- If clean, advance this runtime to stable without unrelated feature changes and perform the standard post-publication redownload/SHA/signer verification.
+- If physical validation fails, record mode/page/screenshot and create a sibling corrective candidate from the same SPEC.
