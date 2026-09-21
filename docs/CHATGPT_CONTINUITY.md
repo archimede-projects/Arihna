@@ -90,25 +90,23 @@
 - Live rechecked 2026-09-21: release metadata still matches; run/job remain success.
 
 ## Latest user prompt / what was done
-2026-09-21 user clarified the exact intended Easy-Quran concept with the phrase: `القرآن بالرسم الإملائي` and said this is what they mean.
+2026-09-21 user asked: `Quindi prossimi passi?`
 
 Actually done:
 - Read continuity from `chat-context`.
-- Live-verified current `main = 977fbde989facc3b392f6af5a65449a5322d58c6` (`feat(quran): add direct page jump`).
-- Recorded the exact product definition: the desired learner-friendly Quran presentation is **Quran in الرسم الإملائي (imla'i orthography)**.
-- Superseded the broader/vaguer “easy Arabic writing” wording with this precise target.
-- No runtime code, `main`, CI, tag, release, or APK state changed this turn.
-
-## Corrected product intent for “Facile”
-- “Facile” means `القرآن بالرسم الإملائي`: Quran text shown in **imla'i orthography**, not a separate reading mode and not paraphrased/simplified Quran content.
-- Preserve exact Quran wording, verse order and ayah identity.
-- Keep normal pageable Quran navigation: swipe/page navigation, index, direct page jump, bookmarks, fullscreen, and persisted page state.
-- Hafs/Tajwid/Warsh remain reading/riwaya identities; الرسم الإملائي is a writing/text-presentation option.
-- Do not derive a “simplified” Quran by ad-hoc text rewriting. Source the imla'i corpus from a verified authoritative source and validate it ayah-by-ayah against the pinned Quran structure.
-- UI naming should preferably expose the precise concept, e.g. Italian `Scrittura imlāʾī` / Arabic `الرسم الإملائي`, rather than the ambiguous label `Facile`.
+- Live-verified `main = 977fbde989facc3b392f6af5a65449a5322d58c6` (`feat(quran): add direct page jump`).
+- Live-verified last stable release `arihna-stable-be4af47d-20260917` still targets `be4af47d...` and is non-prerelease.
+- Live-verified page-jump prerelease `quran-page-jump-977fbde9-20260918` still targets `977fbde9...` and remains prerelease.
+- No code, ref, tag, release, CI, or APK state changed this turn.
 
 ## Current state / exact next action
-- Page-jump runtime `977fbde9...` is physically validated PASS on Galaxy S25.
-- Last stable tag is still `arihna-stable-be4af47d-20260917`.
-- Do not implement Easy sequential-surah browsing; that idea is superseded.
-- Exact next engineering cycle for this feature: create a narrow SPEC for **Quran بالرسم الإملائي**, source/verify an authoritative imla'i corpus, map it to the existing 114-surah / 6,236-ayah Hafs structure, and integrate it as a writing/display style over the normal pageable reader while preserving Hafs/Tajwid/Warsh behavior and unrelated features.
+- Runtime `977fbde9...` is physically validated PASS by the user on Galaxy S25 but has not yet been advanced to stable.
+- Product definition for “Facile” is pinned as `القرآن بالرسم الإملائي`: imla'i orthography as a writing/display option, not a separate reading mode.
+- Recommended sequence:
+  1. publish `977fbde9...` as the new stable baseline using the already S25-validated prerelease bytes when appropriate, with post-publication redownload/SHA/signer verification;
+  2. create a new narrow SPEC for Quran in الرسم الإملائي;
+  3. source and verify an authoritative imla'i Quran corpus;
+  4. validate 114 surahs / 6,236 Hafs ayat and structural correspondence;
+  5. integrate imla'i as a writing/display style over normal pageable Quran reading, preserving index/page jump/bookmarks/fullscreen/state;
+  6. run exact-SHA API28 + API36 gates;
+  7. publish signed S25 prerelease and physically validate it before any future stable update.
