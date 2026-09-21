@@ -90,16 +90,25 @@
 - Live rechecked 2026-09-21: release metadata still matches; run/job remain success.
 
 ## Latest user prompt / what was done
-2026-09-21 user asked: `Scrivimi le tua risposte con un unico tasto copia con tutto quello che hai fatto, cosi lo mando al mio consulente`.
+2026-09-21 user asked: `Che test devo fare?`
 
 Actually done:
-- Read this continuity file from `chat-context`.
-- Recorded the formatting preference: future consultant-ready operational replies should be delivered in a single copyable block containing all work actually completed plus current state/next action.
-- No runtime code, `main`, CI, tag, release, or APK state was changed this turn.
+- Read continuity from `chat-context`.
+- Live-verified `main = 977fbde989facc3b392f6af5a65449a5322d58c6` (`feat(quran): add direct page jump`).
+- Live-verified prerelease `quran-page-jump-977fbde9-20260918` still targets the same runtime, is `draft=false`, `prerelease=true`, and contains single asset `arihna-quran-page-jump.apk` with SHA-256 `002d640a734eadf46b141b4489ae3c26d2803d9d49b4bacc772f7c678ab20813`.
+- Prepared a concise physical Galaxy S25 validation checklist focused on the new direct-page jump plus a small regression sanity check.
+- No code, `main`, CI, tag, release, or APK state changed this turn.
 
 ## Current state / exact next action
-- Repository/CI/release side for Quran direct-page jump is complete and green.
-- New page-jump runtime is **not yet physically validated**.
-- Exact next action: user installs `arihna-quran-page-jump.apk` on Galaxy S25 and validates direct-page navigation in Hafs, Tajwid and Warsh, including pages 1 and 604.
-- If clean, advance this runtime to stable without unrelated feature changes and perform the standard post-publication redownload/SHA/signer verification.
-- If physical validation fails, record mode/page/screenshot and create a sibling corrective candidate from the same SPEC.
+- Repository/CI/release side is complete and green.
+- New page-jump runtime is still **not yet physically validated**.
+- Exact next action: user installs the prerelease APK on Galaxy S25 and performs the checklist:
+  1. launch/open sanity;
+  2. Hafs direct jump including pages 1 and 604 and one middle page;
+  3. Tajwid direct jump including pages 1 and 604 and one middle page;
+  4. Warsh direct jump including pages 1 and 604 and one middle page;
+  5. invalid inputs such as 0, 605 and blank must not execute;
+  6. verify page shown matches requested page, explorer closes after valid jump, and switching modes preserves independent last-page state;
+  7. quick bookmark/fullscreen smoke to ensure no obvious regression.
+- If all clean, advance runtime `977fbde9...` to stable with no unrelated feature changes and post-publish redownload/SHA/signer verification.
+- If any failure occurs, record exact mode, requested page, observed page/behavior, and screenshot if possible; create sibling corrective candidate from the same SPEC.
