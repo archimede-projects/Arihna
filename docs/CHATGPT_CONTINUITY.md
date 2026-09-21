@@ -90,19 +90,27 @@
 - Live rechecked 2026-09-21: release metadata still matches; run/job remain success.
 
 ## Latest user prompt / what was done
-2026-09-21 user reported: `Pass tutto. Il crano facile non é sfogliabile`.
+2026-09-21 user clarified: `Per facile intendo solo scrittura non la lettura.`
 
 Actually done:
 - Read continuity from `chat-context`.
 - Live-verified current `main = 977fbde989facc3b392f6af5a65449a5322d58c6` (`feat(quran): add direct page jump`).
-- Recorded the user's physical Galaxy S25 validation result: the complete direct-page-jump checklist passed.
-- Inspected the current Easy Quran implementation in `QuranPlaceholderScreen.kt`.
-- Confirmed the reported limitation is real/current behavior: `EasyQuranReader` renders only the selected surah's ayat in a vertical `LazyColumn` and exposes a `Cambia` action to reopen the explorer; it has no horizontal pager, next/previous surah gesture, or direct sequential browsing control.
-- No code, `main`, CI, tag, release, or APK state changed this turn.
+- Re-inspected the current Quran screen architecture.
+- Confirmed current implementation models `EASY` as a separate `QuranReadingMode`, maps it to no riwaya, and routes it to `EasyQuranReader` (single-surah vertical ayah list). This does **not** match the user's intended product semantics.
+- Corrected product intent: `Facile` means **writing/text presentation only**, not a separate reading/navigation mode.
+- No runtime code, `main`, CI, tag, release, or APK state changed this turn.
+
+## Corrected product intent for “Facile”
+- “Facile” must preserve normal Quran reading/navigation behavior and only change the writing/text rendering.
+- It must not switch the user into a separate single-surah reader.
+- Paging/swiping, page state, index, bookmarks and fullscreen should remain those of the underlying Quran reading mode.
+- Architecturally, `Facile` should move out of `QuranReadingMode` and become a writing/display style (or equivalent orthography/text-presentation setting) associated with the appropriate Quran text source.
+- Hafs/Tajwid/Warsh reading identities must remain distinct from writing style.
+- Exact visual/text form of the “Facile” writing must be preserved/defined from the existing Easy text corpus/rendering rather than inventing new Quran text.
 
 ## Current state / exact next action
-- The Quran direct-page runtime `977fbde9...` is now physically validated PASS on Galaxy S25, including Hafs/Tajwid/Warsh direct navigation and edge pages.
-- The last stable tag is still the older `arihna-stable-be4af47d-20260917`; the page-jump runtime has not yet been republished as stable.
-- Newly confirmed product limitation: Easy Quran is scrollable only within the selected surah and is not sequentially pageable/swipeable across surahs.
-- Recommended next implementation cycle: a narrow SPEC for **Easy Quran sequential browsing**, preserving the existing Easy verse-card layout while adding intuitive previous/next surah navigation (preferably horizontal swipe plus explicit accessible controls), wrapping/clamping correctly across surahs 1..114, preserving selected surah state, and leaving Hafs/Tajwid/Warsh and unrelated features untouched.
-- Because the user has now physically validated page-jump PASS, stable promotion of `977fbde9...` can be performed before or independently of the Easy-Quran enhancement; do not mix the Easy-Quran runtime change into that stable publication.
+- Page-jump runtime `977fbde9...` is physically validated PASS on Galaxy S25.
+- Last published stable tag remains `arihna-stable-be4af47d-20260917`.
+- Do not implement “Easy sequential surah browsing”; that prior proposed direction is superseded by this clarification.
+- Exact next engineering cycle after securing the validated page-jump runtime as stable: create a narrow SPEC to refactor `Facile` from a reading mode into a **writing/text style while retaining normal pageable reading/navigation**.
+- Preserve Hafs/Tajwid/Warsh behavior and all unrelated features.
