@@ -90,25 +90,19 @@
 - Live rechecked 2026-09-21: release metadata still matches; run/job remain success.
 
 ## Latest user prompt / what was done
-2026-09-21 user asked: `Che test devo fare?`
+2026-09-21 user reported: `Pass tutto. Il crano facile non é sfogliabile`.
 
 Actually done:
 - Read continuity from `chat-context`.
-- Live-verified `main = 977fbde989facc3b392f6af5a65449a5322d58c6` (`feat(quran): add direct page jump`).
-- Live-verified prerelease `quran-page-jump-977fbde9-20260918` still targets the same runtime, is `draft=false`, `prerelease=true`, and contains single asset `arihna-quran-page-jump.apk` with SHA-256 `002d640a734eadf46b141b4489ae3c26d2803d9d49b4bacc772f7c678ab20813`.
-- Prepared a concise physical Galaxy S25 validation checklist focused on the new direct-page jump plus a small regression sanity check.
+- Live-verified current `main = 977fbde989facc3b392f6af5a65449a5322d58c6` (`feat(quran): add direct page jump`).
+- Recorded the user's physical Galaxy S25 validation result: the complete direct-page-jump checklist passed.
+- Inspected the current Easy Quran implementation in `QuranPlaceholderScreen.kt`.
+- Confirmed the reported limitation is real/current behavior: `EasyQuranReader` renders only the selected surah's ayat in a vertical `LazyColumn` and exposes a `Cambia` action to reopen the explorer; it has no horizontal pager, next/previous surah gesture, or direct sequential browsing control.
 - No code, `main`, CI, tag, release, or APK state changed this turn.
 
 ## Current state / exact next action
-- Repository/CI/release side is complete and green.
-- New page-jump runtime is still **not yet physically validated**.
-- Exact next action: user installs the prerelease APK on Galaxy S25 and performs the checklist:
-  1. launch/open sanity;
-  2. Hafs direct jump including pages 1 and 604 and one middle page;
-  3. Tajwid direct jump including pages 1 and 604 and one middle page;
-  4. Warsh direct jump including pages 1 and 604 and one middle page;
-  5. invalid inputs such as 0, 605 and blank must not execute;
-  6. verify page shown matches requested page, explorer closes after valid jump, and switching modes preserves independent last-page state;
-  7. quick bookmark/fullscreen smoke to ensure no obvious regression.
-- If all clean, advance runtime `977fbde9...` to stable with no unrelated feature changes and post-publish redownload/SHA/signer verification.
-- If any failure occurs, record exact mode, requested page, observed page/behavior, and screenshot if possible; create sibling corrective candidate from the same SPEC.
+- The Quran direct-page runtime `977fbde9...` is now physically validated PASS on Galaxy S25, including Hafs/Tajwid/Warsh direct navigation and edge pages.
+- The last stable tag is still the older `arihna-stable-be4af47d-20260917`; the page-jump runtime has not yet been republished as stable.
+- Newly confirmed product limitation: Easy Quran is scrollable only within the selected surah and is not sequentially pageable/swipeable across surahs.
+- Recommended next implementation cycle: a narrow SPEC for **Easy Quran sequential browsing**, preserving the existing Easy verse-card layout while adding intuitive previous/next surah navigation (preferably horizontal swipe plus explicit accessible controls), wrapping/clamping correctly across surahs 1..114, preserving selected surah state, and leaving Hafs/Tajwid/Warsh and unrelated features untouched.
+- Because the user has now physically validated page-jump PASS, stable promotion of `977fbde9...` can be performed before or independently of the Easy-Quran enhancement; do not mix the Easy-Quran runtime change into that stable publication.
