@@ -16,6 +16,7 @@
 - Give brief progress updates during long CI/release work.
 - Never claim PASS/release/APK verification without evidence.
 - Physical Android validation is performed by the user on Galaxy S25.
+- For consultant handoff, user wants assistant replies/reports in **one single copyable block** (one code block / one Copy button) containing everything actually done and the current next step.
 
 ## Engineering / release discipline
 - SPEC-first for runtime/code changes.
@@ -89,17 +90,15 @@
 - Live rechecked 2026-09-21: release metadata still matches; run/job remain success.
 
 ## Latest user prompt / what was done
-2026-09-21 user sent `?`, asking for status after the long-running gate/release work.
+2026-09-21 user asked: `Scrivimi le tua risposte con un unico tasto copia con tutto quello che hai fatto, cosi lo mando al mio consulente`.
 
 Actually done:
 - Read this continuity file from `chat-context`.
-- Live-verified `main` at `977fbde989facc3b392f6af5a65449a5322d58c6`.
-- Live-verified exact-SHA gate run `35325258945` completed/success and all three required jobs success.
-- Live-verified S25 prerelease `quran-page-jump-977fbde9-20260918`, release run `35326339850` and job `105540154182` all successful.
-- No code/ref/release changes were made this turn.
+- Recorded the formatting preference: future consultant-ready operational replies should be delivered in a single copyable block containing all work actually completed plus current state/next action.
+- No runtime code, `main`, CI, tag, release, or APK state was changed this turn.
 
 ## Current state / exact next action
-- Repository/CI/release side is complete and green.
+- Repository/CI/release side for Quran direct-page jump is complete and green.
 - New page-jump runtime is **not yet physically validated**.
 - Exact next action: user installs `arihna-quran-page-jump.apk` on Galaxy S25 and validates direct-page navigation in Hafs, Tajwid and Warsh, including pages 1 and 604.
 - If clean, advance this runtime to stable without unrelated feature changes and perform the standard post-publication redownload/SHA/signer verification.
