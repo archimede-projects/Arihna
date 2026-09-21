@@ -90,27 +90,30 @@
 - Live rechecked 2026-09-21: release metadata still matches; run/job remain success.
 
 ## Latest user prompt / what was done
-2026-09-21 user clarified: `Per facile intendo solo scrittura non la lettura.`
+2026-09-21 user clarified the intended Easy Quran presentation: `Un arabo facile da leggere per chi sta imparando la lingua ataba` (Arabic).
 
 Actually done:
 - Read continuity from `chat-context`.
-- Live-verified current `main = 977fbde989facc3b392f6af5a65449a5322d58c6` (`feat(quran): add direct page jump`).
-- Re-inspected the current Quran screen architecture.
-- Confirmed current implementation models `EASY` as a separate `QuranReadingMode`, maps it to no riwaya, and routes it to `EasyQuranReader` (single-surah vertical ayah list). This does **not** match the user's intended product semantics.
-- Corrected product intent: `Facile` means **writing/text presentation only**, not a separate reading/navigation mode.
+- Live-verified current `main = 977fbde989facc3b392f6af5a65449a5322d58c6`.
+- Re-inspected `QuranCorpus.kt` and `EasyQuranReader`.
+- Confirmed current Easy reader loads the same `quran-uthmani.txt` corpus as the other text-based Quran path, so it does not currently provide a genuinely learner-friendly Arabic orthography; it merely renders Uthmani text as verse cards in a separate reader.
+- Refined product intent: “Facile” should be a learner-readable Arabic writing presentation for people learning Arabic, while preserving the exact Quran wording and normal pageable navigation.
 - No runtime code, `main`, CI, tag, release, or APK state changed this turn.
 
 ## Corrected product intent for “Facile”
-- “Facile” must preserve normal Quran reading/navigation behavior and only change the writing/text rendering.
-- It must not switch the user into a separate single-surah reader.
-- Paging/swiping, page state, index, bookmarks and fullscreen should remain those of the underlying Quran reading mode.
-- Architecturally, `Facile` should move out of `QuranReadingMode` and become a writing/display style (or equivalent orthography/text-presentation setting) associated with the appropriate Quran text source.
-- Hafs/Tajwid/Warsh reading identities must remain distinct from writing style.
-- Exact visual/text form of the “Facile” writing must be preserved/defined from the existing Easy text corpus/rendering rather than inventing new Quran text.
+- “Facile” means **learner-friendly Arabic writing**, not simplified Quran content and not a separate reading/navigation mode.
+- Preserve the Quran wording, verse order and meaning exactly; do not rewrite/paraphrase verses.
+- Preferred presentation target: a clear standard Arabic / imla'i-style orthographic rendering with full/appropriate vowel marks, clean readable Naskh-style typography, generous line spacing and readable word spacing, avoiding the visual complexity of Uthmani/Mushaf orthography where an authoritative equivalent source is available.
+- Normal reading behavior must remain pageable/swipeable with index, page jump, bookmarks, fullscreen and persisted page state.
+- Hafs/Tajwid/Warsh remain distinct reading identities; “Facile” is a writing/display option.
+- Do not invent or algorithmically “simplify” Quran text. Any learner-friendly orthographic corpus must come from a verified authoritative source or a deterministic, validated mapping with exact verse-level equivalence checks.
 
 ## Current state / exact next action
 - Page-jump runtime `977fbde9...` is physically validated PASS on Galaxy S25.
-- Last published stable tag remains `arihna-stable-be4af47d-20260917`.
-- Do not implement “Easy sequential surah browsing”; that prior proposed direction is superseded by this clarification.
-- Exact next engineering cycle after securing the validated page-jump runtime as stable: create a narrow SPEC to refactor `Facile` from a reading mode into a **writing/text style while retaining normal pageable reading/navigation**.
-- Preserve Hafs/Tajwid/Warsh behavior and all unrelated features.
+- Last stable tag is still `arihna-stable-be4af47d-20260917`; secure/promote the validated page-jump runtime as stable independently.
+- After stable publication, create a narrow SPEC for **learner-friendly Arabic writing mode**:
+  1. source/verify an authoritative learner-readable Arabic orthography corpus;
+  2. assert 114 surahs / 6,236 Hafs ayat and verse-by-verse identity/equivalence requirements;
+  3. integrate it as a writing/display style over normal pageable reading, not as a separate single-surah reader;
+  4. add API28/API36 regressions for paging, mode switching, bookmarks/fullscreen/page jump and text-source integrity;
+  5. publish signed S25 prerelease only after green exact-SHA gates.
