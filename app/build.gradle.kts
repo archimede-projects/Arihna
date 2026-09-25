@@ -245,7 +245,9 @@ tasks.matching { task ->
 }
 
 tasks.matching { task ->
-    task.name.startsWith("merge") && task.name.endsWith("Resources")
+    task.name.contains("Resources") ||
+        task.name.contains("SourceSetPaths") ||
+        task.name.contains("RFile")
 }.configureEach {
     dependsOn(prepareTakbirAudio)
 }
