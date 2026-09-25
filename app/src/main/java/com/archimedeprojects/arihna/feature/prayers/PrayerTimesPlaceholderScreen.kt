@@ -357,7 +357,6 @@ private class AdhanPreviewPlayer(private val context: Context) {
 }
 
 @Composable
-@Composable
 private fun adhanVariantLabel(variant: AdhanVariant): String = when (variant) {
     AdhanVariant.TAKBIR_X2 -> appText(
         "Takbīr breve · Allahu Akbar ×2",
@@ -366,7 +365,8 @@ private fun adhanVariantLabel(variant: AdhanVariant): String = when (variant) {
     else -> variant.displayName
 }
 
-private fun PrayerSoundDialog(
+@Composable
+internal fun PrayerSoundDialog(
     rule: AlarmRule,
     initialVolumePercent: Int,
     onDismiss: () -> Unit,
