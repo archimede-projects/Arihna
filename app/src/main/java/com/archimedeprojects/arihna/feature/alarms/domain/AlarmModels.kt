@@ -25,7 +25,7 @@ enum class AdhanVariant(
     CLASSIC("classic", "Adhan classico"),
     BEAUTIFUL("beautiful", "Adhan armonioso"),
     SHORT("short", "Adhan breve"),
-    TAKBIR_X2("takbir-x2", "Takbīr breve · Allahu Akbar ×2"),
+    TAKBIR_X2("takbir-x2", "Takbīr Makkah · Allahu Akbar ×2"),
     EXTENDED("extended", "Adhan disteso"),
     COMPACT("compact", "Adhan compatto"),
     ALTERNATIVE("alternative", "Adhan alternativo"),

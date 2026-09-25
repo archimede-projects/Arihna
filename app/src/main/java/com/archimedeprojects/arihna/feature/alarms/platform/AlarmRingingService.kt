@@ -428,14 +428,13 @@ class AlarmRingingService : Service() {
 
 internal fun playbackGain(percent: Int): Float = percent.coerceIn(0, 100) / 100f
 
-internal fun adhanRepeatCount(variant: AdhanVariant): Int =
-    if (variant == AdhanVariant.TAKBIR_X2) 2 else 1
+internal fun adhanRepeatCount(variant: AdhanVariant): Int = 1
 
 internal fun adhanRawResource(variant: AdhanVariant): Int = when (variant) {
     AdhanVariant.CLASSIC -> R.raw.adhan_cc0
     AdhanVariant.BEAUTIFUL -> R.raw.adhan_beautiful_cc0
     AdhanVariant.SHORT -> R.raw.adhan_short_cc0
-    AdhanVariant.TAKBIR_X2 -> R.raw.takbir_allahuakbar_cc0
+    AdhanVariant.TAKBIR_X2 -> R.raw.takbir_makkah_x2_cc_by
     AdhanVariant.EXTENDED -> R.raw.adhan_extended_cc_by_sa
     AdhanVariant.COMPACT -> R.raw.adhan_compact_pd
     AdhanVariant.ALTERNATIVE -> R.raw.adhan_alternative_cc_by_sa
