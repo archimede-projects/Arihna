@@ -29,7 +29,7 @@ jobs:
           ref: 32d1d1a5e61c5329d8bf3fe91367d6f820e9b981
           fetch-depth: 0
 
-      - name: Fetch exact verified probe artifact
+      - name: Verify exact probe run metadata
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -42,11 +42,19 @@ jobs:
           test "$(jq -r '.expired' <<<"$ART")" = false
           test "$(jq -r '.workflow_run.id' <<<"$ART")" = "$PROBE_RUN"
 
-          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$PROBE_ARTIFACT_ID/zip" > /tmp/probe.zip
-          mkdir -p /tmp/probe
-          unzip -q /tmp/probe.zip -d /tmp/probe
-          cp "/tmp/probe/$DERIVED_NAME" "$DERIVED_NAME"
+      - name: Download exact verified probe artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: makkah-adhan-source-probe
+          path: /tmp/probe
+          github-token: ${{ github.token }}
+          run-id: 36176580621
 
+      - name: Verify frozen derived bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "/tmp/probe/$DERIVED_NAME" "$DERIVED_NAME"
           test "$(stat -c '%s' "$DERIVED_NAME")" = "$DERIVED_SIZE"
           test "$(sha256sum "$DERIVED_NAME" | awk '{print $1}')" = "$DERIVED_SHA256"
 
