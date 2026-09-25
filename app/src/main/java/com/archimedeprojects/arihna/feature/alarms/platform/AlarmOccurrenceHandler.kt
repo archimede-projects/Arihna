@@ -13,6 +13,7 @@ class AlarmOccurrenceHandler(
     private val ruleRepository: AlarmRuleRepository,
     private val notificationDelivery: AlarmNotificationDelivery,
     private val reconcileNow: suspend () -> Unit,
+    private val playbackVolumePercent: suspend (com.archimedeprojects.arihna.feature.alarms.domain.AlarmRule) -> Int = { 100 },
 ) {
     suspend fun handle(envelope: AlarmOccurrenceEnvelope): AlarmOccurrenceHandlingResult {
         val rule = ruleRepository.get(envelope.alarmId)
@@ -27,7 +28,10 @@ class AlarmOccurrenceHandler(
             triggerAt = envelope.triggerAt,
             occurrenceToken = envelope.occurrenceToken,
         )
-        return when (notificationDelivery.deliver(rule, occurrence)) {
+        val deliveryRule = rule.copy(
+            playbackVolumePercent = playbackVolumePercent(rule).coerceIn(0, 100),
+        )
+        return when (notificationDelivery.deliver(deliveryRule, occurrence)) {
             AlarmNotificationDeliveryResult.NEEDS_NOTIFICATION_PERMISSION -> {
                 reconcileNow()
                 AlarmOccurrenceHandlingResult.NEEDS_NOTIFICATION_PERMISSION

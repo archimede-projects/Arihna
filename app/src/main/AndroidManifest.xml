@@ -46,6 +46,10 @@
             android:exported="false" />
 
         <receiver
+            android:name=".feature.home.DailyInspirationNotificationReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".feature.alarms.platform.AlarmDiagnosticReceiver"
             android:exported="false" />
 

@@ -33,6 +33,9 @@ class AlarmSystemEventReceiver : BroadcastReceiver() {
             try {
                 val application = context.applicationContext as? ArihnaApplication ?: return@launch
                 application.appContainer.alarmReconciliationTrigger.request(reason)
+                if (shouldRescheduleDailyInspiration(intent.action)) {
+                    application.appContainer.dailyInspirationNotificationController.reconcile()
+                }
             } finally {
                 pendingResult.finish()
             }
@@ -40,6 +43,15 @@ class AlarmSystemEventReceiver : BroadcastReceiver() {
     }
 
     companion object {
+        internal fun shouldRescheduleDailyInspiration(action: String?): Boolean = when (action) {
+            Intent.ACTION_BOOT_COMPLETED,
+            Intent.ACTION_TIME_CHANGED,
+            Intent.ACTION_TIMEZONE_CHANGED,
+            Intent.ACTION_MY_PACKAGE_REPLACED,
+            -> true
+            else -> false
+        }
+
         internal fun reasonFor(action: String?): AlarmReconciliationReason? = when (action) {
             Intent.ACTION_BOOT_COMPLETED -> AlarmReconciliationReason.BOOT_COMPLETED
             Intent.ACTION_TIME_CHANGED -> AlarmReconciliationReason.WALL_CLOCK_CHANGED

@@ -33,6 +33,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -68,12 +70,16 @@ import com.archimedeprojects.arihna.feature.alarms.domain.AlarmPrayer
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmRule
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmSoundProfile
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmRingtonePicker
+import com.archimedeprojects.arihna.feature.alarms.platform.adhanRawResource
+import com.archimedeprojects.arihna.feature.alarms.platform.adhanRepeatCount
+import com.archimedeprojects.arihna.feature.alarms.platform.playbackGain
 import com.archimedeprojects.arihna.feature.prayerschedule.presentation.PrayerScheduleUiState
 import com.archimedeprojects.arihna.feature.prayerschedule.presentation.PrayerScheduleViewModel
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.roundToInt
 
 private val OrariIvory = ArihnaDawnTop
 private val OrariCream = ArihnaCream
@@ -102,11 +108,14 @@ fun PrayerTimesRoute(
     )
 
     soundRule?.let { rule ->
+        val prayer = (rule.definition as? AlarmDefinition.PrayerLinked)?.prayer
+        val initialVolume = prayer?.let { alarmsState.prayerVolumes[it] } ?: 100
         PrayerSoundDialog(
             rule = rule,
+            initialVolumePercent = initialVolume,
             onDismiss = { soundRule = null },
-            onSave = { profile, uri, title ->
-                alarmsViewModel.setSound(rule, profile, uri, title)
+            onSave = { profile, uri, title, volumePercent ->
+                alarmsViewModel.setPrayerSound(rule, profile, uri, title, volumePercent)
                 soundRule = null
             },
         )
@@ -290,17 +299,11 @@ private fun SoundIconButton(
 
 private class AdhanPreviewPlayer(private val context: Context) {
     private var player: MediaPlayer? = null
+    private var currentGain: Float = 1f
 
-    fun play(variant: AdhanVariant) {
+    fun play(variant: AdhanVariant, volumePercent: Int) {
         stop()
-        val rawResource = when (variant) {
-            AdhanVariant.CLASSIC -> R.raw.adhan_cc0
-            AdhanVariant.BEAUTIFUL -> R.raw.adhan_beautiful_cc0
-            AdhanVariant.SHORT -> R.raw.adhan_short_cc0
-            AdhanVariant.EXTENDED -> R.raw.adhan_extended_cc_by_sa
-            AdhanVariant.COMPACT -> R.raw.adhan_compact_pd
-            AdhanVariant.ALTERNATIVE -> R.raw.adhan_alternative_cc_by_sa
-        }
+        currentGain = playbackGain(volumePercent)
         val next = MediaPlayer()
         try {
             next.setAudioAttributes(
@@ -309,14 +312,27 @@ private class AdhanPreviewPlayer(private val context: Context) {
                     .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                     .build(),
             )
-            context.resources.openRawResourceFd(rawResource).use { descriptor ->
+            context.resources.openRawResourceFd(adhanRawResource(variant)).use { descriptor ->
                 next.setDataSource(descriptor.fileDescriptor, descriptor.startOffset, descriptor.length)
             }
             next.isLooping = false
+            next.setVolume(currentGain, currentGain)
             next.prepare()
+            var remainingPlays = adhanRepeatCount(variant)
             next.setOnCompletionListener { completed ->
-                if (player === completed) player = null
-                completed.release()
+                remainingPlays -= 1
+                if (remainingPlays > 0 && player === completed) {
+                    runCatching {
+                        completed.seekTo(0)
+                        completed.start()
+                    }.onFailure {
+                        if (player === completed) player = null
+                        completed.release()
+                    }
+                } else {
+                    if (player === completed) player = null
+                    completed.release()
+                }
             }
             player = next
             next.start()
@@ -324,6 +340,11 @@ private class AdhanPreviewPlayer(private val context: Context) {
             next.release()
             player = null
         }
+    }
+
+    fun setVolume(percent: Int) {
+        currentGain = playbackGain(percent)
+        player?.setVolume(currentGain, currentGain)
     }
 
     fun stop() {
@@ -336,10 +357,20 @@ private class AdhanPreviewPlayer(private val context: Context) {
 }
 
 @Composable
-private fun PrayerSoundDialog(
+private fun adhanVariantLabel(variant: AdhanVariant): String = when (variant) {
+    AdhanVariant.TAKBIR_X2 -> appText(
+        "Takbīr breve · Allahu Akbar ×2",
+        "تكبير قصير · الله أكبر ×٢",
+    )
+    else -> variant.displayName
+}
+
+@Composable
+internal fun PrayerSoundDialog(
     rule: AlarmRule,
+    initialVolumePercent: Int,
     onDismiss: () -> Unit,
-    onSave: (AlarmSoundProfile, String?, String?) -> Unit,
+    onSave: (AlarmSoundProfile, String?, String?, Int) -> Unit,
 ) {
     val context = LocalContext.current
     var profile by remember(rule.alarmId, rule.revision) { mutableStateOf(rule.soundProfile) }
@@ -350,6 +381,9 @@ private fun PrayerSoundDialog(
     var ringtoneTitle by remember(rule.alarmId, rule.revision) { mutableStateOf(rule.ringtoneTitle) }
     var adhanListOpen by remember(rule.alarmId, rule.revision) { mutableStateOf(false) }
     var previewing by remember(rule.alarmId, rule.revision) { mutableStateOf<AdhanVariant?>(null) }
+    var volumePercent by remember(rule.alarmId, rule.revision) {
+        mutableStateOf(initialVolumePercent.coerceIn(0, 100))
+    }
     val previewPlayer = remember(context, rule.alarmId) { AdhanPreviewPlayer(context.applicationContext) }
 
     DisposableEffect(previewPlayer) {
@@ -394,7 +428,11 @@ private fun PrayerSoundDialog(
                     )
                     AdhanVariant.entries.forEach { variant ->
                         SoundListRow(
-                            title = if (previewing == variant) "${variant.displayName} · ${appText("in ascolto", "يعمل الآن")}" else variant.displayName,
+                            title = if (previewing == variant) {
+                                "${adhanVariantLabel(variant)} · ${appText("in ascolto", "يعمل الآن")}"
+                            } else {
+                                adhanVariantLabel(variant)
+                            },
                             icon = Icons.Rounded.Mosque,
                             selected = profile == AlarmSoundProfile.ADHAN && adhanVariant == variant,
                         ) {
@@ -403,7 +441,7 @@ private fun PrayerSoundDialog(
                             ringtoneUri = variant.storageValue
                             ringtoneTitle = variant.displayName
                             previewing = variant
-                            previewPlayer.play(variant)
+                            previewPlayer.play(variant, volumePercent)
                         }
                     }
                     TextButton(
@@ -430,7 +468,7 @@ private fun PrayerSoundDialog(
                             Icon(Icons.Rounded.Mosque, contentDescription = null, tint = OrariForest)
                             Column(Modifier.weight(1f)) {
                                 Text(
-                                    if (profile == AlarmSoundProfile.ADHAN) adhanVariant.displayName else appText("Nessun Adhan selezionato", "لم يتم اختيار أذان"),
+                                    if (profile == AlarmSoundProfile.ADHAN) adhanVariantLabel(adhanVariant) else appText("Nessun Adhan selezionato", "لم يتم اختيار أذان"),
                                     color = OrariForest,
                                     fontWeight = FontWeight.SemiBold,
                                 )
@@ -482,6 +520,55 @@ private fun PrayerSoundDialog(
                         ringtoneUri = null
                         ringtoneTitle = null
                     }
+
+                    val prayer = (rule.definition as? AlarmDefinition.PrayerLinked)?.prayer
+                    if (prayer != null) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                appText("Volume di questa preghiera", "مستوى صوت هذه الصلاة"),
+                                color = OrariForest,
+                                fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            Text(
+                                "$volumePercent%",
+                                color = OrariGreen,
+                                fontWeight = FontWeight.ExtraBold,
+                                modifier = Modifier.testTag(
+                                    "prayer-volume-value-${prayer.name.lowercase()}",
+                                ),
+                            )
+                        }
+                        Slider(
+                            value = volumePercent.toFloat(),
+                            onValueChange = { requested ->
+                                volumePercent = requested.roundToInt().coerceIn(0, 100)
+                                previewPlayer.setVolume(volumePercent)
+                            },
+                            valueRange = 0f..100f,
+                            steps = 0,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("prayer-volume-slider-${prayer.name.lowercase()}"),
+                            colors = SliderDefaults.colors(
+                                thumbColor = OrariForest,
+                                activeTrackColor = OrariGreen,
+                                inactiveTrackColor = OrariSage,
+                            ),
+                        )
+                        Text(
+                            appText(
+                                "Percentuale locale: non cambia il volume globale delle sveglie del telefono.",
+                                "نسبة خاصة بهذه الصلاة ولا تغيّر مستوى صوت منبّه الهاتف العام.",
+                            ),
+                            color = OrariForest.copy(alpha = 0.66f),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
                 }
             }
         },
@@ -493,7 +580,7 @@ private fun PrayerSoundDialog(
                         previewing = null
                         val storedUri = if (profile == AlarmSoundProfile.ADHAN) adhanVariant.storageValue else ringtoneUri
                         val storedTitle = if (profile == AlarmSoundProfile.ADHAN) adhanVariant.displayName else ringtoneTitle
-                        onSave(profile, storedUri, storedTitle)
+                        onSave(profile, storedUri, storedTitle, volumePercent)
                     },
                 ) { Text(appText("Conferma", "تأكيد")) }
             }

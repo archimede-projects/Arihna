@@ -4,6 +4,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
@@ -75,6 +76,7 @@ fun ArihnaApp(
             initializer {
                 AlarmsViewModel(
                     repository = appContainer.alarmRuleRepository,
+                    prayerAlertPreferencesRepository = appContainer.prayerAlertPreferencesRepository,
                     reconciler = appContainer.alarmReconciler,
                     scheduler = appContainer.alarmPlatformScheduler,
                     notificationPermissionReader = appContainer.alarmNotificationPermissionReader,
@@ -126,6 +128,10 @@ fun ArihnaApp(
         AppLanguageController(activity.applicationContext)
     }
 
+    LaunchedEffect(appContainer) {
+        appContainer.dailyInspirationNotificationController.reconcile()
+    }
+
     ArihnaTheme {
         CompositionLocalProvider(
             LocalAppLanguageController provides languageController,
@@ -143,6 +149,7 @@ fun ArihnaApp(
             exactAlarmAccessIntentFactory = appContainer.exactAlarmAccessIntentFactory,
             alarmFullScreenAccess = appContainer.alarmFullScreenAccess,
             alarmDiagnosticTestScheduler = appContainer.alarmDiagnosticTestScheduler,
+            dailyInspirationNotificationController = appContainer.dailyInspirationNotificationController,
             qiblaRepository = qiblaRepository,
             locationEnvironment = appContainer.locationEnvironment,
             locationPermissionStateResolver = appContainer.locationPermissionStateResolver,

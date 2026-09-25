@@ -1,7 +1,10 @@
 package com.archimedeprojects.arihna.feature.alarms
 
 import com.archimedeprojects.arihna.feature.alarms.data.AlarmRuleRepository
+import com.archimedeprojects.arihna.feature.alarms.data.preferences.PrayerAlertPreferencesRepository
+import com.archimedeprojects.arihna.feature.alarms.data.preferences.PrayerAlertVolumePreferences
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmDefinition
+import com.archimedeprojects.arihna.feature.alarms.domain.AlarmPrayer
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmOccurrence
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmPrayerScheduleSource
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmReconciler
@@ -109,10 +112,23 @@ class AlarmsViewModelTest {
         )
         return AlarmsViewModel(
             repository = repository,
+            prayerAlertPreferencesRepository = MutablePrayerPreferences(),
             reconciler = reconciler,
             scheduler = scheduler,
             notificationPermissionReader = AlarmNotificationPermissionReader { true },
         )
+    }
+
+    private class MutablePrayerPreferences : PrayerAlertPreferencesRepository {
+        private val state = MutableStateFlow(PrayerAlertVolumePreferences())
+        override val volumes: Flow<PrayerAlertVolumePreferences> = state
+        override suspend fun current(): PrayerAlertVolumePreferences = state.value
+        override suspend fun volumeFor(prayer: AlarmPrayer): Int = state.value.volumeFor(prayer)
+        override suspend fun setVolume(prayer: AlarmPrayer, percent: Int) {
+            state.value = PrayerAlertVolumePreferences(
+                state.value.byPrayer + (prayer to percent.coerceIn(0, 100)),
+            )
+        }
     }
 
     private class MutableRepository(

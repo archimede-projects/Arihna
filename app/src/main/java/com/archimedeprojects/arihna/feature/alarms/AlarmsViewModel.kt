@@ -3,6 +3,7 @@ package com.archimedeprojects.arihna.feature.alarms
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.archimedeprojects.arihna.feature.alarms.data.AlarmRuleRepository
+import com.archimedeprojects.arihna.feature.alarms.data.preferences.PrayerAlertPreferencesRepository
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmDefinition
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmPrayer
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmReconciler
@@ -25,6 +26,7 @@ import kotlinx.coroutines.launch
 
 data class AlarmsUiState(
     val rules: List<AlarmRule> = emptyList(),
+    val prayerVolumes: Map<AlarmPrayer, Int> = AlarmPrayer.entries.associateWith { 100 },
     val exactAlarmReady: Boolean = false,
     val notificationReady: Boolean = false,
     val message: String? = null,
@@ -32,6 +34,7 @@ data class AlarmsUiState(
 
 class AlarmsViewModel(
     private val repository: AlarmRuleRepository,
+    private val prayerAlertPreferencesRepository: PrayerAlertPreferencesRepository,
     private val reconciler: AlarmReconciler,
     private val scheduler: AlarmPlatformScheduler,
     private val notificationPermissionReader: AlarmNotificationPermissionReader,
@@ -41,11 +44,13 @@ class AlarmsViewModel(
 
     val uiState: StateFlow<AlarmsUiState> = combine(
         repository.rules,
+        prayerAlertPreferencesRepository.volumes,
         capabilityVersion,
         message,
-    ) { rules, _, currentMessage ->
+    ) { rules, prayerVolumes, _, currentMessage ->
         AlarmsUiState(
             rules = rules.sortedBy { it.alarmId },
+            prayerVolumes = AlarmPrayer.entries.associateWith(prayerVolumes::volumeFor),
             exactAlarmReady = scheduler.capability() == ExactAlarmCapability.READY,
             notificationReady = notificationPermissionReader.isGranted(),
             message = currentMessage,
@@ -155,6 +160,40 @@ class AlarmsViewModel(
                 ),
             )
             scheduler.cancel(rule.alarmId)
+            message.value = null
+        }
+    }
+
+    fun setPrayerSound(
+        rule: AlarmRule,
+        soundProfile: AlarmSoundProfile,
+        ringtoneUri: String? = null,
+        ringtoneTitle: String? = null,
+        volumePercent: Int,
+    ) {
+        val prayer = (rule.definition as? AlarmDefinition.PrayerLinked)?.prayer ?: return
+        val keepSelectionMetadata = soundProfile != AlarmSoundProfile.SILENT
+        val targetUri = if (keepSelectionMetadata) ringtoneUri else null
+        val targetTitle = if (keepSelectionMetadata) ringtoneTitle else null
+        mutate {
+            val soundChanged =
+                rule.soundProfile != soundProfile ||
+                    rule.ringtoneUri != targetUri ||
+                    rule.ringtoneTitle != targetTitle
+            if (soundChanged) {
+                repository.save(
+                    AlarmRuleDraft(
+                        alarmId = rule.alarmId,
+                        enabled = rule.enabled,
+                        soundProfile = soundProfile,
+                        definition = rule.definition,
+                        ringtoneUri = targetUri,
+                        ringtoneTitle = targetTitle,
+                    ),
+                )
+                scheduler.cancel(rule.alarmId)
+            }
+            prayerAlertPreferencesRepository.setVolume(prayer, volumePercent.coerceIn(0, 100))
             message.value = null
         }
     }
