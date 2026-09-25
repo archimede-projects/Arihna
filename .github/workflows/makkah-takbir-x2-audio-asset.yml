@@ -1,0 +1,86 @@
+name: Makkah two-takbir frozen audio asset
+
+on:
+  push:
+    branches:
+      - driver/makkah-takbir-x2-audio-asset-20260925
+    paths:
+      - .github/workflows/makkah-takbir-x2-audio-asset.yml
+
+permissions:
+  contents: write
+
+jobs:
+  build-verify-publish:
+    runs-on: ubuntu-24.04
+    env:
+      SOURCE_URL: https://upload.wikimedia.org/wikipedia/commons/a/a7/Adhan%2C_Great_Mosque_of_Mecca_-_Jan_21%2C_2013.webm
+      SOURCE_SIZE: '9359941'
+      SOURCE_SHA256: f4acc1bcc6e7919fce60b21162a3c794952c562a6df7b6aa7971f80d191eb5f0
+      DERIVED_NAME: takbir-makkah-x2.opus
+      DERIVED_SIZE: '132738'
+      DERIVED_SHA256: 18740acd61b8b5946a14fc7551dee851642c710d37501892195593477e065f89
+      RELEASE_TAG: audio-makkah-takbir-x2-20260925
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 32d1d1a5e61c5329d8bf3fe91367d6f820e9b981
+          fetch-depth: 0
+
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+
+      - name: Reproduce and verify derived clip
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 4 --retry-delay 2 -A 'Arihna-build/1.0' "$SOURCE_URL" -o /tmp/makkah.webm
+          test "$(stat -c '%s' /tmp/makkah.webm)" = "$SOURCE_SIZE"
+          test "$(sha256sum /tmp/makkah.webm | awk '{print $1}')" = "$SOURCE_SHA256"
+
+          ffmpeg -hide_banner -loglevel error -y \
+            -ss 7.35 -i /tmp/makkah.webm -t 8.20 -vn -ac 1 -ar 48000 \
+            -c:a libopus -b:a 128k -vbr off -application audio "$DERIVED_NAME"
+
+          test "$(stat -c '%s' "$DERIVED_NAME")" = "$DERIVED_SIZE"
+          test "$(sha256sum "$DERIVED_NAME" | awk '{print $1}')" = "$DERIVED_SHA256"
+          DURATION="$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$DERIVED_NAME")"
+          python3 - "$DURATION" <<'PY'
+          import sys
+          d=float(sys.argv[1])
+          assert 8.15 <= d <= 8.25, d
+          PY
+
+      - name: Publish frozen audio asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1
+          gh release create "$RELEASE_TAG" "$DERIVED_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target 32d1d1a5e61c5329d8bf3fe91367d6f820e9b981 \
+            --prerelease \
+            --title 'Arihna audio source — Makkah Takbīr ×2' \
+            --notes "Frozen derived audio source for Arihna. Source: Wikimedia Commons, Adhan at the Great Mosque of Mecca (21 Jan 2013), author attribution Seyfula Islam, CC BY 3.0. Modification: extracted only the first takbīr pair from 00:07.35 through 00:15.55; no time compression. Source SHA-256 $SOURCE_SHA256, source bytes $SOURCE_SIZE. Derived SHA-256 $DERIVED_SHA256, derived bytes $DERIVED_SIZE. License: https://creativecommons.org/licenses/by/3.0/ . Source page: https://commons.wikimedia.org/wiki/File:Adhan,_Great_Mosque_of_Mecca_-_Jan_21,_2013.webm"
+
+      - name: Redownload and verify release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          JSON="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")"
+          test "$(jq -r '.draft' <<<"$JSON")" = false
+          test "$(jq -r '.prerelease' <<<"$JSON")" = true
+          test "$(jq -r '.assets | length' <<<"$JSON")" = 1
+          test "$(jq -r '.assets[0].name' <<<"$JSON")" = "$DERIVED_NAME"
+          test "$(jq -r '.assets[0].size' <<<"$JSON")" = "$DERIVED_SIZE"
+          test "$(jq -r '.assets[0].digest' <<<"$JSON")" = "sha256:$DERIVED_SHA256"
+          rm -rf /tmp/recheck && mkdir -p /tmp/recheck
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "$DERIVED_NAME" --dir /tmp/recheck
+          test "$(stat -c '%s' "/tmp/recheck/$DERIVED_NAME")" = "$DERIVED_SIZE"
+          test "$(sha256sum "/tmp/recheck/$DERIVED_NAME" | awk '{print $1}')" = "$DERIVED_SHA256"
