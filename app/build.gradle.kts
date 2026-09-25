@@ -1,4 +1,5 @@
 import java.net.URI
+import java.security.MessageDigest
 import java.util.zip.ZipInputStream
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
@@ -13,7 +14,36 @@ val quranImlaiSourceBlob = "b7b0b3db111cf183d1439ff76dc38d61d743592d"
 val quranSvgCommit = "78d97544bfdc57e9f04bc97ace3f857ed972d772"
 val quranWarshSvgCommit = "b91d39e1065b57bdda3e94aca8ecf3575e50e1e6"
 val quranMetadataCommit = "052b515f3a24dfacbe4cafc3b89f0681a447f462"
+val takbirSourceUrl = "https://commons.wikimedia.org/wiki/Special:Redirect/file/Allahuakbar.opus"
+val takbirSourceSize = 21136L
+val takbirSourceSha256 = "ccb7a98ba419b9e1163e57a41423016766fae9c07a004862423c757bab5985c3"
 val generatedQuranAssets = layout.buildDirectory.dir("generated/quranAssets").get().asFile
+val generatedTakbirRes = layout.buildDirectory.dir("generated/takbirRes").get().asFile
+
+val prepareTakbirAudio by tasks.registering {
+    val target = generatedTakbirRes.resolve("raw/takbir_allahuakbar_cc0.opus")
+    outputs.file(target)
+    doLast {
+        target.parentFile.mkdirs()
+        val connection = URI(takbirSourceUrl).toURL().openConnection().apply {
+            setRequestProperty("User-Agent", "Arihna-build/1.0 (+https://github.com/archimede-projects/Arihna)")
+        }
+        connection.getInputStream().use { input ->
+            target.outputStream().use { output -> input.copyTo(output) }
+        }
+        check(target.length() == takbirSourceSize) {
+            "Unexpected two-takbir source size: ${target.length()}"
+        }
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(target.readBytes())
+            .joinToString("") { byte: Byte ->
+                (byte.toInt() and 0xff).toString(16).padStart(2, '0')
+            }
+        check(digest == takbirSourceSha256) {
+            "Unexpected two-takbir source SHA-256: $digest"
+        }
+    }
+}
 val prepareQuranAssets by tasks.registering {
     outputs.dir(generatedQuranAssets)
     doLast {
@@ -208,12 +238,21 @@ android {
     }
 
     sourceSets.getByName("main").assets.srcDir(generatedQuranAssets)
+    sourceSets.getByName("main").res.srcDir(generatedTakbirRes)
 }
 
 tasks.matching { task ->
     task.name.startsWith("merge") && task.name.endsWith("Assets")
 }.configureEach {
     dependsOn(prepareQuranAssets)
+}
+
+tasks.matching { task ->
+    task.name.contains("Resources") ||
+        task.name.contains("SourceSetPaths") ||
+        task.name.contains("RFile")
+}.configureEach {
+    dependsOn(prepareTakbirAudio)
 }
 
 kotlin {

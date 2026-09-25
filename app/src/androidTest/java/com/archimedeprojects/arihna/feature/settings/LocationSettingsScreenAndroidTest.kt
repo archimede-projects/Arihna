@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
 import com.archimedeprojects.arihna.core.location.model.CitySearchResult
 import com.archimedeprojects.arihna.core.location.model.LocationFailure
@@ -105,12 +106,14 @@ class LocationSettingsScreenAndroidTest {
         assertTrue(composeRule.onAllNodesWithText("Allarmi esatti").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Schermo intero").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Popup sveglia").fetchSemanticsNodes().isEmpty())
-        assertTrue(composeRule.onAllNodes(hasScrollAction()).fetchSemanticsNodes().isEmpty())
-        composeRule.onNodeWithText("SVEGLIA").assertIsDisplayed()
+        composeRule.onNodeWithText("ISPIRAZIONE QUOTIDIANA").assertIsDisplayed()
+        composeRule.onNodeWithTag("settings-daily-inspiration-switch").assertIsDisplayed()
+        assertTrue(composeRule.onAllNodes(hasScrollAction()).fetchSemanticsNodes().isNotEmpty())
+        composeRule.onNodeWithText("SVEGLIA").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Volume sveglia").assertIsDisplayed()
-        composeRule.onNodeWithText("TEST RAPIDI").assertIsDisplayed()
-        composeRule.onNodeWithText("Test sveglia (10 secondi)").assertIsDisplayed()
-        composeRule.onNodeWithText("Test Adhan (10 secondi)").assertIsDisplayed()
+        composeRule.onNodeWithText("TEST RAPIDI").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Test sveglia (10 secondi)").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Test Adhan (10 secondi)").performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -126,8 +129,9 @@ class LocationSettingsScreenAndroidTest {
             composeRule.onAllNodesWithText("Controlli di sistema e test rapidi per sveglie e Adhan.")
                 .fetchSemanticsNodes().isEmpty(),
         )
-        composeRule.onNodeWithText("SVEGLIA").assertIsDisplayed()
-        composeRule.onNodeWithText("TEST RAPIDI").assertIsDisplayed()
+        composeRule.onNodeWithText("ISPIRAZIONE QUOTIDIANA").assertIsDisplayed()
+        composeRule.onNodeWithText("SVEGLIA").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("TEST RAPIDI").performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -277,7 +281,7 @@ class LocationSettingsScreenAndroidTest {
             }
         }
 
-        composeRule.onNodeWithTag("settings-alarm-volume-value").assertIsDisplayed()
+        composeRule.onNodeWithTag("settings-alarm-volume-value").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("settings-alarm-volume-slider").assertIsDisplayed()
     }
 
