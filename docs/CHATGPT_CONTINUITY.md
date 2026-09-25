@@ -20,83 +20,175 @@
 
 ## Engineering / release discipline
 - SPEC-first for runtime/code changes.
-- Candidate = exactly one commit, direct child of SPEC; failed replacements must be sibling candidates from the same SPEC.
+- Candidate = exactly one commit, direct child of SPEC; failed/superseded replacements must be sibling candidates from the same SPEC.
 - Full exact-SHA gates include API28 and API36.
 - Promote `main` only after green gates, via non-forced fast-forward.
 - Changed user-facing runtimes go to S25 prerelease first.
 - Use persistent Arihna signer; redownload published APK and verify SHA-256 + signer before handoff/stable claims.
 - Preserve unrelated features unless SPEC explicitly changes them.
 
-## Current main / stable baseline
-- Live-verified 2026-09-21: `main = 977fbde989facc3b392f6af5a65449a5322d58c6`
-- Message: `feat(quran): add direct page jump`
-- User physically validated the complete S25 page-jump checklist PASS.
-- New stable tag: `arihna-stable-977fbde9-20260921`
+## Last physically validated stable baseline
+- Stable tag: `arihna-stable-977fbde9-20260921`
+- Runtime: `977fbde989facc3b392f6af5a65449a5322d58c6`
 - Release id: `392867609`
-- Title: `Arihna — Stable — S25 validated`
-- Target: `977fbde989facc3b392f6af5a65449a5322d58c6`
-- `draft=false`, `prerelease=false`
-- Published: `2026-09-21T10:29:24Z`
-- Asset id `578804583`, name `arihna.apk`
-- Size: `386945577` bytes
+- Asset: `arihna.apk`
+- Size: `386945577`
 - SHA-256: `002d640a734eadf46b141b4489ae3c26d2803d9d49b4bacc772f7c678ab20813`
 - Signer cert SHA-256: `1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa`
-- Download: https://github.com/archimede-projects/Arihna/releases/download/arihna-stable-977fbde9-20260921/arihna.apk
-- This stable APK is byte-identical to the prerelease physically validated on Galaxy S25.
-
-### Stable publication evidence
-- Driver: `driver/stable-977fbde9-release-20260921`
-- Workflow commit: `cad34bf53807eaa2e53c1ea8869b922bf7167781`
-- Run: `35588967090` — completed/success
-- Job: `106298770917` — completed/success
-- Workflow verified runtime/gate/source prerelease, downloaded and verified physically validated APK bytes, published stable, redownloaded stable asset and reverified size/SHA/signer/metadata.
-
-## Quran page-jump cycle — closed
-- SPEC: `e680659976010d8e8bfe2e62da862567230b5554`
-- Candidate/runtime: `977fbde989facc3b392f6af5a65449a5322d58c6`
-- Exact-SHA gate `35325258945`: success
-  - static/build `105536706783`
-  - API28 `105536706741`
-  - API36 `105536706685`
-- S25 prerelease `quran-page-jump-977fbde9-20260918` was physically validated PASS by the user.
-- Stable publication is now complete.
+- User physically validated the page-jump runtime PASS on Galaxy S25.
+- This remains the stable user baseline until the new Imlāʾī runtime is physically validated.
 
 ## Product definition: القرآن بالرسم الإملائي
-User clarified that the former “Facile” concept means exactly:
+- Former “Facile” means exactly Quran in **الرسم الإملائي**.
+- It is a writing/orthography presentation, not a separate recitation mode and not paraphrased/simplified Quran content.
+- Preserve Quran wording, ayah identity/order and semantics.
+- Keep normal 604-page navigation, swipe, index, direct page jump, bookmarks/history, fullscreen and persisted page state.
+- Hafs/Tajwid/Warsh remain distinct reading/riwaya identities.
+- Imlāʾī must not be silently applied to Tajwid or Warsh without separately verified support.
 
-`القرآن بالرسم الإملائي`
-
-It is a **writing/orthography presentation**, not a separate reading mode and not simplified/paraphrased Quran content.
-
-Required product semantics:
-- preserve Quran wording, ayah identity/order and semantics;
-- use an authoritative imla'i orthography source;
-- retain normal pageable/swipeable Quran navigation, index, direct page jump, bookmarks, history, fullscreen and persisted page state;
-- Hafs/Tajwid/Warsh remain reading/riwaya identities;
-- do not apply imla'i silently to Tajwid or Warsh without separately verified support;
-- do not invent ad-hoc text simplification.
-
-## Imla'i SPEC — created, no runtime change yet
+## Imlāʾī SPEC
 - Branch: `spec/quran-imlai-writing-20260921`
 - SPEC commit: `3da807cef157d57a54bc426295eb54f66830158d`
-- Parent: `977fbde989facc3b392f6af5a65449a5322d58c6`
+- Parent stable runtime: `977fbde989facc3b392f6af5a65449a5322d58c6`
 - File: `docs/specs/quran-imlai-writing-20260921.md`
-- Message: `spec(quran): define imlai writing presentation`
-- This commit is documentation-only and is NOT on `main`.
-- SPEC requires authoritative source provenance/license, 114 surahs / 6,236 Hafs ayat structural integrity, deterministic surah:ayah mapping, legacy EASY migration safety, normal pageable navigation, regression coverage, exact-SHA API28/API36 gates and S25 prerelease validation.
+
+## Source verification
+Selected source:
+- Tanzil Quran Text — **Simple, Version 1.1**
+- Tanzil documents Simple as Imla'ei script.
+- License: Creative Commons Attribution 3.0; verbatim redistribution allowed with attribution/link, text changes prohibited.
+- Primary docs: `https://tanzil.net/docs/Quran_Text_Types`, `https://tanzil.net/docs/Text_License`, `https://tanzil.net/download/`
+
+Pinned reproducible mirror used for CI/build:
+- repository: `dotquran/corpus`
+- commit: `c23f5cec2e95e253dc450bd0f34d09e37ba40fac`
+- path: `src/resources/simple.txt`
+- Git blob: `b7b0b3db111cf183d1439ff76dc38d61d743592d`
+
+Verified before candidate and again in CI:
+- 6,236 ayat
+- 114 surahs
+- 6,236 unique `surah:ayah` keys
+- first key `1:1`
+- last key `114:6`
+- key sequence exactly matches Arihna's pinned Hafs Uthmani structure
+- bundled file retains Tanzil copyright/license notice
+- provenance documented in `docs/quran/IMLAI_SOURCE.md`
+
+## Imlāʾī candidates
+### Candidate v1 — superseded before gate
+- branch: `candidate/quran-imlai-writing-v1-20260925`
+- SHA: `40ad3ccf4bcc00131fe33824529c0eefe18bfdfa`
+- direct child of SPEC
+- superseded during pre-gate review because one new test needed explicit Tajwid bookmark-state reset for deterministic isolation.
+- v1 was not promoted.
+
+### Candidate v2 — definitive
+- branch: `candidate/quran-imlai-writing-v2-20260925`
+- SHA: `0d7d12c2e89a8012446bde6967d366f31ca8e77e`
+- direct child of SPEC `3da807c...`
+- exactly one candidate commit
+- message: `feat(quran): add imlai writing presentation`
+
+Changed candidate files:
+1. `app/build.gradle.kts`
+2. `app/src/androidTest/java/com/archimedeprojects/arihna/feature/quran/QuranFullscreenAndroidTest.kt`
+3. `app/src/androidTest/java/com/archimedeprojects/arihna/feature/quran/QuranImlaiAndroidTest.kt`
+4. `app/src/main/java/com/archimedeprojects/arihna/feature/quran/MushafRepository.kt`
+5. `app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranCorpus.kt`
+6. `app/src/main/java/com/archimedeprojects/arihna/feature/quran/QuranPlaceholderScreen.kt`
+7. `docs/quran/IMLAI_SOURCE.md`
+
+Implemented behavior:
+- `QuranWritingStyle { MUSHAF, IMLAI }` separates writing presentation from reading/riwaya identity.
+- Legacy stored `EASY` migrates deterministically to Hafs + Imlāʾī.
+- UI tab now exposes `Imlāʾī / إملائي`; active header shows `Scrittura imlāʾī / الرسم الإملائي`.
+- Imlāʾī uses normal 604-page Hafs page mapping with horizontal swipe.
+- Keeps Hafs page state, index, direct page jump, Hafs bookmarks/history and fullscreen.
+- Adds text-size controls and readable RTL text-page rendering.
+- Source attribution is visible and includes a user-facing `tanzil.net` link.
+- Tajwid/Warsh remain separate and unchanged in source identity.
+- Old single-surah `EasyQuranReader` behavior is removed from the active product flow.
+
+Automated Imlāʾī regressions include:
+- corpus completeness/alignment;
+- legacy EASY migration;
+- page jump;
+- bookmark namespace behavior;
+- fullscreen;
+- switching through Tajwid/Warsh back to Imlāʾī without losing Hafs page state;
+- Arabic diacritic/non-empty rendering checks.
+
+## Exact-SHA gate — PASS
+Driver:
+- `driver/quran-imlai-writing-v2-gate-20260925`
+- workflow commit: `45936c0c2b9b4f8337aa00c9439f854590f0ccfe`
+
+Run:
+- `36095864897` — completed/success
+
+Jobs:
+- static/build `107947891603` — success
+- API28 full suite `107947891322` — success
+- API36 Quran + Imlāʾī + hardening + Tajwid + permission matrix `107947891598` — success
+
+Static/build additionally verified the generated Imlāʾī corpus inside the APK: 114 surahs, 6,236 ayat, exact structural key alignment with pinned Hafs and Tanzil notice present.
+
+## Promotion
+- Before promotion, live `main` was rechecked at `977fbde989facc3b392f6af5a65449a5322d58c6`.
+- Promoted with `force=false`.
+- Live recheck confirms current `main = 0d7d12c2e89a8012446bde6967d366f31ca8e77e`.
+- Parent is SPEC `3da807cef157d57a54bc426295eb54f66830158d`.
+
+## S25 validation prerelease — published and verified
+Release driver:
+- `driver/quran-imlai-writing-v2-release-20260925`
+- workflow commit: `f760fa2892b280c329ee8d507290f9d65ff90773`
+
+Release workflow:
+- run `36096808063` — completed/success
+- job `107950673634` — completed/success
+- workflow rebuilt exact promoted runtime, restored frozen GeoNames + persistent signer, verified corpus/package/SDK/signer, published prerelease, redownloaded it, and reverified digest/size/signer/metadata.
+
+Release:
+- tag: `quran-imlai-0d7d12c2-20260925`
+- release id: `396319251`
+- title: `Arihna — Quran Imlāʾī — S25 validation`
+- target: `0d7d12c2e89a8012446bde6967d366f31ca8e77e`
+- `draft=false`
+- `prerelease=true`
+- published: `2026-09-25T05:06:47Z`
+- asset id: `587577666`
+- asset: `arihna-quran-imlai.apk`
+- size: `387455087`
+- SHA-256: `3f66fe87d29aab6d4163620339a06908e24e4a9b7431b4af02f979f88e9183ff`
+- signer cert SHA-256 verified: `1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa`
+- direct download: `https://github.com/archimede-projects/Arihna/releases/download/quran-imlai-0d7d12c2-20260925/arihna-quran-imlai.apk`
 
 ## Latest user request / actual work
-2026-09-25 user asked: `Ci sei?`
+2026-09-25 user said: `Procedi`.
 
-Actually done:
-- Read continuity from `chat-context`.
-- Live-verified `main = 977fbde989facc3b392f6af5a65449a5322d58c6`.
-- Live-verified stable release `arihna-stable-977fbde9-20260921` remains published, non-prerelease, targeting the validated runtime, with asset `arihna.apk` SHA-256 `002d640a734eadf46b141b4489ae3c26d2803d9d49b4bacc772f7c678ab20813`.
-- Live-verified SPEC branch `spec/quran-imlai-writing-20260921` at commit `3da807cef157d57a54bc426295eb54f66830158d`, message `spec(quran): define imlai writing presentation`.
-- Live-read `docs/specs/quran-imlai-writing-20260921.md`; it contains the pinned product definition and source-integrity/navigation requirements.
-- No runtime code, `main`, release, CI or APK state changed this turn.
+Actually completed:
+- authoritative source discovery and license/provenance review;
+- structural verification of Tanzil Simple v1.1;
+- candidate v1 creation then pre-gate supersession for deterministic test isolation;
+- sibling candidate v2 creation from the same SPEC;
+- exact-SHA static/API28/API36 gate PASS;
+- non-forced promotion of v2 to `main`;
+- signed S25 prerelease build/publication;
+- redownload and verification of published APK, digest, size, package/SDK contract and signer;
+- continuity updated on `chat-context`.
 
-## Exact next action
-- Steps 1 and 2 requested earlier are both complete.
-- Next engineering action is source discovery/verification for an authoritative Quran corpus in `الرسم الإملائي`, including provenance and redistribution/license terms.
-- Only after source verification, create candidate 1 as exactly one commit direct child of SPEC `3da807c...`, then exact-SHA API28/API36 gates, promotion if green, signed S25 prerelease, post-publish verification, and physical user validation.
+## Current state / exact next action
+- Repository/CI/release status is green.
+- Current `main` is the new Imlāʾī runtime `0d7d12c2...`.
+- Stable release remains `arihna-stable-977fbde9-20260921` until physical S25 acceptance.
+- Exact next action: user installs `arihna-quran-imlai.apk` on Galaxy S25 and physically validates:
+  1. readability/correct rendering of الرسم الإملائي;
+  2. swipe/page progression and edge pages;
+  3. index + `Vai a pagina`;
+  4. bookmark/history behavior;
+  5. fullscreen open/close and text-size controls;
+  6. switch Imlāʾī → Hafs → Tajwid → Warsh → Imlāʾī and verify state/location stability;
+  7. no clipping/crash/obvious text corruption.
+- Do not publish Imlāʾī stable until user reports physical PASS.
