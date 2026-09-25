@@ -1,0 +1,328 @@
+name: Daily inspiration takbir prayer volume v3 exact-SHA gate
+
+on:
+  push:
+    branches:
+      - driver/daily-inspiration-takbir-prayer-volume-v3-gate-20260925
+    paths:
+      - .github/workflows/daily-inspiration-takbir-prayer-volume-v3-exact-sha-gate.yml
+
+permissions:
+  contents: read
+
+env:
+  SPEC_SHA: a72bb5bcc57a15335f143f642b70447e7cf7d5ff
+  CANDIDATE_SHA: 8633d5d46ca17838ba1bbe5dc138ab52bac7d5d8
+  PREVIOUS_MAIN_SHA: 0d7d12c2e89a8012446bde6967d366f31ca8e77e
+  GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
+  FROZEN_ASSET_RELEASE: settings-s25-premium-3f28b6f0-20260906
+  FROZEN_ASSET_APK: arihna-settings-s25-premium.apk
+  TAKBIR_SHA256: ccb7a98ba419b9e1163e57a41423016766fae9c07a004862423c757bab5985c3
+  TAKBIR_SIZE: '21136'
+
+jobs:
+  static-jvm-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 8633d5d46ca17838ba1bbe5dc138ab52bac7d5d8
+          fetch-depth: 0
+
+      - name: Verify exact lineage scope and feature contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          test "$(git rev-list --count "$SPEC_SHA..$CANDIDATE_SHA")" -eq 1
+          test "$(git merge-base "$SPEC_SHA" "$CANDIDATE_SHA")" = "$SPEC_SHA"
+          git fetch origin main --force
+          test "$(git rev-parse origin/main)" = "$PREVIOUS_MAIN_SHA"
+          test "$(git merge-base "$PREVIOUS_MAIN_SHA" "$SPEC_SHA")" = "$PREVIOUS_MAIN_SHA"
+          test -z "$(git diff --name-only "$PREVIOUS_MAIN_SHA..$SPEC_SHA" | grep -v '^docs/specs/daily-inspiration-takbir-prayer-volume-20260925.md$' || true)"
+
+          mapfile -t CHANGED < <(git diff --name-only "$SPEC_SHA..$CANDIDATE_SHA" | sort)
+          EXPECTED=(
+            'app/build.gradle.kts'
+            'app/src/androidTest/java/com/archimedeprojects/arihna/feature/alarms/data/preferences/PrayerAlertPreferencesAndroidTest.kt'
+            'app/src/androidTest/java/com/archimedeprojects/arihna/feature/prayers/PrayerAlertUiAndroidTest.kt'
+            'app/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreenAndroidTest.kt'
+            'app/src/main/AndroidManifest.xml'
+            'app/src/main/java/com/archimedeprojects/arihna/app/AppContainer.kt'
+            'app/src/main/java/com/archimedeprojects/arihna/app/ArihnaApp.kt'
+            'app/src/main/java/com/archimedeprojects/arihna/app/ArihnaNavHost.kt'
+            'app/src/main/java/com/archimedeprojects/arihna/feature/alarms/AlarmsViewModel.kt'
+            'app/src/main/java/com/archimedeprojects/arihna/feature/alarms/data/preferences/PrayerAlertPreferences.kt'
+            'app/src/main/java/com/archimedeprojects/arihna/feature/alarms/domain/AlarmModels.kt'
+            'app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmOccurrenceHandler.kt'
+            'app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmReceivers.kt'
+            'app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt'
+            'app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspirationNotifications.kt'
+            'app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt'
+            'app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt'
+            'app/src/test/java/com/archimedeprojects/arihna/feature/alarms/AlarmsViewModelTest.kt'
+            'app/src/test/java/com/archimedeprojects/arihna/feature/alarms/domain/AdhanVariantTest.kt'
+            'app/src/test/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingPlaybackTest.kt'
+            'app/src/test/java/com/archimedeprojects/arihna/feature/alarms/platform/DailyInspirationRescheduleEventTest.kt'
+            'app/src/test/java/com/archimedeprojects/arihna/feature/home/DailyInspirationNotificationsTest.kt'
+            'docs/audio/ADHAN_SOURCES.md'
+          )
+          test "${#CHANGED[@]}" -eq 23
+          diff -u <(printf '%s\n' "${EXPECTED[@]}") <(printf '%s\n' "${CHANGED[@]}")
+
+          grep -Fq 'TAKBIR_X2("takbir-x2", "Takbīr breve · Allahu Akbar ×2")' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/domain/AlarmModels.kt
+          grep -Fq 'if (variant == AdhanVariant.TAKBIR_X2) 2 else 1' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
+          grep -Fq 'TAKBIR_X2 -> R.raw.takbir_allahuakbar_cc0' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
+          grep -Fq 'playbackGain(percent: Int)' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
+          grep -Fq 'alarm.prayer.volume.' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/data/preferences/PrayerAlertPreferences.kt
+          grep -Fq 'DEFAULT_PRAYER_VOLUME_PERCENT = 100' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/data/preferences/PrayerAlertPreferences.kt
+          grep -Fq 'settings-daily-inspiration-switch' app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
+          grep -Fq 'settings-daily-inspiration-time' app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
+          grep -Fq 'setAndAllowWhileIdle' app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspirationNotifications.kt
+          grep -Fq 'dailyInspirationFor(localDate)' app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspirationNotifications.kt
+          grep -Fq 'DEFAULT_DAILY_INSPIRATION_HOUR = 8' app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspirationNotifications.kt
+          grep -Fq 'val enabled: Boolean = false' app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspirationNotifications.kt
+          grep -Fq 'PrayerAlertUiAndroidTest' app/src/androidTest/java/com/archimedeprojects/arihna/feature/prayers/PrayerAlertUiAndroidTest.kt
+          grep -Fq 'notificationPayloadUsesExactDailyHomeSelection' app/src/test/java/com/archimedeprojects/arihna/feature/home/DailyInspirationNotificationsTest.kt
+          grep -Fq "$TAKBIR_SHA256" app/build.gradle.kts
+          grep -Fq 'Allahuakbar.opus' docs/audio/ADHAN_SOURCES.md
+
+          grep -Fq 'applicationId = "com.archimedeprojects.arihna"' app/build.gradle.kts
+          grep -Fq 'minSdk = 28' app/build.gradle.kts
+          grep -Fq 'compileSdk = 37' app/build.gradle.kts
+          grep -Fq 'targetSdk = 37' app/build.gradle.kts
+          ! grep -Fq 'android.permission.ACCESS_BACKGROUND_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -Fq 'android.permission.USE_EXACT_ALARM' app/src/main/AndroidManifest.xml
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 12266719
+          packages: platform-tools
+
+      - name: Restore frozen GeoNames
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+
+      - name: Unit tests AndroidTest compile and APK
+        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:assembleDebug --stacktrace
+
+      - name: Verify generated audio and APK contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          T="$(find app/build/generated/takbirRes -type f -name takbir_allahuakbar_cc0.opus | head -1)"
+          test -n "$T"
+          test "$(stat -c '%s' "$T")" = "$TAKBIR_SIZE"
+          test "$(sha256sum "$T" | awk '{print $1}')" = "$TAKBIR_SHA256"
+
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$AAPT" dump badging "$APK" | tee /tmp/badging.txt
+          grep -F "package: name='com.archimedeprojects.arihna'" /tmp/badging.txt
+          grep -F "sdkVersion:'28'" /tmp/badging.txt
+          grep -F "targetSdkVersion:'37'" /tmp/badging.txt
+          test "$(unzip -p "$APK" assets/geonames/cities.db | sha256sum | awk '{print $1}')" = "$GEONAMES_SHA256"
+          unzip -l "$APK" | grep -Fq 'res/raw/takbir_allahuakbar_cc0.opus'
+
+  api28-full-suite:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 8633d5d46ca17838ba1bbe5dc138ab52bac7d5d8
+          fetch-depth: 0
+      - name: Verify exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          test "$(git rev-list --count "$SPEC_SHA..$CANDIDATE_SHA")" -eq 1
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 12266719
+          packages: platform-tools
+      - name: Restore frozen GeoNames
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+      - run: sudo chmod 666 /dev/kvm || true
+      - uses: reactivecircus/android-emulator-runner@v3
+        with:
+          api-level: 28
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-boot-timeout: 600
+          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
+      - name: Require zero API28 failures and new coverage
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          files=list(Path('app/build/outputs/androidTest-results/connected').rglob('*.xml'))
+          assert files, 'no connected test XML found'
+          tests=failures=errors=skipped=0; cases=[]
+          for f in files:
+              r=ET.parse(f).getroot()
+              tests+=int(r.attrib.get('tests','0')); failures+=int(r.attrib.get('failures','0'))
+              errors+=int(r.attrib.get('errors','0')); skipped+=int(r.attrib.get('skipped',r.attrib.get('disabled','0')))
+              for c in r.iter('testcase'):
+                  cases.append((c.attrib.get('classname',''),c.attrib.get('name','')))
+          print(f'API28_CONNECTED_XML tests={tests} failures={failures} errors={errors} skipped={skipped}')
+          assert tests >= 101, tests
+          assert failures == errors == skipped == 0, (failures,errors,skipped)
+          required={
+            'missingValuesDefaultToHundredAndPrayersRoundTripIndependently',
+            'persistedValuesClampToZeroThroughHundred',
+            'prayerDialogExposesIndependentVolumeAndDedicatedTwoTakbirChoice',
+            'streamlinedSectionsHideCapabilityRowsAndKeepTenSecondTests',
+            'premiumSectionsReplaceVerboseTemporaryCopy',
+            'imlaiKeepsHafsPageJumpBookmarkFullscreenAndSwitchState',
+          }
+          seen={name for _,name in cases}
+          assert required <= seen, (required-seen)
+          PY
+
+  api36-feature-quran-permission-matrix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 8633d5d46ca17838ba1bbe5dc138ab52bac7d5d8
+          fetch-depth: 0
+      - name: Verify exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          test "$(git rev-list --count "$SPEC_SHA..$CANDIDATE_SHA")" -eq 1
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 12266719
+          packages: platform-tools
+      - name: Restore frozen GeoNames
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+      - name: Prepare API36 device script
+        shell: bash
+        run: |
+          cat > /tmp/api36-gate.sh <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          CLASSES='com.archimedeprojects.arihna.feature.alarms.data.preferences.PrayerAlertPreferencesAndroidTest,com.archimedeprojects.arihna.feature.prayers.PrayerAlertUiAndroidTest,com.archimedeprojects.arihna.feature.quran.QuranFullscreenAndroidTest,com.archimedeprojects.arihna.feature.quran.QuranPostStableHardeningAndroidTest,com.archimedeprojects.arihna.feature.quran.TajwidCrashRegressionAndroidTest,com.archimedeprojects.arihna.feature.quran.QuranImlaiAndroidTest'
+          ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class="$CLASSES" --stacktrace
+          P=com.archimedeprojects.arihna
+          ./gradlew :app:installDebug --stacktrace
+
+          adb shell pm revoke "$P" android.permission.ACCESS_FINE_LOCATION || true
+          adb shell pm revoke "$P" android.permission.ACCESS_COARSE_LOCATION || true
+          adb shell pm grant "$P" android.permission.ACCESS_COARSE_LOCATION
+          adb shell dumpsys package "$P" | grep -F 'android.permission.ACCESS_FINE_LOCATION:' | head -1 | grep -q 'granted=false'
+          adb shell dumpsys package "$P" | grep -F 'android.permission.ACCESS_COARSE_LOCATION:' | head -1 | grep -q 'granted=true'
+          adb shell pm grant "$P" android.permission.ACCESS_FINE_LOCATION
+          adb shell dumpsys package "$P" | grep -F 'android.permission.ACCESS_FINE_LOCATION:' | head -1 | grep -q 'granted=true'
+
+          adb shell pm revoke "$P" android.permission.POST_NOTIFICATIONS || true
+          adb shell dumpsys package "$P" | grep -F 'android.permission.POST_NOTIFICATIONS:' | head -1 | grep -q 'granted=false'
+          adb shell pm grant "$P" android.permission.POST_NOTIFICATIONS
+          adb shell dumpsys package "$P" | grep -F 'android.permission.POST_NOTIFICATIONS:' | head -1 | grep -q 'granted=true'
+
+          echo API36_FEATURE_PERMISSION_MATRIX_SUCCESS | tee /tmp/api36-feature-permission-matrix.txt
+          SH
+          chmod +x /tmp/api36-gate.sh
+      - run: sudo chmod 666 /dev/kvm || true
+      - uses: reactivecircus/android-emulator-runner@v3
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 600
+          script: /tmp/api36-gate.sh
+      - name: Require feature Quran and permission matrix success
+        shell: bash
+        run: |
+          test "$(cat /tmp/api36-feature-permission-matrix.txt)" = 'API36_FEATURE_PERMISSION_MATRIX_SUCCESS'
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          files=list(Path('app/build/outputs/androidTest-results/connected').rglob('*.xml'))
+          assert files, 'no connected test XML found'
+          tests=failures=errors=skipped=0; cases=[]; classes=set()
+          for f in files:
+              r=ET.parse(f).getroot()
+              tests+=int(r.attrib.get('tests','0')); failures+=int(r.attrib.get('failures','0'))
+              errors+=int(r.attrib.get('errors','0')); skipped+=int(r.attrib.get('skipped',r.attrib.get('disabled','0')))
+              for c in r.iter('testcase'):
+                  cls=c.attrib.get('classname',''); name=c.attrib.get('name','')
+                  cases.append((cls,name)); classes.add(cls)
+          print(f'API36_CONNECTED_XML tests={tests} failures={failures} errors={errors} skipped={skipped}')
+          assert failures == errors == skipped == 0, (failures,errors,skipped)
+          for suffix in (
+              'PrayerAlertPreferencesAndroidTest','PrayerAlertUiAndroidTest',
+              'QuranImlaiAndroidTest','QuranPostStableHardeningAndroidTest',
+              'TajwidCrashRegressionAndroidTest',
+          ):
+              assert any(c.endswith(suffix) for c in classes), (suffix,classes)
+          required={
+              'missingValuesDefaultToHundredAndPrayersRoundTripIndependently',
+              'prayerDialogExposesIndependentVolumeAndDedicatedTwoTakbirChoice',
+              'imlaiKeepsHafsPageJumpBookmarkFullscreenAndSwitchState',
+          }
+          seen={name for _,name in cases}
+          assert required <= seen, (required-seen)
+          PY
