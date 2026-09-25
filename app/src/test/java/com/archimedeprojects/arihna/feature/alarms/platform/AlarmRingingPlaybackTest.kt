@@ -14,10 +14,13 @@ class AlarmRingingPlaybackTest {
     }
 
     @Test
-    fun onlyDedicatedTakbirVariantRepeatsExactlyTwice() {
+    fun bundledMakkahTakbirPairPlaysExactlyOnce() {
         AdhanVariant.entries.forEach { variant ->
-            val expected = if (variant == AdhanVariant.TAKBIR_X2) 2 else 1
-            assertEquals(expected, adhanRepeatCount(variant))
+            assertEquals(1, adhanRepeatCount(variant))
         }
+        assertEquals(
+            com.archimedeprojects.arihna.R.raw.takbir_makkah_x2_cc_by,
+            adhanRawResource(AdhanVariant.TAKBIR_X2),
+        )
     }
 }
