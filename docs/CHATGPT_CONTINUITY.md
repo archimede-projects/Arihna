@@ -166,27 +166,58 @@ Release:
 - direct download: `https://github.com/archimede-projects/Arihna/releases/download/quran-imlai-0d7d12c2-20260925/arihna-quran-imlai.apk`
 
 ## Latest user request / actual work
-2026-09-25 user sent `?` asking for status after `Procedi`.
+2026-09-25 user clarified the requested short prayer audio: the current short adhan is still a complete adhan; the desired option must pronounce only `الله أكبر` twice total and then stop.
 
 Actually done:
 - Read continuity from `chat-context`.
-- Live-verified current `main = 0d7d12c2e89a8012446bde6967d366f31ca8e77e` (`feat(quran): add imlai writing presentation`).
-- Live-verified exact-SHA gate run `36095864897` remains `completed/success`.
-- Live-verified S25 prerelease workflow run `36096808063` remains `completed/success`.
-- Live-verified prerelease `quran-imlai-0d7d12c2-20260925` still targets the current runtime, is `draft=false`, `prerelease=true`, and has single asset `arihna-quran-imlai.apk`.
-- Live-verified asset size `387455087` and SHA-256 `3f66fe87d29aab6d4163620339a06908e24e4a9b7431b4af02f979f88e9183ff`.
-- No runtime code, `main`, CI, tag, release, or APK state changed this turn.
+- Live-verified current `main = 0d7d12c2e89a8012446bde6967d366f31ca8e77e`.
+- Recorded the user's physical Galaxy S25 result for Quran Imlāʾī as PASS.
+- Published the physically validated Imlāʾī runtime as a new stable release using byte-identical prerelease APK bytes.
+- Stable driver: `driver/stable-0d7d12c2-release-20260925`.
+- Stable workflow commit: `9f116813648e5869952821263422ec7d43214778`.
+- Stable workflow run `36129364528`: completed/success.
+- Stable job `108052809140`: completed/success.
+- Stable release `arihna-stable-0d7d12c2-20260925`, id `396546790`, target `0d7d12c2e89a8012446bde6967d366f31ca8e77e`, `draft=false`, `prerelease=false`.
+- Stable asset id `588214739`, `arihna.apk`, size `387455087`, SHA-256 `3f66fe87d29aab6d4163620339a06908e24e4a9b7431b4af02f979f88e9183ff`.
+- Inspected current prayer/alarm implementation:
+  - existing `AdhanVariant.SHORT` is only an existing adhan recording variant and must NOT be repurposed for the new semantics;
+  - current Settings volume control changes global Android `STREAM_ALARM`;
+  - ringing uses `MediaPlayer`, so a safe per-prayer local gain can be applied without permanently changing system alarm volume;
+  - daily inspiration already has a deterministic `dailyInspirationFor(date)` source suitable for notification reuse.
+- Created new SPEC branch `spec/daily-inspiration-takbir-prayer-volume-20260925`.
+- SPEC commit `00fff2b11b13b611eb50536387aa1942ba0483d3`, direct child of stable runtime `0d7d12c2...`.
+- SPEC file: `docs/specs/daily-inspiration-takbir-prayer-volume-20260925.md`.
+- No new runtime candidate has been created yet.
+
+## New feature semantics pinned by SPEC
+1. Daily inspiration notification:
+   - reuse exact Home `dailyInspirationFor(date)`;
+   - dedicated notification, not an alarm/fullscreen event;
+   - opt-in control, default OFF for existing users;
+   - default 08:00 device-local time with user-selectable time;
+   - no duplicate same-date delivery;
+   - reschedule on boot/time/timezone/app replacement;
+   - no exact-alarm requirement.
+
+2. Two-takbir prayer alert:
+   - distinct new option, not `AdhanVariant.SHORT`;
+   - exact audible content: `الله أكبر` + `الله أكبر`, then stop;
+   - no shahada/hayya/remaining adhan phrases;
+   - not a sped-up full adhan;
+   - existing adhan variants/storage IDs preserved.
+
+3. Per-prayer volume:
+   - independent 0–100% persisted level for Fajr/Dhuhr/Asr/Maghrib/Isha;
+   - migration default 100%;
+   - implemented as local MediaPlayer gain over the current Android alarm-stream baseline;
+   - never permanently change the phone's global alarm volume when a prayer fires;
+   - allows, for example, Fajr/Isha 100% and Dhuhr/Asr 40% when the global alarm baseline is set appropriately.
 
 ## Current state / exact next action
-- Repository/CI/release side for the Imlāʾī feature is complete and green.
-- Current `main` is the new Imlāʾī runtime `0d7d12c2...`.
-- Last stable remains `arihna-stable-977fbde9-20260921`; Imlāʾī is not stable yet.
-- Exact next action: user installs `arihna-quran-imlai.apk` on Galaxy S25 and validates:
-  1. readability/correct rendering of `الرسم الإملائي`;
-  2. swipe/page progression including edge pages;
-  3. index + direct `Vai a pagina`;
-  4. bookmark/history;
-  5. fullscreen + text-size controls;
-  6. switch Imlāʾī → Hafs → Tajwid → Warsh → Imlāʾī and verify location/state stability;
-  7. no clipping, crash, or obvious text corruption.
-- If PASS, publish a new stable release using the physically validated prerelease bytes and reverify SHA/signer/metadata.
+- Current stable baseline is now `arihna-stable-0d7d12c2-20260925`.
+- Current `main` remains `0d7d12c2...`; no new feature runtime changes are on main yet.
+- Exact next engineering action: create candidate v1 as exactly one commit direct child of SPEC `00fff2b...`, implementing:
+  1. dedicated exact two-takbir audio behavior;
+  2. per-prayer persisted volume sliders + playback gain;
+  3. daily inspiration notification scheduling/settings.
+- Then run full exact-SHA static/build + API28 + API36 gates; promote only if all green; publish signed S25 prerelease and physically validate before any stable promotion.
