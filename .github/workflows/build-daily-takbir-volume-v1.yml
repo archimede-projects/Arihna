@@ -237,24 +237,24 @@ jobs:
           'route prefs')
           s=rep(s,
           '''        PrayerSoundDialog(
-                  rule = rule,
-                  onDismiss = { soundRule = null },
-                  onSave = { profile, uri, title ->
-                      alarmsViewModel.setSound(rule, profile, uri, title)
-                      soundRule = null
-                  },
-              )''',
+              rule = rule,
+              onDismiss = { soundRule = null },
+              onSave = { profile, uri, title ->
+                  alarmsViewModel.setSound(rule, profile, uri, title)
+                  soundRule = null
+              },
+          )''',
           '''        val prayer = (rule.definition as AlarmDefinition.PrayerLinked).prayer
-              PrayerSoundDialog(
-                  rule = rule,
-                  initialVolumePercent = prayerAlertPreferences.volumeFor(prayer),
-                  onDismiss = { soundRule = null },
-                  onSave = { profile, uri, title, volumePercent ->
-                      alarmsViewModel.setSound(rule, profile, uri, title)
-                      prayerAlertPreferences.setVolume(prayer, volumePercent)
-                      soundRule = null
-                  },
-              )''',
+          PrayerSoundDialog(
+              rule = rule,
+              initialVolumePercent = prayerAlertPreferences.volumeFor(prayer),
+              onDismiss = { soundRule = null },
+              onSave = { profile, uri, title, volumePercent ->
+                  alarmsViewModel.setSound(rule, profile, uri, title)
+                  prayerAlertPreferences.setVolume(prayer, volumePercent)
+                  soundRule = null
+              },
+          )''',
           'dialog route wiring')
           old='''    fun play(variant: AdhanVariant) {
               stop()
