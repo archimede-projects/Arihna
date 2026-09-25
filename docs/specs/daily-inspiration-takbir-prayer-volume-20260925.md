@@ -134,3 +134,23 @@ Add deterministic coverage for at least:
   - verify global Android alarm volume is unchanged after playback;
   - existing full adhan variants still play normally;
   - no regressions in prayer scheduling, Quran, location/Qibla or custom alarms.
+
+
+## Two-takbir source decision
+
+The dedicated two-takbir option will not trim or accelerate any full adhan recording.
+
+Pinned source:
+- Wikimedia Commons: `File:Allahuakbar.opus`
+- Description: Arabic voice of takbir / one utterance of `الله أكبر`
+- Author/uploader: Bod lnga klang
+- Source date: 2026-07-15
+- License: CC0 1.0 Universal
+- Commons page: `https://commons.wikimedia.org/wiki/File:Allahuakbar.opus`
+
+Implementation contract:
+- bundle the source utterance locally in the APK;
+- playback engine repeats that exact bundled utterance exactly 2 times, then stops;
+- no full-adhan asset is used for this option;
+- preview and real alarm use the same bundled bytes and the same exactly-two repetition count;
+- pin the downloaded asset byte size and SHA-256 in provenance/tests before candidate gating.
