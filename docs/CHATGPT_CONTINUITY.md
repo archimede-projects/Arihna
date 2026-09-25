@@ -166,29 +166,27 @@ Release:
 - direct download: `https://github.com/archimede-projects/Arihna/releases/download/quran-imlai-0d7d12c2-20260925/arihna-quran-imlai.apk`
 
 ## Latest user request / actual work
-2026-09-25 user said: `Procedi`.
+2026-09-25 user sent `?` asking for status after `Procedi`.
 
-Actually completed:
-- authoritative source discovery and license/provenance review;
-- structural verification of Tanzil Simple v1.1;
-- candidate v1 creation then pre-gate supersession for deterministic test isolation;
-- sibling candidate v2 creation from the same SPEC;
-- exact-SHA static/API28/API36 gate PASS;
-- non-forced promotion of v2 to `main`;
-- signed S25 prerelease build/publication;
-- redownload and verification of published APK, digest, size, package/SDK contract and signer;
-- continuity updated on `chat-context`.
+Actually done:
+- Read continuity from `chat-context`.
+- Live-verified current `main = 0d7d12c2e89a8012446bde6967d366f31ca8e77e` (`feat(quran): add imlai writing presentation`).
+- Live-verified exact-SHA gate run `36095864897` remains `completed/success`.
+- Live-verified S25 prerelease workflow run `36096808063` remains `completed/success`.
+- Live-verified prerelease `quran-imlai-0d7d12c2-20260925` still targets the current runtime, is `draft=false`, `prerelease=true`, and has single asset `arihna-quran-imlai.apk`.
+- Live-verified asset size `387455087` and SHA-256 `3f66fe87d29aab6d4163620339a06908e24e4a9b7431b4af02f979f88e9183ff`.
+- No runtime code, `main`, CI, tag, release, or APK state changed this turn.
 
 ## Current state / exact next action
-- Repository/CI/release status is green.
+- Repository/CI/release side for the Imlāʾī feature is complete and green.
 - Current `main` is the new Imlāʾī runtime `0d7d12c2...`.
-- Stable release remains `arihna-stable-977fbde9-20260921` until physical S25 acceptance.
-- Exact next action: user installs `arihna-quran-imlai.apk` on Galaxy S25 and physically validates:
-  1. readability/correct rendering of الرسم الإملائي;
-  2. swipe/page progression and edge pages;
-  3. index + `Vai a pagina`;
-  4. bookmark/history behavior;
-  5. fullscreen open/close and text-size controls;
-  6. switch Imlāʾī → Hafs → Tajwid → Warsh → Imlāʾī and verify state/location stability;
-  7. no clipping/crash/obvious text corruption.
-- Do not publish Imlāʾī stable until user reports physical PASS.
+- Last stable remains `arihna-stable-977fbde9-20260921`; Imlāʾī is not stable yet.
+- Exact next action: user installs `arihna-quran-imlai.apk` on Galaxy S25 and validates:
+  1. readability/correct rendering of `الرسم الإملائي`;
+  2. swipe/page progression including edge pages;
+  3. index + direct `Vai a pagina`;
+  4. bookmark/history;
+  5. fullscreen + text-size controls;
+  6. switch Imlāʾī → Hafs → Tajwid → Warsh → Imlāʾī and verify location/state stability;
+  7. no clipping, crash, or obvious text corruption.
+- If PASS, publish a new stable release using the physically validated prerelease bytes and reverify SHA/signer/metadata.
