@@ -19,6 +19,7 @@ class AdhanVariantTest {
         assertEquals("arihna://adhan/beautiful", AdhanVariant.BEAUTIFUL.storageValue)
         assertEquals("arihna://adhan/short", AdhanVariant.SHORT.storageValue)
         assertEquals("arihna://adhan/takbir-x2", AdhanVariant.TAKBIR_X2.storageValue)
+        assertEquals("Takbīr Makkah · Allahu Akbar ×2", AdhanVariant.TAKBIR_X2.displayName)
     }
 
     @Test
