@@ -1,4 +1,5 @@
 import java.net.URI
+import java.security.MessageDigest
 import java.util.zip.ZipInputStream
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
@@ -30,9 +31,9 @@ val prepareTakbirAudio by tasks.registering {
         check(target.length() == takbirSourceSize) {
             "Unexpected two-takbir source size: ${target.length()}"
         }
-        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        val digest = MessageDigest.getInstance("SHA-256")
             .digest(target.readBytes())
-            .joinToString("") { byte ->
+            .joinToString("") { byte: Byte ->
                 (byte.toInt() and 0xff).toString(16).padStart(2, '0')
             }
         check(digest == takbirSourceSha256) {
