@@ -1,0 +1,1051 @@
+name: Build daily inspiration takbir volume candidate v1
+
+on:
+  push:
+    branches:
+      - driver/build-daily-takbir-volume-v1-20260925
+    paths:
+      - .github/workflows/build-daily-takbir-volume-v1.yml
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3f2dff8e122cd6443b5665ffdb4eff4b6a3b2873
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Apply candidate implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def read(p): return Path(p).read_text(encoding='utf-8')
+          def write(p,s):
+              Path(p).parent.mkdir(parents=True, exist_ok=True)
+              Path(p).write_text(s, encoding='utf-8')
+          def rep(s, old, new, label):
+              if old not in s:
+                  raise SystemExit(f"missing replacement: {label}")
+              return s.replace(old, new, 1)
+
+          p='app/src/main/java/com/archimedeprojects/arihna/feature/alarms/domain/AlarmModels.kt'
+          s=read(p)
+          s=rep(s,
+          '    SHORT("short", "Adhan breve"),\n    EXTENDED("extended", "Adhan disteso"),',
+          '    SHORT("short", "Adhan breve"),\n    TAKBIR_TWO("takbir-two", "Takbīr breve · Allahu Akbar ×2"),\n    EXTENDED("extended", "Adhan disteso"),',
+          'add takbir enum')
+          write(p,s)
+
+          write('app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/PrayerAlertPreferences.kt', r'''package com.archimedeprojects.arihna.feature.alarms.platform
+
+          import android.content.Context
+          import com.archimedeprojects.arihna.feature.alarms.domain.AlarmPrayer
+
+          internal const val DEFAULT_PRAYER_VOLUME_PERCENT = 100
+
+          internal fun prayerPlaybackGain(percent: Int): Float =
+              percent.coerceIn(0, 100) / 100f
+
+          class PrayerAlertPreferences(context: Context) {
+              private val prefs = context.applicationContext.getSharedPreferences(
+                  PREFS_NAME,
+                  Context.MODE_PRIVATE,
+              )
+
+              fun volumeFor(prayer: AlarmPrayer): Int =
+                  prefs.getInt(volumeKey(prayer), DEFAULT_PRAYER_VOLUME_PERCENT).coerceIn(0, 100)
+
+              fun setVolume(prayer: AlarmPrayer, percent: Int) {
+                  prefs.edit().putInt(volumeKey(prayer), percent.coerceIn(0, 100)).apply()
+              }
+
+              private fun volumeKey(prayer: AlarmPrayer): String =
+                  "volume_" + prayer.name.lowercase()
+
+              private companion object {
+                  const val PREFS_NAME = "arihna_prayer_alerts"
+              }
+          }
+          '''.replace('          ',''))
+
+          p='app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt'
+          s=read(p)
+          s=rep(s,
+          '    val isPrayer: Boolean,\n    val occurrenceToken: String,',
+          '    val isPrayer: Boolean,\n    val prayer: AlarmPrayer? = null,\n    val occurrenceToken: String,',
+          'payload prayer field')
+          s=rep(s,
+          '    isPrayer = rule.definition is AlarmDefinition.PrayerLinked,\n    occurrenceToken = occurrence.occurrenceToken,',
+          '''    isPrayer = rule.definition is AlarmDefinition.PrayerLinked,
+              prayer = (rule.definition as? AlarmDefinition.PrayerLinked)?.prayer,
+              occurrenceToken = occurrence.occurrenceToken,''',
+          'payload prayer assignment')
+          s=rep(s,
+          '    const val EXTRA_IS_PRAYER = "arihna.ringing.is_prayer"\n    const val EXTRA_OCCURRENCE_TOKEN = "arihna.ringing.occurrence_token"',
+          '    const val EXTRA_IS_PRAYER = "arihna.ringing.is_prayer"\n    const val EXTRA_PRAYER = "arihna.ringing.prayer"\n    const val EXTRA_OCCURRENCE_TOKEN = "arihna.ringing.occurrence_token"',
+          'intent prayer key')
+          s=rep(s,
+          '        putExtra(EXTRA_IS_PRAYER, payload.isPrayer)\n        putExtra(EXTRA_OCCURRENCE_TOKEN, payload.occurrenceToken)',
+          '        putExtra(EXTRA_IS_PRAYER, payload.isPrayer)\n        putExtra(EXTRA_PRAYER, payload.prayer?.name)\n        putExtra(EXTRA_OCCURRENCE_TOKEN, payload.occurrenceToken)',
+          'intent prayer put')
+          s=rep(s,
+          '''        return AlarmRingingPayload(
+              alarmId = alarmId,
+              ruleRevision = ruleRevision,
+              title = title,
+              soundProfile = sound,
+              isPrayer = intent.getBooleanExtra(EXTRA_IS_PRAYER, false),
+              occurrenceToken = token,''',
+          '''        val prayer = intent.getStringExtra(EXTRA_PRAYER)?.let { encoded ->
+                  runCatching { AlarmPrayer.valueOf(encoded) }.getOrNull()
+              }
+              return AlarmRingingPayload(
+                  alarmId = alarmId,
+                  ruleRevision = ruleRevision,
+                  title = title,
+                  soundProfile = sound,
+                  isPrayer = intent.getBooleanExtra(EXTRA_IS_PRAYER, false),
+                  prayer = prayer,
+                  occurrenceToken = token,''',
+          'intent prayer decode')
+          s=rep(s,
+          '        startAudio(payload.soundProfile, payload.ringtoneUri)',
+          '        startAudio(payload.soundProfile, payload.ringtoneUri, payload.prayer)',
+          'service start audio args')
+          start=s.index('    private fun startAudio(profile: AlarmSoundProfile, selectedRingtoneUri: String?) {')
+          end=s.index('\n    private fun stopAudioOnly()', start)
+          new_audio=r'''    private fun startAudio(
+              profile: AlarmSoundProfile,
+              selectedRingtoneUri: String?,
+              prayer: AlarmPrayer?,
+          ) {
+              if (profile == AlarmSoundProfile.SILENT) return
+              val gain = prayerPlaybackGain(
+                  prayer?.let { PrayerAlertPreferences(this).volumeFor(it) }
+                      ?: DEFAULT_PRAYER_VOLUME_PERCENT,
+              )
+              val attributes = AudioAttributes.Builder()
+                  .setUsage(AudioAttributes.USAGE_ALARM)
+                  .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                  .build()
+
+              if (profile == AlarmSoundProfile.ADHAN) {
+                  val variant = AdhanVariant.fromStorage(selectedRingtoneUri)
+                  val player = MediaPlayer()
+                  try {
+                      player.setAudioAttributes(attributes)
+                      val rawResource = when (variant) {
+                          AdhanVariant.CLASSIC -> R.raw.adhan_cc0
+                          AdhanVariant.BEAUTIFUL -> R.raw.adhan_beautiful_cc0
+                          AdhanVariant.SHORT -> R.raw.adhan_short_cc0
+                          AdhanVariant.TAKBIR_TWO -> R.raw.takbir_cc0
+                          AdhanVariant.EXTENDED -> R.raw.adhan_extended_cc_by_sa
+                          AdhanVariant.COMPACT -> R.raw.adhan_compact_pd
+                          AdhanVariant.ALTERNATIVE -> R.raw.adhan_alternative_cc_by_sa
+                      }
+                      resources.openRawResourceFd(rawResource).use { descriptor ->
+                          player.setDataSource(
+                              descriptor.fileDescriptor,
+                              descriptor.startOffset,
+                              descriptor.length,
+                          )
+                      }
+                      player.isLooping = false
+                      player.setVolume(gain, gain)
+                      player.prepare()
+                      var remainingPlays = if (variant == AdhanVariant.TAKBIR_TWO) 2 else 1
+                      player.setOnCompletionListener { completed ->
+                          remainingPlays -= 1
+                          if (remainingPlays > 0 && mediaPlayer === completed) {
+                              runCatching {
+                                  completed.seekTo(0)
+                                  completed.start()
+                              }.onFailure {
+                                  if (mediaPlayer === completed) mediaPlayer = null
+                                  completed.release()
+                              }
+                          } else {
+                              if (mediaPlayer === completed) mediaPlayer = null
+                              completed.release()
+                          }
+                      }
+                      mediaPlayer = player
+                      player.start()
+                  } catch (_: Throwable) {
+                      player.release()
+                      mediaPlayer = null
+                  }
+                  return
+              }
+
+              val candidates = buildList<Uri> {
+                  selectedRingtoneUri?.let { raw ->
+                      runCatching { Uri.parse(raw) }.getOrNull()?.let(::add)
+                  }
+                  RingtoneManager.getActualDefaultRingtoneUri(
+                      this@AlarmRingingService,
+                      RingtoneManager.TYPE_ALARM,
+                  )?.let(::add)
+                  add(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM))
+              }.distinct()
+              for (uri in candidates) {
+                  val player = MediaPlayer()
+                  val started = runCatching {
+                      player.setAudioAttributes(attributes)
+                      player.setDataSource(this, uri)
+                      player.isLooping = true
+                      player.setVolume(gain, gain)
+                      player.prepare()
+                      player.start()
+                  }.isSuccess
+                  if (started) {
+                      mediaPlayer = player
+                      return
+                  }
+                  player.release()
+              }
+              mediaPlayer = null
+          }
+          '''.replace('          ','')
+          s=s[:start]+new_audio+s[end:]
+          write(p,s)
+
+          p='app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt'
+          s=read(p)
+          s=rep(s,
+          'import androidx.compose.material3.Surface\nimport androidx.compose.material3.Switch',
+          'import androidx.compose.material3.Surface\nimport androidx.compose.material3.Switch\nimport androidx.compose.material3.Slider',
+          'slider import')
+          s=rep(s,
+          'import com.archimedeprojects.arihna.feature.alarms.platform.AlarmRingtonePicker',
+          'import com.archimedeprojects.arihna.feature.alarms.platform.AlarmRingtonePicker\nimport com.archimedeprojects.arihna.feature.alarms.platform.PrayerAlertPreferences\nimport com.archimedeprojects.arihna.feature.alarms.platform.prayerPlaybackGain',
+          'prayer prefs imports')
+          s=rep(s,
+          '''    val alarmsState by alarmsViewModel.uiState.collectAsState()
+              var soundRule by remember { mutableStateOf<AlarmRule?>(null) }''',
+          '''    val alarmsState by alarmsViewModel.uiState.collectAsState()
+              val context = LocalContext.current
+              val prayerAlertPreferences = remember(context) {
+                  PrayerAlertPreferences(context.applicationContext)
+              }
+              var soundRule by remember { mutableStateOf<AlarmRule?>(null) }''',
+          'route prefs')
+          s=rep(s,
+          '''        PrayerSoundDialog(
+                  rule = rule,
+                  onDismiss = { soundRule = null },
+                  onSave = { profile, uri, title ->
+                      alarmsViewModel.setSound(rule, profile, uri, title)
+                      soundRule = null
+                  },
+              )''',
+          '''        val prayer = (rule.definition as AlarmDefinition.PrayerLinked).prayer
+              PrayerSoundDialog(
+                  rule = rule,
+                  initialVolumePercent = prayerAlertPreferences.volumeFor(prayer),
+                  onDismiss = { soundRule = null },
+                  onSave = { profile, uri, title, volumePercent ->
+                      alarmsViewModel.setSound(rule, profile, uri, title)
+                      prayerAlertPreferences.setVolume(prayer, volumePercent)
+                      soundRule = null
+                  },
+              )''',
+          'dialog route wiring')
+          old='''    fun play(variant: AdhanVariant) {
+              stop()
+              val rawResource = when (variant) {
+                  AdhanVariant.CLASSIC -> R.raw.adhan_cc0
+                  AdhanVariant.BEAUTIFUL -> R.raw.adhan_beautiful_cc0
+                  AdhanVariant.SHORT -> R.raw.adhan_short_cc0
+                  AdhanVariant.EXTENDED -> R.raw.adhan_extended_cc_by_sa
+                  AdhanVariant.COMPACT -> R.raw.adhan_compact_pd
+                  AdhanVariant.ALTERNATIVE -> R.raw.adhan_alternative_cc_by_sa
+              }
+              val next = MediaPlayer()
+              try {
+                  next.setAudioAttributes(
+                      AudioAttributes.Builder()
+                          .setUsage(AudioAttributes.USAGE_MEDIA)
+                          .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                          .build(),
+                  )
+                  context.resources.openRawResourceFd(rawResource).use { descriptor ->
+                      next.setDataSource(descriptor.fileDescriptor, descriptor.startOffset, descriptor.length)
+                  }
+                  next.isLooping = false
+                  next.prepare()
+                  next.setOnCompletionListener { completed ->
+                      if (player === completed) player = null
+                      completed.release()
+                  }
+                  player = next
+                  next.start()
+              } catch (_: Throwable) {
+                  next.release()
+                  player = null
+              }
+          }'''
+          new='''    fun play(variant: AdhanVariant, volumePercent: Int) {
+              stop()
+              val rawResource = when (variant) {
+                  AdhanVariant.CLASSIC -> R.raw.adhan_cc0
+                  AdhanVariant.BEAUTIFUL -> R.raw.adhan_beautiful_cc0
+                  AdhanVariant.SHORT -> R.raw.adhan_short_cc0
+                  AdhanVariant.TAKBIR_TWO -> R.raw.takbir_cc0
+                  AdhanVariant.EXTENDED -> R.raw.adhan_extended_cc_by_sa
+                  AdhanVariant.COMPACT -> R.raw.adhan_compact_pd
+                  AdhanVariant.ALTERNATIVE -> R.raw.adhan_alternative_cc_by_sa
+              }
+              val next = MediaPlayer()
+              try {
+                  next.setAudioAttributes(
+                      AudioAttributes.Builder()
+                          .setUsage(AudioAttributes.USAGE_MEDIA)
+                          .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                          .build(),
+                  )
+                  context.resources.openRawResourceFd(rawResource).use { descriptor ->
+                      next.setDataSource(descriptor.fileDescriptor, descriptor.startOffset, descriptor.length)
+                  }
+                  next.isLooping = false
+                  val gain = prayerPlaybackGain(volumePercent)
+                  next.setVolume(gain, gain)
+                  next.prepare()
+                  var remainingPlays = if (variant == AdhanVariant.TAKBIR_TWO) 2 else 1
+                  next.setOnCompletionListener { completed ->
+                      remainingPlays -= 1
+                      if (remainingPlays > 0 && player === completed) {
+                          runCatching {
+                              completed.seekTo(0)
+                              completed.start()
+                          }.onFailure {
+                              if (player === completed) player = null
+                              completed.release()
+                          }
+                      } else {
+                          if (player === completed) player = null
+                          completed.release()
+                      }
+                  }
+                  player = next
+                  next.start()
+              } catch (_: Throwable) {
+                  next.release()
+                  player = null
+              }
+          }'''
+          s=rep(s,old,new,'preview play')
+          s=rep(s,
+          '''private fun PrayerSoundDialog(
+              rule: AlarmRule,
+              onDismiss: () -> Unit,
+              onSave: (AlarmSoundProfile, String?, String?) -> Unit,
+          ) {''',
+          '''internal fun PrayerSoundDialog(
+              rule: AlarmRule,
+              initialVolumePercent: Int,
+              onDismiss: () -> Unit,
+              onSave: (AlarmSoundProfile, String?, String?, Int) -> Unit,
+          ) {''',
+          'dialog signature')
+          s=rep(s,
+          '''    var previewing by remember(rule.alarmId, rule.revision) { mutableStateOf<AdhanVariant?>(null) }
+              val previewPlayer = remember(context, rule.alarmId) { AdhanPreviewPlayer(context.applicationContext) }''',
+          '''    var previewing by remember(rule.alarmId, rule.revision) { mutableStateOf<AdhanVariant?>(null) }
+              var prayerVolumePercent by remember(rule.alarmId, rule.revision) {
+                  mutableStateOf(initialVolumePercent.coerceIn(0, 100))
+              }
+              val prayerTag = ((rule.definition as? AlarmDefinition.PrayerLinked)?.prayer?.name ?: "custom").lowercase()
+              val previewPlayer = remember(context, rule.alarmId) { AdhanPreviewPlayer(context.applicationContext) }''',
+          'dialog volume state')
+          s=s.replace('previewPlayer.play(variant)', 'previewPlayer.play(variant, prayerVolumePercent)')
+          anchor='''                    SoundListRow(
+                          title = appText("Silenzioso", "صامت"),
+                          icon = Icons.Rounded.VolumeOff,
+                          selected = profile == AlarmSoundProfile.SILENT,
+                      ) {
+                          previewPlayer.stop()
+                          previewing = null
+                          profile = AlarmSoundProfile.SILENT
+                          ringtoneUri = null
+                          ringtoneTitle = null
+                      }
+                  }'''
+          replacement='''                    SoundListRow(
+                          title = appText("Silenzioso", "صامت"),
+                          icon = Icons.Rounded.VolumeOff,
+                          selected = profile == AlarmSoundProfile.SILENT,
+                      ) {
+                          previewPlayer.stop()
+                          previewing = null
+                          profile = AlarmSoundProfile.SILENT
+                          ringtoneUri = null
+                          ringtoneTitle = null
+                      }
+
+                      Text(
+                          appText("Volume di questa preghiera", "مستوى صوت هذه الصلاة"),
+                          fontWeight = FontWeight.ExtraBold,
+                          color = OrariForest,
+                      )
+                      Row(
+                          modifier = Modifier.fillMaxWidth(),
+                          verticalAlignment = Alignment.CenterVertically,
+                          horizontalArrangement = Arrangement.spacedBy(10.dp),
+                      ) {
+                          Slider(
+                              value = prayerVolumePercent.toFloat(),
+                              onValueChange = { prayerVolumePercent = it.toInt().coerceIn(0, 100) },
+                              valueRange = 0f..100f,
+                              modifier = Modifier
+                                  .weight(1f)
+                                  .testTag("prayer-volume-slider-$prayerTag"),
+                          )
+                          Text(
+                              "$prayerVolumePercent%",
+                              color = OrariGreen,
+                              fontWeight = FontWeight.ExtraBold,
+                              modifier = Modifier.testTag("prayer-volume-value-$prayerTag"),
+                          )
+                      }
+                      Text(
+                          appText(
+                              "Scala il volume sveglia Android solo per questa preghiera.",
+                              "يخفض أو يرفع مستوى منبه أندرويد لهذه الصلاة فقط.",
+                          ),
+                          style = MaterialTheme.typography.bodySmall,
+                          color = OrariForest.copy(alpha = 0.66f),
+                      )
+                  }'''
+          s=rep(s,anchor,replacement,'dialog volume controls')
+          s=rep(s,
+          '                    onSave(profile, storedUri, storedTitle)',
+          '                    onSave(profile, storedUri, storedTitle, prayerVolumePercent)',
+          'dialog save volume')
+          write(p,s)
+
+          write('app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspirationNotifications.kt', r'''package com.archimedeprojects.arihna.feature.home
+
+          import android.Manifest
+          import android.app.AlarmManager
+          import android.app.NotificationChannel
+          import android.app.NotificationManager
+          import android.app.PendingIntent
+          import android.content.BroadcastReceiver
+          import android.content.Context
+          import android.content.Intent
+          import android.content.pm.PackageManager
+          import android.os.Build
+          import androidx.core.app.NotificationCompat
+          import androidx.core.app.NotificationManagerCompat
+          import androidx.core.content.ContextCompat
+          import com.archimedeprojects.arihna.MainActivity
+          import com.archimedeprojects.arihna.R
+          import java.time.LocalDate
+          import java.time.ZonedDateTime
+
+          data class DailyInspirationNotificationSettingsState(
+              val enabled: Boolean = false,
+              val hour: Int = 8,
+              val minute: Int = 0,
+              val lastDeliveredDate: String? = null,
+          )
+
+          class DailyInspirationNotificationSettings(context: Context) {
+              private val prefs = context.applicationContext.getSharedPreferences(
+                  PREFS_NAME,
+                  Context.MODE_PRIVATE,
+              )
+
+              fun read(): DailyInspirationNotificationSettingsState =
+                  DailyInspirationNotificationSettingsState(
+                      enabled = prefs.getBoolean(KEY_ENABLED, false),
+                      hour = prefs.getInt(KEY_HOUR, 8).coerceIn(0, 23),
+                      minute = prefs.getInt(KEY_MINUTE, 0).coerceIn(0, 59),
+                      lastDeliveredDate = prefs.getString(KEY_LAST_DELIVERED_DATE, null),
+                  )
+
+              fun setEnabled(enabled: Boolean): DailyInspirationNotificationSettingsState {
+                  prefs.edit().putBoolean(KEY_ENABLED, enabled).apply()
+                  return read()
+              }
+
+              fun setTime(hour: Int, minute: Int): DailyInspirationNotificationSettingsState {
+                  prefs.edit()
+                      .putInt(KEY_HOUR, hour.coerceIn(0, 23))
+                      .putInt(KEY_MINUTE, minute.coerceIn(0, 59))
+                      .apply()
+                  return read()
+              }
+
+              fun markDelivered(date: LocalDate) {
+                  prefs.edit().putString(KEY_LAST_DELIVERED_DATE, date.toString()).apply()
+              }
+
+              private companion object {
+                  const val PREFS_NAME = "arihna_daily_inspiration_notification"
+                  const val KEY_ENABLED = "enabled"
+                  const val KEY_HOUR = "hour"
+                  const val KEY_MINUTE = "minute"
+                  const val KEY_LAST_DELIVERED_DATE = "last_delivered_date"
+              }
+          }
+
+          internal fun nextDailyInspirationTrigger(
+              now: ZonedDateTime,
+              hour: Int,
+              minute: Int,
+          ): ZonedDateTime {
+              val today = now.toLocalDate().atTime(hour.coerceIn(0, 23), minute.coerceIn(0, 59))
+                  .atZone(now.zone)
+              return if (today.isAfter(now)) today else today.plusDays(1)
+          }
+
+          internal data class DailyInspirationNotificationCopy(
+              val arabic: String,
+              val italian: String,
+              val reference: String,
+          )
+
+          internal fun dailyInspirationNotificationCopy(date: LocalDate): DailyInspirationNotificationCopy {
+              val inspiration = dailyInspirationFor(date)
+              return DailyInspirationNotificationCopy(
+                  arabic = inspiration.text,
+                  italian = inspiration.translationItalian,
+                  reference = inspiration.reference,
+              )
+          }
+
+          internal fun shouldDeliverDailyInspiration(
+              settings: DailyInspirationNotificationSettingsState,
+              date: LocalDate,
+          ): Boolean = settings.enabled && settings.lastDeliveredDate != date.toString()
+
+          class DailyInspirationNotificationScheduler(
+              context: Context,
+              private val settings: DailyInspirationNotificationSettings =
+                  DailyInspirationNotificationSettings(context),
+          ) {
+              private val appContext = context.applicationContext
+              private val alarmManager =
+                  appContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+
+              fun reschedule(now: ZonedDateTime = ZonedDateTime.now()) {
+                  cancel()
+                  val state = settings.read()
+                  if (!state.enabled) return
+                  val next = nextDailyInspirationTrigger(now, state.hour, state.minute)
+                  alarmManager.setAndAllowWhileIdle(
+                      AlarmManager.RTC_WAKEUP,
+                      next.toInstant().toEpochMilli(),
+                      pendingIntent(),
+                  )
+              }
+
+              fun cancel() {
+                  alarmManager.cancel(pendingIntent())
+              }
+
+              private fun pendingIntent(): PendingIntent =
+                  PendingIntent.getBroadcast(
+                      appContext,
+                      REQUEST_CODE,
+                      Intent(appContext, DailyInspirationNotificationReceiver::class.java)
+                          .setAction(ACTION_DELIVER),
+                      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                  )
+
+              companion object {
+                  const val ACTION_DELIVER = "com.archimedeprojects.arihna.action.DAILY_INSPIRATION"
+                  private const val REQUEST_CODE = 8642
+              }
+          }
+
+          class DailyInspirationNotificationReceiver : BroadcastReceiver() {
+              override fun onReceive(context: Context, intent: Intent?) {
+                  val appContext = context.applicationContext
+                  val settings = DailyInspirationNotificationSettings(appContext)
+                  val scheduler = DailyInspirationNotificationScheduler(appContext, settings)
+                  if (intent?.action == DailyInspirationNotificationScheduler.ACTION_DELIVER) {
+                      deliver(appContext, settings)
+                  }
+                  scheduler.reschedule()
+              }
+
+              private fun deliver(
+                  context: Context,
+                  settings: DailyInspirationNotificationSettings,
+              ) {
+                  val state = settings.read()
+                  val today = LocalDate.now()
+                  if (!shouldDeliverDailyInspiration(state, today)) return
+                  if (!canPostNotifications(context)) return
+
+                  val copy = dailyInspirationNotificationCopy(today)
+                  DailyInspirationNotificationFactory.ensureChannel(context)
+                  NotificationManagerCompat.from(context).notify(
+                      DailyInspirationNotificationFactory.NOTIFICATION_ID,
+                      DailyInspirationNotificationFactory.build(context, copy),
+                  )
+                  settings.markDelivered(today)
+              }
+
+              private fun canPostNotifications(context: Context): Boolean =
+                  (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                      ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+                      PackageManager.PERMISSION_GRANTED) &&
+                      NotificationManagerCompat.from(context).areNotificationsEnabled()
+          }
+
+          internal object DailyInspirationNotificationFactory {
+              const val CHANNEL_ID = "arihna_daily_inspiration_v1"
+              const val NOTIFICATION_ID = 86420
+
+              fun ensureChannel(context: Context) {
+                  if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+                  val manager =
+                      context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                  manager.createNotificationChannel(
+                      NotificationChannel(
+                          CHANNEL_ID,
+                          "Ispirazione del giorno",
+                          NotificationManager.IMPORTANCE_DEFAULT,
+                      ).apply {
+                          description = "Frase e ispirazione quotidiana di Arihna"
+                      },
+                  )
+              }
+
+              fun build(
+                  context: Context,
+                  copy: DailyInspirationNotificationCopy,
+              ): android.app.Notification {
+                  val openApp = PendingIntent.getActivity(
+                      context,
+                      86421,
+                      Intent(context, MainActivity::class.java).apply {
+                          flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                      },
+                      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                  )
+                  val body = buildString {
+                      append(copy.arabic)
+                      if (copy.italian.isNotBlank()) {
+                          append("\n")
+                          append(copy.italian)
+                      }
+                      append("\n")
+                      append(copy.reference)
+                  }
+                  return NotificationCompat.Builder(context, CHANNEL_ID)
+                      .setSmallIcon(R.drawable.ic_notification_arihna)
+                      .setContentTitle("Ispirazione del giorno")
+                      .setContentText(copy.italian.ifBlank { copy.reference })
+                      .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+                      .setContentIntent(openApp)
+                      .setAutoCancel(true)
+                      .setCategory(NotificationCompat.CATEGORY_REMINDER)
+                      .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                      .build()
+              }
+          }
+          '''.replace('          ',''))
+
+          p='app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt'
+          s=read(p)
+          s=rep(s,'import android.app.Activity\n','import android.app.Activity\nimport android.app.TimePickerDialog\n','time picker import')
+          s=rep(s,'import androidx.compose.foundation.background\n','import androidx.compose.foundation.background\nimport androidx.compose.foundation.rememberScrollState\nimport androidx.compose.foundation.verticalScroll\n','scroll imports')
+          s=rep(s,'import androidx.compose.material3.Surface\n','import androidx.compose.material3.Surface\nimport androidx.compose.material3.Switch\n','switch import')
+          s=rep(s,
+          'import com.archimedeprojects.arihna.feature.alarms.platform.ExactAlarmAccessIntentFactory\n',
+          'import com.archimedeprojects.arihna.feature.alarms.platform.ExactAlarmAccessIntentFactory\nimport com.archimedeprojects.arihna.feature.home.DailyInspirationNotificationScheduler\nimport com.archimedeprojects.arihna.feature.home.DailyInspirationNotificationSettings\nimport com.archimedeprojects.arihna.feature.home.DailyInspirationNotificationSettingsState\n',
+          'daily imports')
+          s=rep(s,'import kotlin.math.roundToInt\n','import kotlin.math.roundToInt\n','noop localtime')
+          s=rep(s,
+          '''    var alarmVolumeMessage by remember { mutableStateOf<String?>(null) }''',
+          '''    var alarmVolumeMessage by remember { mutableStateOf<String?>(null) }
+              val dailyInspirationSettingsStore = remember(activity) {
+                  DailyInspirationNotificationSettings(activity.applicationContext)
+              }
+              val dailyInspirationScheduler = remember(activity) {
+                  DailyInspirationNotificationScheduler(
+                      activity.applicationContext,
+                      dailyInspirationSettingsStore,
+                  )
+              }
+              var dailyInspirationSettings by remember {
+                  mutableStateOf(dailyInspirationSettingsStore.read())
+              }''',
+          'route daily state')
+          s=rep(s,
+          '''        onAlarmVolumeChange = { requested ->
+                  when (val result = alarmVolumeController.setVolume(requested)) {''',
+          '''        dailyInspirationSettings = dailyInspirationSettings,
+              onDailyInspirationEnabled = { enabled ->
+                  dailyInspirationSettings = dailyInspirationSettingsStore.setEnabled(enabled)
+                  dailyInspirationScheduler.reschedule()
+              },
+              onDailyInspirationTime = {
+                  TimePickerDialog(
+                      activity,
+                      { _, hour, minute ->
+                          dailyInspirationSettings = dailyInspirationSettingsStore.setTime(hour, minute)
+                          dailyInspirationScheduler.reschedule()
+                      },
+                      dailyInspirationSettings.hour,
+                      dailyInspirationSettings.minute,
+                      true,
+                  ).show()
+              },
+              onAlarmVolumeChange = { requested ->
+                  when (val result = alarmVolumeController.setVolume(requested)) {''',
+          'route daily callbacks')
+          s=rep(s,
+          '''    alarmSettings: AlarmSettingsPresentation = AlarmSettingsPresentation(),
+              onAlarmVolumeChange: (Int) -> Unit = {},''',
+          '''    alarmSettings: AlarmSettingsPresentation = AlarmSettingsPresentation(),
+              dailyInspirationSettings: DailyInspirationNotificationSettingsState =
+                  DailyInspirationNotificationSettingsState(),
+              onDailyInspirationEnabled: (Boolean) -> Unit = {},
+              onDailyInspirationTime: () -> Unit = {},
+              onAlarmVolumeChange: (Int) -> Unit = {},''',
+          'screen daily params')
+          s=rep(s,
+          '''            .background(Brush.verticalGradient(listOf(SettingsBackgroundTop, SettingsBackgroundBottom)))
+              .padding(''',
+          '''            .background(Brush.verticalGradient(listOf(SettingsBackgroundTop, SettingsBackgroundBottom)))
+              .verticalScroll(rememberScrollState())
+              .padding(''',
+          'settings scroll')
+          s=rep(s,
+          '''        SettingsSectionTitle(appText("Sveglia", "المنبه"), "settings-section-alarms")
+              AlarmVolumeCard(state = alarmSettings, onAlarmVolumeChange = onAlarmVolumeChange)
+
+              SettingsSectionTitle(appText("Test rapidi", "اختبارات سريعة"), "settings-section-tests")''',
+          '''        SettingsSectionTitle(appText("Sveglia", "المنبه"), "settings-section-alarms")
+              AlarmVolumeCard(state = alarmSettings, onAlarmVolumeChange = onAlarmVolumeChange)
+
+              SettingsSectionTitle(
+                  appText("Ispirazione quotidiana", "إلهام يومي"),
+                  "settings-section-daily-inspiration",
+              )
+              DailyInspirationNotificationCard(
+                  state = dailyInspirationSettings,
+                  onEnabled = onDailyInspirationEnabled,
+                  onTime = onDailyInspirationTime,
+              )
+
+              SettingsSectionTitle(appText("Test rapidi", "اختبارات سريعة"), "settings-section-tests")''',
+          'daily section')
+          insert_at=s.index('\n@Composable\nprivate fun AlarmDiagnosticCard(')
+          daily_card=r'''
+          @Composable
+          private fun DailyInspirationNotificationCard(
+              state: DailyInspirationNotificationSettingsState,
+              onEnabled: (Boolean) -> Unit,
+              onTime: () -> Unit,
+          ) {
+              Card(
+                  modifier = Modifier
+                      .fillMaxWidth()
+                      .testTag("settings-daily-inspiration-card"),
+                  shape = RoundedCornerShape(20.dp),
+                  colors = CardDefaults.cardColors(containerColor = SettingsSurface),
+                  border = BorderStroke(1.dp, SettingsOutline),
+              ) {
+                  Column(
+                      modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                      verticalArrangement = Arrangement.spacedBy(8.dp),
+                  ) {
+                      Row(
+                          modifier = Modifier.fillMaxWidth(),
+                          verticalAlignment = Alignment.CenterVertically,
+                          horizontalArrangement = Arrangement.spacedBy(10.dp),
+                      ) {
+                          Column(modifier = Modifier.weight(1f)) {
+                              Text(
+                                  appText("Frase del giorno", "عبارة اليوم"),
+                                  color = SettingsText,
+                                  fontWeight = FontWeight.Bold,
+                              )
+                              Text(
+                                  appText(
+                                      "Invia la stessa ispirazione mostrata nella Home.",
+                                      "يرسل نفس الإلهام الظاهر في الصفحة الرئيسية.",
+                                  ),
+                                  color = SettingsMuted,
+                                  style = MaterialTheme.typography.bodySmall,
+                              )
+                          }
+                          Switch(
+                              checked = state.enabled,
+                              onCheckedChange = onEnabled,
+                              modifier = Modifier.testTag("settings-daily-inspiration-switch"),
+                          )
+                      }
+                      TextButton(
+                          onClick = onTime,
+                          enabled = state.enabled,
+                          modifier = Modifier.testTag("settings-daily-inspiration-time"),
+                      ) {
+                          Text(
+                              appText("Orario", "الوقت") +
+                                  "  %02d:%02d".format(state.hour, state.minute),
+                          )
+                      }
+                  }
+              }
+          }
+          '''.replace('          ','')
+          s=s[:insert_at]+daily_card+s[insert_at:]
+          write(p,s)
+
+          p='app/src/main/AndroidManifest.xml'
+          s=read(p)
+          anchor='''        <receiver
+                  android:name=".feature.alarms.platform.AlarmSystemEventReceiver"
+                  android:exported="false">
+                  <intent-filter>
+                      <action android:name="android.intent.action.BOOT_COMPLETED" />
+                      <action android:name="android.intent.action.TIME_SET" />
+                      <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                      <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+                      <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                  </intent-filter>
+              </receiver>'''
+          replacement=anchor+'''
+
+              <receiver
+                  android:name=".feature.home.DailyInspirationNotificationReceiver"
+                  android:exported="false">
+                  <intent-filter>
+                      <action android:name="android.intent.action.BOOT_COMPLETED" />
+                      <action android:name="android.intent.action.TIME_SET" />
+                      <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                      <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                  </intent-filter>
+              </receiver>'''
+          s=rep(s,anchor,replacement,'daily receiver manifest')
+          write(p,s)
+
+          p='docs/audio/ADHAN_SOURCES.md'
+          s=read(p).rstrip()+r'''
+
+          - takbir_cc0.opus — Wikimedia Commons, Allahuakbar.opus, Bod lnga klang, own work, CC0 1.0 Universal. https://commons.wikimedia.org/wiki/File:Allahuakbar.opus — one utterance of Allahu Akbar; Arihna repeats these exact bytes exactly twice for the dedicated two-takbir alert. SHA-256: ccb7a98ba419b9e1163e57a41423016766fae9c07a004862423c757bab5985c3; bytes: 21136.
+          '''.replace('          ','')
+          write(p,s)
+
+          p='app/src/test/java/com/archimedeprojects/arihna/feature/alarms/domain/AdhanVariantTest.kt'
+          s=read(p)
+          s=s.replace('assertEquals(6, values.size)','assertEquals(7, values.size)')
+          s=rep(s,
+          '        assertEquals("arihna://adhan/short", AdhanVariant.SHORT.storageValue)\n',
+          '        assertEquals("arihna://adhan/short", AdhanVariant.SHORT.storageValue)\n        assertEquals("arihna://adhan/takbir-two", AdhanVariant.TAKBIR_TWO.storageValue)\n',
+          'takbir stable id test')
+          write(p,s)
+
+          write('app/src/test/java/com/archimedeprojects/arihna/feature/alarms/platform/PrayerAlertVolumeTest.kt', r'''package com.archimedeprojects.arihna.feature.alarms.platform
+
+          import org.junit.Assert.assertEquals
+          import org.junit.Test
+
+          class PrayerAlertVolumeTest {
+              @Test
+              fun gainClampsAndScalesPercent() {
+                  assertEquals(0f, prayerPlaybackGain(-5))
+                  assertEquals(0.4f, prayerPlaybackGain(40))
+                  assertEquals(1f, prayerPlaybackGain(100))
+                  assertEquals(1f, prayerPlaybackGain(150))
+              }
+          }
+          '''.replace('          ',''))
+
+          write('app/src/test/java/com/archimedeprojects/arihna/feature/home/DailyInspirationNotificationsTest.kt', r'''package com.archimedeprojects.arihna.feature.home
+
+          import java.time.LocalDate
+          import java.time.ZoneId
+          import java.time.ZonedDateTime
+          import org.junit.Assert.assertEquals
+          import org.junit.Assert.assertFalse
+          import org.junit.Assert.assertTrue
+          import org.junit.Test
+
+          class DailyInspirationNotificationsTest {
+              private val zone = ZoneId.of("Europe/Rome")
+
+              @Test
+              fun schedulerUsesTodayBeforeConfiguredTimeAndTomorrowAfter() {
+                  val before = ZonedDateTime.of(2026, 9, 25, 7, 0, 0, 0, zone)
+                  val after = ZonedDateTime.of(2026, 9, 25, 9, 0, 0, 0, zone)
+                  assertEquals(
+                      ZonedDateTime.of(2026, 9, 25, 8, 0, 0, 0, zone),
+                      nextDailyInspirationTrigger(before, 8, 0),
+                  )
+                  assertEquals(
+                      ZonedDateTime.of(2026, 9, 26, 8, 0, 0, 0, zone),
+                      nextDailyInspirationTrigger(after, 8, 0),
+                  )
+              }
+
+              @Test
+              fun sameDateCannotDeliverTwice() {
+                  val date = LocalDate.of(2026, 9, 25)
+                  assertTrue(
+                      shouldDeliverDailyInspiration(
+                          DailyInspirationNotificationSettingsState(enabled = true),
+                          date,
+                      ),
+                  )
+                  assertFalse(
+                      shouldDeliverDailyInspiration(
+                          DailyInspirationNotificationSettingsState(
+                              enabled = true,
+                              lastDeliveredDate = date.toString(),
+                          ),
+                          date,
+                      ),
+                  )
+              }
+
+              @Test
+              fun notificationCopyReusesExactHomeInspiration() {
+                  val date = LocalDate.of(2026, 9, 25)
+                  val home = dailyInspirationFor(date)
+                  val notification = dailyInspirationNotificationCopy(date)
+                  assertEquals(home.text, notification.arabic)
+                  assertEquals(home.translationItalian, notification.italian)
+                  assertEquals(home.reference, notification.reference)
+              }
+          }
+          '''.replace('          ',''))
+
+          write('app/src/androidTest/java/com/archimedeprojects/arihna/feature/alarms/platform/PrayerAlertPreferencesAndroidTest.kt', r'''package com.archimedeprojects.arihna.feature.alarms.platform
+
+          import androidx.test.core.app.ApplicationProvider
+          import androidx.test.ext.junit.runners.AndroidJUnit4
+          import com.archimedeprojects.arihna.feature.alarms.domain.AlarmPrayer
+          import org.junit.Assert.assertEquals
+          import org.junit.Test
+          import org.junit.runner.RunWith
+
+          @RunWith(AndroidJUnit4::class)
+          class PrayerAlertPreferencesAndroidTest {
+              private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+
+              @Test
+              fun independentPrayerVolumesRoundTripAndClamp() {
+                  val prefs = PrayerAlertPreferences(context)
+                  prefs.setVolume(AlarmPrayer.FAJR, 100)
+                  prefs.setVolume(AlarmPrayer.DHUHR, 40)
+                  prefs.setVolume(AlarmPrayer.ASR, -10)
+                  prefs.setVolume(AlarmPrayer.ISHA, 120)
+
+                  assertEquals(100, prefs.volumeFor(AlarmPrayer.FAJR))
+                  assertEquals(40, prefs.volumeFor(AlarmPrayer.DHUHR))
+                  assertEquals(0, prefs.volumeFor(AlarmPrayer.ASR))
+                  assertEquals(100, prefs.volumeFor(AlarmPrayer.ISHA))
+              }
+          }
+          '''.replace('          ',''))
+
+          write('app/src/androidTest/java/com/archimedeprojects/arihna/feature/prayers/PrayerSoundDialogAndroidTest.kt', r'''package com.archimedeprojects.arihna.feature.prayers
+
+          import androidx.compose.ui.test.assertIsDisplayed
+          import androidx.compose.ui.test.junit4.createComposeRule
+          import androidx.compose.ui.test.onNodeWithTag
+          import androidx.compose.ui.test.onNodeWithText
+          import androidx.compose.ui.test.performClick
+          import com.archimedeprojects.arihna.core.ui.theme.ArihnaTheme
+          import com.archimedeprojects.arihna.feature.alarms.domain.AlarmDefinition
+          import com.archimedeprojects.arihna.feature.alarms.domain.AlarmPrayer
+          import com.archimedeprojects.arihna.feature.alarms.domain.AlarmRule
+          import com.archimedeprojects.arihna.feature.alarms.domain.AlarmSoundProfile
+          import org.junit.Rule
+          import org.junit.Test
+
+          class PrayerSoundDialogAndroidTest {
+              @get:Rule val composeRule = createComposeRule()
+
+              @Test
+              fun dialogShowsIndependentVolumeAndDedicatedTwoTakbirChoice() {
+                  composeRule.setContent {
+                      ArihnaTheme {
+                          PrayerSoundDialog(
+                              rule = AlarmRule(
+                                  alarmId = "prayer-fajr",
+                                  revision = 1,
+                                  enabled = true,
+                                  soundProfile = AlarmSoundProfile.ADHAN,
+                                  definition = AlarmDefinition.PrayerLinked(AlarmPrayer.FAJR),
+                              ),
+                              initialVolumePercent = 40,
+                              onDismiss = {},
+                              onSave = { _, _, _, _ -> },
+                          )
+                      }
+                  }
+
+                  composeRule.onNodeWithTag("prayer-volume-value-fajr").assertIsDisplayed()
+                  composeRule.onNodeWithText("40%").assertIsDisplayed()
+                  composeRule.onNodeWithTag("prayer-sound-choose-adhan").performClick()
+                  composeRule.onNodeWithText("Takbīr breve · Allahu Akbar ×2").assertIsDisplayed()
+              }
+          }
+          '''.replace('          ',''))
+          PY
+
+          curl -fL --retry 3 --retry-delay 2 \
+            'https://upload.wikimedia.org/wikipedia/commons/6/6b/Allahuakbar.opus' \
+            -o app/src/main/res/raw/takbir_cc0.opus
+          test "$(stat -c '%s' app/src/main/res/raw/takbir_cc0.opus)" = "21136"
+          test "$(sha256sum app/src/main/res/raw/takbir_cc0.opus | awk '{print $1}')" = "ccb7a98ba419b9e1163e57a41423016766fae9c07a004862423c757bab5985c3"
+
+      - name: Pre-candidate compile and unit tests
+        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:assembleDebug --stacktrace
+
+      - name: Commit exactly one candidate and push branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "3f2dff8e122cd6443b5665ffdb4eff4b6a3b2873"
+          git add \
+            app/src/main/java/com/archimedeprojects/arihna/feature/alarms/domain/AlarmModels.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/PrayerAlertPreferences.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/home/DailyInspirationNotifications.kt \
+            app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt \
+            app/src/main/AndroidManifest.xml \
+            app/src/main/res/raw/takbir_cc0.opus \
+            docs/audio/ADHAN_SOURCES.md \
+            app/src/test/java/com/archimedeprojects/arihna/feature/alarms/domain/AdhanVariantTest.kt \
+            app/src/test/java/com/archimedeprojects/arihna/feature/alarms/platform/PrayerAlertVolumeTest.kt \
+            app/src/test/java/com/archimedeprojects/arihna/feature/home/DailyInspirationNotificationsTest.kt \
+            app/src/androidTest/java/com/archimedeprojects/arihna/feature/alarms/platform/PrayerAlertPreferencesAndroidTest.kt \
+            app/src/androidTest/java/com/archimedeprojects/arihna/feature/prayers/PrayerSoundDialogAndroidTest.kt
+          test -z "$(git diff --name-only)"
+          git config user.name "Arihna CI"
+          git config user.email "ci@arihna.local"
+          git commit -m "feat(alarms): add daily notice takbir and prayer volumes"
+          CANDIDATE_SHA="$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD^)" = "3f2dff8e122cd6443b5665ffdb4eff4b6a3b2873"
+          test "$(git rev-list --parents -n1 HEAD | wc -w)" -eq 2
+          git push origin "HEAD:refs/heads/candidate/daily-inspiration-takbir-prayer-volume-v1-20260925"
+          echo "CANDIDATE_SHA=$CANDIDATE_SHA"
