@@ -110,6 +110,32 @@ internal fun shouldDeliverDailyInspiration(
     localDate: LocalDate,
 ): Boolean = settings.enabled && settings.lastDeliveredDate != localDate.toString()
 
+internal data class DailyInspirationNotificationPayload(
+    val title: String,
+    val arabic: String,
+    val translationItalian: String,
+    val reference: String,
+)
+
+internal fun dailyInspirationNotificationPayloadFor(
+    localDate: LocalDate,
+): DailyInspirationNotificationPayload =
+    dailyInspirationNotificationPayload(dailyInspirationFor(localDate))
+
+internal fun dailyInspirationNotificationPayload(
+    inspiration: DailyInspiration,
+): DailyInspirationNotificationPayload = DailyInspirationNotificationPayload(
+    title = "Ispirazione del giorno",
+    arabic = inspiration.text,
+    translationItalian = inspiration.translationItalian.trim(),
+    reference = inspiration.reference,
+)
+
+internal fun isDailyInspirationNotificationPermissionGranted(
+    sdkInt: Int,
+    permissionGranted: Boolean,
+): Boolean = sdkInt < Build.VERSION_CODES.TIRAMISU || permissionGranted
+
 class DailyInspirationNotificationController(
     context: Context,
     dataStore: DataStore<Preferences>,
@@ -176,9 +202,12 @@ class DailyInspirationNotificationController(
     )
 
     private fun isNotificationPermissionGranted(): Boolean =
-        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-            ContextCompat.checkSelfPermission(appContext, Manifest.permission.POST_NOTIFICATIONS) ==
-            PackageManager.PERMISSION_GRANTED
+        isDailyInspirationNotificationPermissionGranted(
+            sdkInt = Build.VERSION.SDK_INT,
+            permissionGranted =
+                ContextCompat.checkSelfPermission(appContext, Manifest.permission.POST_NOTIFICATIONS) ==
+                    PackageManager.PERMISSION_GRANTED,
+        )
 }
 
 class DailyInspirationNotificationReceiver : BroadcastReceiver() {
@@ -217,6 +246,7 @@ internal object DailyInspirationNotificationFactory {
 
     fun build(context: Context, inspiration: DailyInspiration): android.app.Notification {
         ensureChannel(context)
+        val payload = dailyInspirationNotificationPayload(inspiration)
         val contentIntent = PendingIntent.getActivity(
             context,
             DAILY_INSPIRATION_REQUEST_CODE + 1,
@@ -225,20 +255,19 @@ internal object DailyInspirationNotificationFactory {
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val translation = inspiration.translationItalian.trim()
         val bigText = buildString {
-            append(inspiration.text)
-            if (translation.isNotEmpty()) {
+            append(payload.arabic)
+            if (payload.translationItalian.isNotEmpty()) {
                 append("\n\n")
-                append(translation)
+                append(payload.translationItalian)
             }
             append("\n\n")
-            append(inspiration.reference)
+            append(payload.reference)
         }
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification_arihna)
-            .setContentTitle("Ispirazione del giorno")
-            .setContentText(inspiration.text)
+            .setContentTitle(payload.title)
+            .setContentText(payload.arabic)
             .setStyle(NotificationCompat.BigTextStyle().bigText(bigText))
             .setContentIntent(contentIntent)
             .setAutoCancel(true)
