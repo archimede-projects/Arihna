@@ -235,27 +235,21 @@ jobs:
               }
               var soundRule by remember { mutableStateOf<AlarmRule?>(null) }''',
           'route prefs')
-          s=rep(s,
-          '''        PrayerSoundDialog(
-              rule = rule,
-              onDismiss = { soundRule = null },
-              onSave = { profile, uri, title ->
-                  alarmsViewModel.setSound(rule, profile, uri, title)
-                  soundRule = null
-              },
-          )''',
-          '''        val prayer = (rule.definition as AlarmDefinition.PrayerLinked).prayer
-          PrayerSoundDialog(
-              rule = rule,
-              initialVolumePercent = prayerAlertPreferences.volumeFor(prayer),
-              onDismiss = { soundRule = null },
-              onSave = { profile, uri, title, volumePercent ->
-                  alarmsViewModel.setSound(rule, profile, uri, title)
-                  prayerAlertPreferences.setVolume(prayer, volumePercent)
-                  soundRule = null
-              },
-          )''',
-          'dialog route wiring')
+          route_start=s.index('    soundRule?.let { rule ->')
+          route_end=s.index('\n}\n\n@Composable\nprivate fun PrayerTimesScreen', route_start)
+          s=s[:route_start]+'''    soundRule?.let { rule ->
+              val prayer = (rule.definition as AlarmDefinition.PrayerLinked).prayer
+              PrayerSoundDialog(
+                  rule = rule,
+                  initialVolumePercent = prayerAlertPreferences.volumeFor(prayer),
+                  onDismiss = { soundRule = null },
+                  onSave = { profile, uri, title, volumePercent ->
+                      alarmsViewModel.setSound(rule, profile, uri, title)
+                      prayerAlertPreferences.setVolume(prayer, volumePercent)
+                      soundRule = null
+                  },
+              )
+          }'''+s[route_end:]
           old='''    fun play(variant: AdhanVariant) {
               stop()
               val rawResource = when (variant) {
