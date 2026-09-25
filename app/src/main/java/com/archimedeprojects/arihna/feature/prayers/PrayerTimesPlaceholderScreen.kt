@@ -359,8 +359,8 @@ private class AdhanPreviewPlayer(private val context: Context) {
 @Composable
 private fun adhanVariantLabel(variant: AdhanVariant): String = when (variant) {
     AdhanVariant.TAKBIR_X2 -> appText(
-        "Takbīr breve · Allahu Akbar ×2",
-        "تكبير قصير · الله أكبر ×٢",
+        "Takbīr Makkah · Allahu Akbar ×2",
+        "تكبير مكة · الله أكبر ×٢",
     )
     else -> variant.displayName
 }
