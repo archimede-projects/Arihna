@@ -86,17 +86,17 @@ Required product semantics:
 - SPEC requires authoritative source provenance/license, 114 surahs / 6,236 Hafs ayat structural integrity, deterministic surah:ayah mapping, legacy EASY migration safety, normal pageable navigation, regression coverage, exact-SHA API28/API36 gates and S25 prerelease validation.
 
 ## Latest user request / actual work
-2026-09-21 user requested: `Procedi con 1 e 2`, referring to:
-1. publish physically validated runtime `977fbde9...` as stable;
-2. create the dedicated SPEC for Quran in `الرسم الإملائي`.
+2026-09-25 user asked: `Ci sei?`
 
-Actually completed:
-- Step 1 completed successfully: stable release `arihna-stable-977fbde9-20260921` published and post-publication verified.
-- Step 2 completed successfully: SPEC branch/file/commit created from the stable runtime.
-- `main` remained unchanged at `977fbde9...`.
-- No imla'i runtime implementation was started.
+Actually done:
+- Read continuity from `chat-context`.
+- Live-verified `main = 977fbde989facc3b392f6af5a65449a5322d58c6`.
+- Live-verified stable release `arihna-stable-977fbde9-20260921` remains published, non-prerelease, targeting the validated runtime, with asset `arihna.apk` SHA-256 `002d640a734eadf46b141b4489ae3c26d2803d9d49b4bacc772f7c678ab20813`.
+- Live-verified SPEC branch `spec/quran-imlai-writing-20260921` at commit `3da807cef157d57a54bc426295eb54f66830158d`, message `spec(quran): define imlai writing presentation`.
+- Live-read `docs/specs/quran-imlai-writing-20260921.md`; it contains the pinned product definition and source-integrity/navigation requirements.
+- No runtime code, `main`, release, CI or APK state changed this turn.
 
 ## Exact next action
-- Begin source discovery/verification for an authoritative Quran corpus in `الرسم الإملائي`, including provenance and redistribution terms.
-- Only after source verification, create candidate 1 as exactly one commit direct child of SPEC `3da807c...`.
-- Then run exact-SHA static/build + API28 + API36 gates, promote only if green, publish signed S25 prerelease, redownload/verify APK, and hand to user for physical validation.
+- Steps 1 and 2 requested earlier are both complete.
+- Next engineering action is source discovery/verification for an authoritative Quran corpus in `الرسم الإملائي`, including provenance and redistribution/license terms.
+- Only after source verification, create candidate 1 as exactly one commit direct child of SPEC `3da807c...`, then exact-SHA API28/API36 gates, promotion if green, signed S25 prerelease, post-publish verification, and physical user validation.
