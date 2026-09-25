@@ -1,0 +1,54 @@
+name: Add verified Makkah takbir binary to scratch
+
+on:
+  push:
+    branches:
+      - driver/takbir-makkah-binary-to-scratch-20260925
+    paths:
+      - .github/workflows/takbir-makkah-binary-to-scratch.yml
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  add-binary:
+    runs-on: ubuntu-24.04
+    env:
+      PROBE_RUN: '36176580621'
+      DERIVED_SIZE: '132738'
+      DERIVED_SHA256: 18740acd61b8b5946a14fc7551dee851642c710d37501892195593477e065f89
+      TARGET_BRANCH: scratch/takbir-makkah-x2-v1-20260925
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: scratch/takbir-makkah-x2-v1-20260925
+          fetch-depth: 0
+
+      - name: Download verified Makkah clip artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/probe && mkdir -p /tmp/probe
+          gh run download "$PROBE_RUN" --repo "$GITHUB_REPOSITORY" --name makkah-adhan-source-probe --dir /tmp/probe
+          SRC=/tmp/probe/makkah-takbir-x2.opus
+          test -f "$SRC"
+          test "$(stat -c '%s' "$SRC")" = "$DERIVED_SIZE"
+          test "$(sha256sum "$SRC" | awk '{print $1}')" = "$DERIVED_SHA256"
+          mkdir -p app/src/main/res/raw
+          cp "$SRC" app/src/main/res/raw/takbir_makkah_x2_cc_by.opus
+          test "$(stat -c '%s' app/src/main/res/raw/takbir_makkah_x2_cc_by.opus)" = "$DERIVED_SIZE"
+          test "$(sha256sum app/src/main/res/raw/takbir_makkah_x2_cc_by.opus | awk '{print $1}')" = "$DERIVED_SHA256"
+
+      - name: Commit binary to scratch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Arihna CI'
+          git config user.email 'actions@users.noreply.github.com'
+          git add app/src/main/res/raw/takbir_makkah_x2_cc_by.opus
+          git diff --cached --quiet && { echo 'binary already present'; exit 0; }
+          git commit -m 'feat(audio): bundle verified Makkah takbir pair'
+          git push origin "HEAD:$TARGET_BRANCH"
