@@ -166,31 +166,37 @@ Release:
 - direct download: `https://github.com/archimede-projects/Arihna/releases/download/quran-imlai-0d7d12c2-20260925/arihna-quran-imlai.apk`
 
 ## Latest user request / actual work
-2026-09-25 user said: `Però che non stai facendo niente su GitHub. correggimi se sbaglio.`
+2026-09-25 user asked: `Ci sei?`
 
 Actually done / live-verified:
 - Read continuity from `chat-context`.
-- Live-verified `main = 0d7d12c2e89a8012446bde6967d366f31ca8e77e`; it is intentionally unchanged during current feature construction.
-- Live-verified current SPEC branch `spec/daily-inspiration-takbir-prayer-volume-20260925` at `a72bb5bcc57a15335f143f642b70447e7cf7d5ff` (`spec(audio): pin two-takbir source bytes`).
-- Live-verified scratch implementation branch `scratch/daily-inspiration-takbir-prayer-volume-v1-20260925` at `784799e4fd2c7c2701d30b372599d174f7373e12`.
-- Compare shows scratch is 19 commits ahead of the SPEC; these are active implementation/test commits, not yet the final candidate.
-- Current scratch work includes:
-  - per-prayer volume preference model/repository;
-  - daily inspiration notification controller + settings wiring + reschedule receiver;
-  - pinned CC0 takbir source download/provenance;
-  - exact two-takbir playback model and local gain;
-  - per-prayer volume UI;
-  - initial tests for adhan variant, alarm VM injection, daily notification payload.
-- No exact-SHA gate has been run yet for this feature and no new runtime has been promoted to `main`.
+- Live-verified current `main = ab1051c43514b4595b92ae3533a3ee644b41dd29` (`feat(alarms): add daily inspiration takbir and prayer volume`).
+- Verified definitive candidate branch `candidate/daily-inspiration-takbir-prayer-volume-v4-20260925` at the same SHA, exactly one commit direct child of SPEC `a72bb5bcc57a15335f143f642b70447e7cf7d5ff`.
+- Earlier v2/v3 gates failed and were not promoted; failures were test/driver compatibility issues, not shipped runtime state.
+- Exact-SHA v4 gate run `36169784286` completed/success:
+  - static/build job `108186229433` success;
+  - API28 full suite job `108186229507` success;
+  - API36 feature + Quran + permission matrix job `108186229245` success.
+- Release workflow run `36171137317`, job `108190668442`, completed/success.
+- S25 prerelease published:
+  - tag `daily-inspiration-takbir-volume-ab1051c4-20260925`;
+  - release id `396825325`;
+  - target `ab1051c43514b4595b92ae3533a3ee644b41dd29`;
+  - draft=false, prerelease=true;
+  - asset `arihna-daily-takbir-volume.apk`;
+  - size `387591200`;
+  - SHA-256 `47cfe5f15005a4dc1d9dcec64b24e967cb0473b8b11f7ab5d7ae681773c64530`;
+  - signer cert SHA-256 `1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa`;
+  - post-publish redownload, digest, size, signer and metadata checks all passed.
+- Dedicated Takbīr source remains pinned to single CC0 `Allahuakbar.opus` bytes (21136 bytes, SHA-256 `ccb7a98ba419b9e1163e57a41423016766fae9c07a004862423c757bab5985c3`) and runtime repeats it exactly twice, then stops.
+- No further runtime/release changes made in this turn.
 
-Why `main` has not moved:
-- Project discipline requires the shipping candidate to be exactly one commit and a direct child of the SPEC.
-- The 19 scratch commits are deliberately temporary construction commits.
-- Only after implementation/test cleanup will they be compacted into one candidate commit direct child of SPEC `a72bb5c...`, then API28/API36 exact-SHA gates will run.
-- `main` will move only if those gates are green.
-
-## Exact next action
-- Finish remaining regression coverage and compile review on scratch.
-- Assemble/squash the finished tree into one candidate commit direct child of SPEC `a72bb5c...`.
-- Run exact-SHA static/build + API28 + API36 gates.
-- If green, fast-forward `main`, publish signed S25 prerelease, redownload/verify SHA-256 + signer, then request physical S25 validation.
+## Current state / exact next action
+- New runtime is on `main` and prerelease is CI/release verified, but **not yet physically validated for these three new features on Galaxy S25**.
+- User should install `arihna-daily-takbir-volume.apk` and validate:
+  1. daily inspiration notification: enable, choose time, receive once, tap opens Arihna;
+  2. Takbīr option: preview and real prayer test must play exactly `الله أكبر` twice, then stop;
+  3. per-prayer volume: e.g. Fajr/Isha 100%, Dhuhr/Asr 40%, confirm audible distinction and global Android alarm volume unchanged;
+  4. full Adhan variants still work;
+  5. prayer scheduling, Quran, location/Qibla and custom alarms show no regression.
+- If user reports PASS, publish a new stable release using the exact physically validated prerelease bytes and reverify SHA/signer/metadata.
