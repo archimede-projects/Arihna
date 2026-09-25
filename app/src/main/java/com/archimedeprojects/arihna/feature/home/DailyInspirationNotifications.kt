@@ -215,7 +215,7 @@ internal object DailyInspirationNotificationFactory {
         )
     }
 
-    fun post(context: Context, inspiration: DailyInspiration): Boolean {
+    fun build(context: Context, inspiration: DailyInspiration): android.app.Notification {
         ensureChannel(context)
         val contentIntent = PendingIntent.getActivity(
             context,
@@ -235,7 +235,7 @@ internal object DailyInspirationNotificationFactory {
             append("\n\n")
             append(inspiration.reference)
         }
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+        return NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification_arihna)
             .setContentTitle("Ispirazione del giorno")
             .setContentText(inspiration.text)
@@ -245,6 +245,10 @@ internal object DailyInspirationNotificationFactory {
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
+    }
+
+    fun post(context: Context, inspiration: DailyInspiration): Boolean {
+        val notification = build(context, inspiration)
         return runCatching {
             NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
             true
