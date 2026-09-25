@@ -59,7 +59,7 @@ class PrayerAlertUiAndroidTest {
         composeRule.onNodeWithTag("prayer-volume-value-fajr").assertTextEquals("40%")
 
         composeRule.onNodeWithTag("prayer-sound-choose-adhan").performClick()
-        composeRule.onNodeWithText("Takbīr breve · Allahu Akbar ×2").assertIsDisplayed().performClick()
+        composeRule.onNodeWithText("Takbīr Makkah · Allahu Akbar ×2").assertIsDisplayed().performClick()
         composeRule.onNodeWithText("Indietro").performClick()
         composeRule.onNodeWithText("Conferma").performClick()
 
