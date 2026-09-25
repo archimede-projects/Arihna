@@ -34,6 +34,7 @@ internal data class AlarmRingingPayload(
     val occurrenceToken: String,
     val ringtoneUri: String? = null,
     val ringtoneTitle: String? = null,
+    val playbackVolumePercent: Int = 100,
 )
 
 internal fun createAlarmRingingPayload(
@@ -51,6 +52,7 @@ internal fun createAlarmRingingPayload(
     occurrenceToken = occurrence.occurrenceToken,
     ringtoneUri = rule.ringtoneUri,
     ringtoneTitle = rule.ringtoneTitle,
+    playbackVolumePercent = rule.playbackVolumePercent,
 )
 
 internal object AlarmRingingIntentContract {
@@ -62,6 +64,7 @@ internal object AlarmRingingIntentContract {
     const val EXTRA_OCCURRENCE_TOKEN = "arihna.ringing.occurrence_token"
     const val EXTRA_RINGTONE_URI = "arihna.ringing.ringtone_uri"
     const val EXTRA_RINGTONE_TITLE = "arihna.ringing.ringtone_title"
+    const val EXTRA_PLAYBACK_VOLUME_PERCENT = "arihna.ringing.playback_volume_percent"
 
     fun put(intent: Intent, payload: AlarmRingingPayload): Intent = intent.apply {
         putExtra(EXTRA_ALARM_ID, payload.alarmId)
@@ -72,6 +75,7 @@ internal object AlarmRingingIntentContract {
         putExtra(EXTRA_OCCURRENCE_TOKEN, payload.occurrenceToken)
         putExtra(EXTRA_RINGTONE_URI, payload.ringtoneUri)
         putExtra(EXTRA_RINGTONE_TITLE, payload.ringtoneTitle)
+        putExtra(EXTRA_PLAYBACK_VOLUME_PERCENT, payload.playbackVolumePercent.coerceIn(0, 100))
     }
 
     fun decode(intent: Intent?): AlarmRingingPayload? {
@@ -93,6 +97,7 @@ internal object AlarmRingingIntentContract {
             occurrenceToken = token,
             ringtoneUri = intent.getStringExtra(EXTRA_RINGTONE_URI),
             ringtoneTitle = intent.getStringExtra(EXTRA_RINGTONE_TITLE),
+            playbackVolumePercent = intent.getIntExtra(EXTRA_PLAYBACK_VOLUME_PERCENT, 100).coerceIn(0, 100),
         )
     }
 }
@@ -245,7 +250,7 @@ class AlarmRingingService : Service() {
         } else {
             startForeground(activeNotificationId ?: 1, notification)
         }
-        startAudio(payload.soundProfile, payload.ringtoneUri)
+        startAudio(payload.soundProfile, payload.ringtoneUri, payload.playbackVolumePercent)
         ringingOverlay.show(
             payload = payload,
             onStop = { stopRinging() },
@@ -260,41 +265,52 @@ class AlarmRingingService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun startAudio(profile: AlarmSoundProfile, selectedRingtoneUri: String?) {
+    private fun startAudio(
+        profile: AlarmSoundProfile,
+        selectedRingtoneUri: String?,
+        playbackVolumePercent: Int,
+    ) {
         if (profile == AlarmSoundProfile.SILENT) return
         val attributes = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_ALARM)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build()
+        val gain = playbackGain(playbackVolumePercent)
 
         if (profile == AlarmSoundProfile.ADHAN) {
+            val variant = AdhanVariant.fromStorage(selectedRingtoneUri)
             val player = MediaPlayer()
             try {
                 player.setAudioAttributes(attributes)
-                val rawResource = when (AdhanVariant.fromStorage(selectedRingtoneUri)) {
-            AdhanVariant.CLASSIC -> R.raw.adhan_cc0
-            AdhanVariant.BEAUTIFUL -> R.raw.adhan_beautiful_cc0
-            AdhanVariant.SHORT -> R.raw.adhan_short_cc0
-            AdhanVariant.EXTENDED -> R.raw.adhan_extended_cc_by_sa
-            AdhanVariant.COMPACT -> R.raw.adhan_compact_pd
-            AdhanVariant.ALTERNATIVE -> R.raw.adhan_alternative_cc_by_sa
-      }
-      resources.openRawResourceFd(rawResource).use { descriptor ->
-          player.setDataSource(
-              descriptor.fileDescriptor,
-              descriptor.startOffset,
-              descriptor.length,
-          )
-      }
+                resources.openRawResourceFd(adhanRawResource(variant)).use { descriptor ->
+                    player.setDataSource(
+                        descriptor.fileDescriptor,
+                        descriptor.startOffset,
+                        descriptor.length,
+                    )
+                }
                 player.isLooping = false
+                player.setVolume(gain, gain)
                 player.prepare()
-                player.start()
+                var remainingPlays = adhanRepeatCount(variant)
                 player.setOnCompletionListener { completed ->
-                    if (mediaPlayer === completed) mediaPlayer = null
-                    completed.release()
+                    remainingPlays -= 1
+                    if (remainingPlays > 0 && mediaPlayer === completed) {
+                        runCatching {
+                            completed.seekTo(0)
+                            completed.start()
+                        }.onFailure {
+                            if (mediaPlayer === completed) mediaPlayer = null
+                            completed.release()
+                        }
+                    } else {
+                        if (mediaPlayer === completed) mediaPlayer = null
+                        completed.release()
+                    }
                 }
                 mediaPlayer = player
-            } catch (throwable: Throwable) {
+                player.start()
+            } catch (_: Throwable) {
                 player.release()
                 mediaPlayer = null
             }
@@ -317,6 +333,7 @@ class AlarmRingingService : Service() {
                 player.setAudioAttributes(attributes)
                 player.setDataSource(this, uri)
                 player.isLooping = true
+                player.setVolume(gain, gain)
                 player.prepare()
                 player.start()
             }.isSuccess
@@ -407,6 +424,21 @@ class AlarmRingingService : Service() {
                 payload,
             )
     }
+}
+
+internal fun playbackGain(percent: Int): Float = percent.coerceIn(0, 100) / 100f
+
+internal fun adhanRepeatCount(variant: AdhanVariant): Int =
+    if (variant == AdhanVariant.TAKBIR_X2) 2 else 1
+
+internal fun adhanRawResource(variant: AdhanVariant): Int = when (variant) {
+    AdhanVariant.CLASSIC -> R.raw.adhan_cc0
+    AdhanVariant.BEAUTIFUL -> R.raw.adhan_beautiful_cc0
+    AdhanVariant.SHORT -> R.raw.adhan_short_cc0
+    AdhanVariant.TAKBIR_X2 -> R.raw.takbir_allahuakbar_cc0
+    AdhanVariant.EXTENDED -> R.raw.adhan_extended_cc_by_sa
+    AdhanVariant.COMPACT -> R.raw.adhan_compact_pd
+    AdhanVariant.ALTERNATIVE -> R.raw.adhan_alternative_cc_by_sa
 }
 
 private fun AlarmPrayer.displayName(): String = when (this) {

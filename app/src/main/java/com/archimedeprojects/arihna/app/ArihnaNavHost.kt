@@ -38,6 +38,7 @@ import com.archimedeprojects.arihna.feature.alarms.AlarmsViewModel
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmDiagnosticTestScheduler
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmFullScreenAccess
 import com.archimedeprojects.arihna.feature.alarms.platform.ExactAlarmAccessIntentFactory
+import com.archimedeprojects.arihna.feature.home.DailyInspirationNotificationController
 import com.archimedeprojects.arihna.feature.home.HomePrayerScheduleRoute
 import com.archimedeprojects.arihna.feature.prayers.PrayerTimesRoute
 import com.archimedeprojects.arihna.feature.prayerschedule.presentation.PrayerScheduleViewModel
@@ -85,6 +86,7 @@ fun ArihnaNavHost(
     exactAlarmAccessIntentFactory: ExactAlarmAccessIntentFactory,
     alarmFullScreenAccess: AlarmFullScreenAccess,
     alarmDiagnosticTestScheduler: AlarmDiagnosticTestScheduler,
+    dailyInspirationNotificationController: DailyInspirationNotificationController,
     qiblaRepository: QiblaRepository,
     locationEnvironment: AndroidLocationEnvironment,
     locationPermissionStateResolver: AndroidLocationPermissionStateResolver,
@@ -210,6 +212,7 @@ fun ArihnaNavHost(
                     exactAlarmAccessIntentFactory = exactAlarmAccessIntentFactory,
                     alarmFullScreenAccess = alarmFullScreenAccess,
                     alarmDiagnosticTestScheduler = alarmDiagnosticTestScheduler,
+                    dailyInspirationNotificationController = dailyInspirationNotificationController,
                 )
             }
         }

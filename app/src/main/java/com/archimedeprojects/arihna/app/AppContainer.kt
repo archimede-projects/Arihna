@@ -19,6 +19,8 @@ import com.archimedeprojects.arihna.core.qibla.heading.DeviceHeadingDataSource
 import com.archimedeprojects.arihna.core.qibla.platform.AndroidDeviceHeadingDataSource
 import com.archimedeprojects.arihna.feature.alarms.data.AlarmRuleRepository
 import com.archimedeprojects.arihna.feature.alarms.data.preferences.PreferencesDataStoreAlarmRuleRepository
+import com.archimedeprojects.arihna.feature.alarms.data.preferences.PreferencesDataStorePrayerAlertPreferencesRepository
+import com.archimedeprojects.arihna.feature.alarms.domain.AlarmDefinition
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmReconciler
 import com.archimedeprojects.arihna.feature.alarms.domain.RepositoryAlarmPrayerScheduleSource
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmDiagnosticTestScheduler
@@ -34,6 +36,7 @@ import com.archimedeprojects.arihna.feature.alarms.platform.AndroidExactAlarmBac
 import com.archimedeprojects.arihna.feature.alarms.platform.DefaultAlarmPlatformScheduler
 import com.archimedeprojects.arihna.feature.alarms.platform.DefaultAlarmReconciliationTrigger
 import com.archimedeprojects.arihna.feature.alarms.platform.ExactAlarmAccessIntentFactory
+import com.archimedeprojects.arihna.feature.home.DailyInspirationNotificationController
 import com.archimedeprojects.arihna.feature.prayerschedule.data.PrayerSettingsRepository
 import com.archimedeprojects.arihna.feature.prayerschedule.data.preferences.PreferencesDataStorePrayerSettingsRepository
 import com.archimedeprojects.arihna.feature.prayerschedule.domain.DefaultPrayerScheduleRepository
@@ -57,6 +60,12 @@ class AppContainer(context: Context) {
     }
     val alarmRuleRepository: AlarmRuleRepository by lazy {
         PreferencesDataStoreAlarmRuleRepository(appContext.locationPreferencesDataStore)
+    }
+    val prayerAlertPreferencesRepository by lazy {
+        PreferencesDataStorePrayerAlertPreferencesRepository(appContext.locationPreferencesDataStore)
+    }
+    val dailyInspirationNotificationController by lazy {
+        DailyInspirationNotificationController(appContext, appContext.locationPreferencesDataStore)
     }
     val alarmPlatformScheduler: AlarmPlatformScheduler by lazy {
         DefaultAlarmPlatformScheduler(AndroidExactAlarmBackend(appContext))
@@ -113,6 +122,10 @@ class AppContainer(context: Context) {
             ruleRepository = alarmRuleRepository,
             notificationDelivery = alarmNotificationDelivery,
             reconcileNow = { alarmReconciler.reconcile() },
+            playbackVolumePercent = { rule ->
+                val prayer = (rule.definition as? AlarmDefinition.PrayerLinked)?.prayer
+                if (prayer == null) 100 else prayerAlertPreferencesRepository.volumeFor(prayer)
+            },
         )
     }
     val alarmReconciliationTrigger: AlarmReconciliationTrigger by lazy {

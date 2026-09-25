@@ -6,9 +6,9 @@ import org.junit.Test
 
 class AdhanVariantTest {
     @Test
-    fun catalogueContainsSixStableDistinctVariants() {
+    fun catalogueContainsSevenStableDistinctVariants() {
         val values = AdhanVariant.entries.map { it.storageValue }
-        assertEquals(6, values.size)
+        assertEquals(7, values.size)
         assertEquals(values.size, values.toSet().size)
         assertNotEquals(AdhanVariant.CLASSIC.storageValue, AdhanVariant.BEAUTIFUL.storageValue)
     }
@@ -18,6 +18,7 @@ class AdhanVariantTest {
         assertEquals("arihna://adhan/classic", AdhanVariant.CLASSIC.storageValue)
         assertEquals("arihna://adhan/beautiful", AdhanVariant.BEAUTIFUL.storageValue)
         assertEquals("arihna://adhan/short", AdhanVariant.SHORT.storageValue)
+        assertEquals("arihna://adhan/takbir-x2", AdhanVariant.TAKBIR_X2.storageValue)
     }
 
     @Test

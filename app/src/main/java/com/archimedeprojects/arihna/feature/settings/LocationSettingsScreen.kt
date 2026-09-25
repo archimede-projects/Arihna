@@ -1,6 +1,7 @@
 package com.archimedeprojects.arihna.feature.settings
 
 import android.app.Activity
+import android.app.TimePickerDialog
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -8,6 +9,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,6 +42,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -46,6 +50,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -82,6 +87,10 @@ import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeChangeRes
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeController
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeState
 import com.archimedeprojects.arihna.feature.alarms.platform.ExactAlarmAccessIntentFactory
+import com.archimedeprojects.arihna.feature.home.DailyInspirationNotificationController
+import com.archimedeprojects.arihna.feature.home.DailyInspirationNotificationSettings
+import java.time.LocalTime
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 private val SettingsBackgroundTop = ArihnaDawnTop
@@ -106,8 +115,13 @@ fun LocationSettingsRoute(
     exactAlarmAccessIntentFactory: ExactAlarmAccessIntentFactory,
     alarmFullScreenAccess: AlarmFullScreenAccess,
     alarmDiagnosticTestScheduler: AlarmDiagnosticTestScheduler,
+    dailyInspirationNotificationController: DailyInspirationNotificationController,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val dailyInspirationSettings by dailyInspirationNotificationController.settings.collectAsState(
+        initial = DailyInspirationNotificationSettings(),
+    )
+    val coroutineScope = rememberCoroutineScope()
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
     ) {
@@ -174,6 +188,26 @@ fun LocationSettingsRoute(
             alarmVolumeMessage = alarmVolumeMessage,
             diagnosticMessage = diagnosticMessage,
         ),
+        dailyInspirationSettings = dailyInspirationSettings,
+        onDailyInspirationEnabled = { enabled ->
+            coroutineScope.launch {
+                dailyInspirationNotificationController.setEnabled(enabled)
+            }
+        },
+        onDailyInspirationTimeClick = {
+            val current = dailyInspirationSettings.deliveryTime
+            TimePickerDialog(
+                activity,
+                { _, hour, minute ->
+                    coroutineScope.launch {
+                        dailyInspirationNotificationController.setTime(LocalTime.of(hour, minute))
+                    }
+                },
+                current.hour,
+                current.minute,
+                true,
+            ).show()
+        },
         onAlarmVolumeChange = { requested ->
             when (val result = alarmVolumeController.setVolume(requested)) {
                 is AlarmVolumeChangeResult.Success -> {
@@ -217,6 +251,9 @@ fun LocationSettingsScreen(
     onOpenAppSettings: () -> Unit,
     onOpenLocationSettings: () -> Unit,
     alarmSettings: AlarmSettingsPresentation = AlarmSettingsPresentation(),
+    dailyInspirationSettings: DailyInspirationNotificationSettings = DailyInspirationNotificationSettings(),
+    onDailyInspirationEnabled: (Boolean) -> Unit = {},
+    onDailyInspirationTimeClick: () -> Unit = {},
     onAlarmVolumeChange: (Int) -> Unit = {},
     onTestAlarm: () -> Unit = {},
     onTestAdhan: () -> Unit = {},
@@ -236,6 +273,7 @@ fun LocationSettingsScreen(
                 end = 18.dp,
                 bottom = contentPadding.calculateBottomPadding() + 6.dp,
             )
+            .verticalScroll(rememberScrollState())
             .testTag("settings-root"),
         verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
@@ -265,6 +303,13 @@ fun LocationSettingsScreen(
         LanguageSettingsCard(
             selected = languageController.language,
             onSelect = languageController::updateLanguage,
+        )
+
+        SettingsSectionTitle(appText("Ispirazione quotidiana", "إلهام اليوم"), "settings-section-daily-inspiration")
+        DailyInspirationNotificationCard(
+            settings = dailyInspirationSettings,
+            onEnabled = onDailyInspirationEnabled,
+            onTimeClick = onDailyInspirationTimeClick,
         )
 
         SettingsSectionTitle(appText("Posizione", "الموقع"), "settings-section-location")
@@ -558,6 +603,81 @@ private fun LanguageSettingsCard(
                     contentColor = SettingsText,
                 ),
             ) { Text("العربية", fontWeight = FontWeight.Bold) }
+        }
+    }
+}
+
+@Composable
+private fun DailyInspirationNotificationCard(
+    settings: DailyInspirationNotificationSettings,
+    onEnabled: (Boolean) -> Unit,
+    onTimeClick: () -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("settings-daily-inspiration-card"),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = SettingsSurface),
+        border = BorderStroke(1.dp, SettingsOutline),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        appText("Frase del giorno", "عبارة اليوم"),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = SettingsText,
+                    )
+                    Text(
+                        appText(
+                            "Ricevi l'ispirazione della Home come notifica quotidiana",
+                            "استلم إلهام الصفحة الرئيسية كإشعار يومي",
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SettingsMuted,
+                    )
+                }
+                Switch(
+                    checked = settings.enabled,
+                    onCheckedChange = onEnabled,
+                    modifier = Modifier.testTag("settings-daily-inspiration-switch"),
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    appText("Ora", "الوقت"),
+                    color = SettingsMuted,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                TextButton(
+                    onClick = onTimeClick,
+                    modifier = Modifier.testTag("settings-daily-inspiration-time"),
+                ) {
+                    Text(
+                        String.format(
+                            java.util.Locale.ROOT,
+                            "%02d:%02d",
+                            settings.deliveryTime.hour,
+                            settings.deliveryTime.minute,
+                        ),
+                        color = SettingsText,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
         }
     }
 }
