@@ -25,7 +25,10 @@ val prepareTakbirAudio by tasks.registering {
     outputs.file(target)
     doLast {
         target.parentFile.mkdirs()
-        URI(takbirSourceUrl).toURL().openStream().use { input ->
+        val connection = URI(takbirSourceUrl).toURL().openConnection().apply {
+            setRequestProperty("User-Agent", "Arihna-build/1.0 (+https://github.com/archimede-projects/Arihna)")
+        }
+        connection.getInputStream().use { input ->
             target.outputStream().use { output -> input.copyTo(output) }
         }
         check(target.length() == takbirSourceSize) {
