@@ -59,15 +59,19 @@ data class QuranCorpus(
                 )
             }.toList()
 
-        fun load(context: Context): QuranCorpus {
+        private fun loadAssetCorpus(context: Context, textAsset: String): QuranCorpus {
             fun asset(name: String): String = context.assets.open("quran/$name")
                 .bufferedReader(Charsets.UTF_8)
                 .use { it.readText() }
             return parse(
-                quranText = asset("quran-uthmani.txt"),
+                quranText = asset(textAsset),
                 juzJson = asset("juz-info.json"),
                 hizbJson = asset("hizb-info.json"),
             )
         }
+
+        fun load(context: Context): QuranCorpus = loadAssetCorpus(context, "quran-uthmani.txt")
+
+        fun loadImlai(context: Context): QuranCorpus = loadAssetCorpus(context, "quran-imlai.txt")
     }
 }
