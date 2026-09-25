@@ -106,27 +106,13 @@ jobs:
           '        putExtra(EXTRA_IS_PRAYER, payload.isPrayer)\n        putExtra(EXTRA_PRAYER, payload.prayer?.name)\n        putExtra(EXTRA_OCCURRENCE_TOKEN, payload.occurrenceToken)',
           'intent prayer put')
           s=rep(s,
-          '''        val token = intent.getStringExtra(EXTRA_OCCURRENCE_TOKEN)?.takeIf { it.isNotBlank() } ?: return null
-              return AlarmRingingPayload(
-                  alarmId = alarmId,
-                  ruleRevision = ruleRevision,
-                  title = title,
-                  soundProfile = sound,
-                  isPrayer = intent.getBooleanExtra(EXTRA_IS_PRAYER, false),
-                  occurrenceToken = token,''',
-          '''        val token = intent.getStringExtra(EXTRA_OCCURRENCE_TOKEN)?.takeIf { it.isNotBlank() } ?: return null
-              val prayer = intent.getStringExtra(EXTRA_PRAYER)?.let { encoded ->
-                  runCatching { AlarmPrayer.valueOf(encoded) }.getOrNull()
-              }
-              return AlarmRingingPayload(
-                  alarmId = alarmId,
-                  ruleRevision = ruleRevision,
-                  title = title,
-                  soundProfile = sound,
-                  isPrayer = intent.getBooleanExtra(EXTRA_IS_PRAYER, false),
-                  prayer = prayer,
-                  occurrenceToken = token,''',
-          'intent prayer decode')
+          '        val token = intent.getStringExtra(EXTRA_OCCURRENCE_TOKEN)?.takeIf { it.isNotBlank() } ?: return null\n',
+          '        val token = intent.getStringExtra(EXTRA_OCCURRENCE_TOKEN)?.takeIf { it.isNotBlank() } ?: return null\n        val prayer = intent.getStringExtra(EXTRA_PRAYER)?.let { encoded ->\n            runCatching { AlarmPrayer.valueOf(encoded) }.getOrNull()\n        }\n',
+          'intent prayer decode value')
+          s=rep(s,
+          '            isPrayer = intent.getBooleanExtra(EXTRA_IS_PRAYER, false),\n            occurrenceToken = token,',
+          '            isPrayer = intent.getBooleanExtra(EXTRA_IS_PRAYER, false),\n            prayer = prayer,\n            occurrenceToken = token,',
+          'intent prayer payload')
           s=rep(s,
           '        startAudio(payload.soundProfile, payload.ringtoneUri)',
           '        startAudio(payload.soundProfile, payload.ringtoneUri, payload.prayer)',
