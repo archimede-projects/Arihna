@@ -106,14 +106,16 @@ jobs:
           '        putExtra(EXTRA_IS_PRAYER, payload.isPrayer)\n        putExtra(EXTRA_PRAYER, payload.prayer?.name)\n        putExtra(EXTRA_OCCURRENCE_TOKEN, payload.occurrenceToken)',
           'intent prayer put')
           s=rep(s,
-          '''        return AlarmRingingPayload(
-              alarmId = alarmId,
-              ruleRevision = ruleRevision,
-              title = title,
-              soundProfile = sound,
-              isPrayer = intent.getBooleanExtra(EXTRA_IS_PRAYER, false),
-              occurrenceToken = token,''',
-          '''        val prayer = intent.getStringExtra(EXTRA_PRAYER)?.let { encoded ->
+          '''        val token = intent.getStringExtra(EXTRA_OCCURRENCE_TOKEN)?.takeIf { it.isNotBlank() } ?: return null
+              return AlarmRingingPayload(
+                  alarmId = alarmId,
+                  ruleRevision = ruleRevision,
+                  title = title,
+                  soundProfile = sound,
+                  isPrayer = intent.getBooleanExtra(EXTRA_IS_PRAYER, false),
+                  occurrenceToken = token,''',
+          '''        val token = intent.getStringExtra(EXTRA_OCCURRENCE_TOKEN)?.takeIf { it.isNotBlank() } ?: return null
+              val prayer = intent.getStringExtra(EXTRA_PRAYER)?.let { encoded ->
                   runCatching { AlarmPrayer.valueOf(encoded) }.getOrNull()
               }
               return AlarmRingingPayload(
