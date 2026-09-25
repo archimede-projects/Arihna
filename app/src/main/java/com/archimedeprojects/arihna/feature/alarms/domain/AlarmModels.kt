@@ -25,6 +25,7 @@ enum class AdhanVariant(
     CLASSIC("classic", "Adhan classico"),
     BEAUTIFUL("beautiful", "Adhan armonioso"),
     SHORT("short", "Adhan breve"),
+    TAKBIR_X2("takbir-x2", "Takbīr breve · Allahu Akbar ×2"),
     EXTENDED("extended", "Adhan disteso"),
     COMPACT("compact", "Adhan compatto"),
     ALTERNATIVE("alternative", "Adhan alternativo"),
@@ -63,10 +64,12 @@ data class AlarmRule(
     val definition: AlarmDefinition,
     val ringtoneUri: String? = null,
     val ringtoneTitle: String? = null,
+    val playbackVolumePercent: Int = 100,
 ) {
     init {
         require(alarmId.isNotBlank()) { "alarmId must not be blank" }
         require(revision > 0L) { "revision must be positive" }
+        require(playbackVolumePercent in 0..100) { "playbackVolumePercent must be in 0..100" }
     }
 
     val isOneShotCustom: Boolean
