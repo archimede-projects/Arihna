@@ -250,41 +250,9 @@ jobs:
                   },
               )
           }'''+s[route_end:]
-          old='''    fun play(variant: AdhanVariant) {
-              stop()
-              val rawResource = when (variant) {
-                  AdhanVariant.CLASSIC -> R.raw.adhan_cc0
-                  AdhanVariant.BEAUTIFUL -> R.raw.adhan_beautiful_cc0
-                  AdhanVariant.SHORT -> R.raw.adhan_short_cc0
-                  AdhanVariant.EXTENDED -> R.raw.adhan_extended_cc_by_sa
-                  AdhanVariant.COMPACT -> R.raw.adhan_compact_pd
-                  AdhanVariant.ALTERNATIVE -> R.raw.adhan_alternative_cc_by_sa
-              }
-              val next = MediaPlayer()
-              try {
-                  next.setAudioAttributes(
-                      AudioAttributes.Builder()
-                          .setUsage(AudioAttributes.USAGE_MEDIA)
-                          .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                          .build(),
-                  )
-                  context.resources.openRawResourceFd(rawResource).use { descriptor ->
-                      next.setDataSource(descriptor.fileDescriptor, descriptor.startOffset, descriptor.length)
-                  }
-                  next.isLooping = false
-                  next.prepare()
-                  next.setOnCompletionListener { completed ->
-                      if (player === completed) player = null
-                      completed.release()
-                  }
-                  player = next
-                  next.start()
-              } catch (_: Throwable) {
-                  next.release()
-                  player = null
-              }
-          }'''
-          new='''    fun play(variant: AdhanVariant, volumePercent: Int) {
+          preview_start=s.index('    fun play(variant: AdhanVariant) {')
+          preview_end=s.index('\n    fun stop() {', preview_start)
+          s=s[:preview_start]+'''    fun play(variant: AdhanVariant, volumePercent: Int) {
               stop()
               val rawResource = when (variant) {
                   AdhanVariant.CLASSIC -> R.raw.adhan_cc0
@@ -332,8 +300,7 @@ jobs:
                   next.release()
                   player = null
               }
-          }'''
-          s=rep(s,old,new,'preview play')
+          }'''+s[preview_end:]
           s=rep(s,
           '''private fun PrayerSoundDialog(
               rule: AlarmRule,
