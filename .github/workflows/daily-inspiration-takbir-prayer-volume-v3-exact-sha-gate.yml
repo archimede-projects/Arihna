@@ -180,7 +180,7 @@ jobs:
           unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
           echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
       - run: sudo chmod 666 /dev/kvm || true
-      - uses: reactivecircus/android-emulator-runner@v3
+      - uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 28
           target: google_apis
@@ -284,7 +284,7 @@ jobs:
           SH
           chmod +x /tmp/api36-gate.sh
       - run: sudo chmod 666 /dev/kvm || true
-      - uses: reactivecircus/android-emulator-runner@v3
+      - uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 36
           target: google_apis
