@@ -236,7 +236,7 @@ class QuranFullscreenAndroidTest {
         composeRule.onNodeWithTag("quran-tajwid-beta-disclaimer").assertIsDisplayed()
         composeRule.onNodeWithTag("quran-tajwid-page-surface-2").assertIsDisplayed()
         composeRule.onNodeWithTag("quran-mode-tabs").assertIsDisplayed()
-        listOf("quran-mode-hafs", "quran-mode-tajwid", "quran-mode-warsh", "quran-mode-easy").forEach { tag ->
+        listOf("quran-mode-hafs", "quran-mode-tajwid", "quran-mode-warsh", "quran-writing-imlai").forEach { tag ->
             composeRule.onNodeWithTag(tag).assertIsDisplayed()
         }
         assertEquals(0, composeRule.onAllNodesWithTag("quran-tajwid-ayah-2-1").fetchSemanticsNodes().size)

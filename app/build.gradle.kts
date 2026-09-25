@@ -8,6 +8,8 @@ plugins {
 }
 
 val quranSourceCommit = "a5284b17034d36567e4a4bac982a17ba56837448"
+val quranImlaiSourceCommit = "c23f5cec2e95e253dc450bd0f34d09e37ba40fac"
+val quranImlaiSourceBlob = "b7b0b3db111cf183d1439ff76dc38d61d743592d"
 val quranSvgCommit = "78d97544bfdc57e9f04bc97ace3f857ed972d772"
 val quranWarshSvgCommit = "b91d39e1065b57bdda3e94aca8ecf3575e50e1e6"
 val quranMetadataCommit = "052b515f3a24dfacbe4cafc3b89f0681a447f462"
@@ -33,6 +35,43 @@ val prepareQuranAssets by tasks.registering {
             }
             check(target.isFile && target.length() > 0L) { "Missing Quran asset: $name" }
         }
+
+        // Quran in الرسم الإملائي: Tanzil Simple v1.1, mirrored verbatim at a pinned
+        // dotquran/corpus commit. The source file includes the Tanzil CC BY 3.0 notice.
+        val imlaiTarget = quranDir.resolve("quran-imlai.txt")
+        URI(
+            "https://raw.githubusercontent.com/dotquran/corpus/$quranImlaiSourceCommit/src/resources/simple.txt",
+        ).toURL().openStream().use { input ->
+            imlaiTarget.outputStream().use { output -> input.copyTo(output) }
+        }
+        check(imlaiTarget.isFile && imlaiTarget.length() > 0L) { "Missing pinned Tanzil Imlai Quran asset" }
+
+        fun ayahKeys(file: java.io.File): List<Pair<Int, Int>> =
+            file.readLines(Charsets.UTF_8)
+                .mapNotNull { line ->
+                    val parts = line.split('|', limit = 3)
+                    if (parts.size == 3 && parts[0].all(Char::isDigit) && parts[1].all(Char::isDigit)) {
+                        parts[0].toInt() to parts[1].toInt()
+                    } else {
+                        null
+                    }
+                }
+
+        val uthmaniKeys = ayahKeys(quranDir.resolve("quran-uthmani.txt"))
+        val imlaiKeys = ayahKeys(imlaiTarget)
+        check(imlaiKeys.size == 6236) { "Expected 6236 Imlai ayat, found ${imlaiKeys.size}" }
+        check(imlaiKeys.toSet().size == 6236) { "Duplicate Imlai surah:ayah keys" }
+        check(imlaiKeys.map { it.first }.distinct().size == 114) { "Expected 114 Imlai surahs" }
+        check(imlaiKeys.first() == (1 to 1) && imlaiKeys.last() == (114 to 6)) {
+            "Unexpected Imlai Quran boundary keys"
+        }
+        check(imlaiKeys == uthmaniKeys) {
+            "Imlai and pinned Hafs Uthmani surah:ayah structures differ"
+        }
+        val imlaiNotice = imlaiTarget.readText(Charsets.UTF_8)
+        check("Tanzil Quran Text (Simple, Version 1.1)" in imlaiNotice)
+        check("License: Creative Commons Attribution 3.0" in imlaiNotice)
+        check("CHANGING IT IS NOT ALLOWED" in imlaiNotice)
 
         // Pinned Tanzil metadata supplies canonical Page/Juz/Hizb start coordinates.
         val metadataTarget = quranDir.resolve("quran-data.js")

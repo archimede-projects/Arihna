@@ -187,6 +187,7 @@ internal object QuranReadingPrefs {
     private const val LEGACY_RECENT = "recent_mushaf_pages_v1"
     private const val KEY_MODE = "quran_reading_mode_v1"
     private const val KEY_VISUAL_STYLE = "quran_visual_style_v1"
+    private const val KEY_WRITING_STYLE = "quran_writing_style_v1"
     private const val KEY_BOOKMARKS_PREFIX = "mushaf_bookmarks_v2_"
     private const val KEY_LAST_PAGE_PREFIX = "last_mushaf_page_v2_"
     private const val KEY_RECENT_PREFIX = "recent_mushaf_pages_v2_"
@@ -333,12 +334,51 @@ internal object QuranReadingPrefs {
             .apply()
     }
 
-    fun mode(context: Context): QuranReadingMode = runCatching {
-        QuranReadingMode.valueOf(prefs(context).getString(KEY_MODE, QuranReadingMode.HAFS_UTHMANI.name).orEmpty())
-    }.getOrDefault(QuranReadingMode.HAFS_UTHMANI)
+    private fun migrateLegacyEasy(context: Context) {
+        val p = prefs(context)
+        if (p.getString(KEY_MODE, null) == QuranReadingMode.EASY.name) {
+            p.edit()
+                .putString(KEY_MODE, QuranReadingMode.HAFS_UTHMANI.name)
+                .putString(KEY_WRITING_STYLE, QuranWritingStyle.IMLAI.name)
+                .apply()
+        }
+    }
+
+    fun mode(context: Context): QuranReadingMode {
+        migrateLegacyEasy(context)
+        return runCatching {
+            QuranReadingMode.valueOf(
+                prefs(context).getString(KEY_MODE, QuranReadingMode.HAFS_UTHMANI.name).orEmpty(),
+            )
+        }.getOrDefault(QuranReadingMode.HAFS_UTHMANI)
+            .let { if (it == QuranReadingMode.EASY) QuranReadingMode.HAFS_UTHMANI else it }
+    }
 
     fun setMode(context: Context, mode: QuranReadingMode) {
-        prefs(context).edit().putString(KEY_MODE, mode.name).apply()
+        val editor = prefs(context).edit()
+        if (mode == QuranReadingMode.EASY) {
+            editor
+                .putString(KEY_MODE, QuranReadingMode.HAFS_UTHMANI.name)
+                .putString(KEY_WRITING_STYLE, QuranWritingStyle.IMLAI.name)
+        } else {
+            editor
+                .putString(KEY_MODE, mode.name)
+                .putString(KEY_WRITING_STYLE, QuranWritingStyle.MUSHAF.name)
+        }
+        editor.apply()
+    }
+
+    fun writingStyle(context: Context): QuranWritingStyle {
+        migrateLegacyEasy(context)
+        return runCatching {
+            QuranWritingStyle.valueOf(
+                prefs(context).getString(KEY_WRITING_STYLE, QuranWritingStyle.MUSHAF.name).orEmpty(),
+            )
+        }.getOrDefault(QuranWritingStyle.MUSHAF)
+    }
+
+    fun setWritingStyle(context: Context, style: QuranWritingStyle) {
+        prefs(context).edit().putString(KEY_WRITING_STYLE, style.name).apply()
     }
 
     fun visualStyle(context: Context): MushafVisualStyle = runCatching {
