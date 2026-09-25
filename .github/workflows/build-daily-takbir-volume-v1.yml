@@ -325,65 +325,43 @@ jobs:
               val previewPlayer = remember(context, rule.alarmId) { AdhanPreviewPlayer(context.applicationContext) }''',
           'dialog volume state')
           s=s.replace('previewPlayer.play(variant)', 'previewPlayer.play(variant, prayerVolumePercent)')
-          anchor='''                    SoundListRow(
-                          title = appText("Silenzioso", "صامت"),
-                          icon = Icons.Rounded.VolumeOff,
-                          selected = profile == AlarmSoundProfile.SILENT,
-                      ) {
-                          previewPlayer.stop()
-                          previewing = null
-                          profile = AlarmSoundProfile.SILENT
-                          ringtoneUri = null
-                          ringtoneTitle = null
-                      }
-                  }'''
-          replacement='''                    SoundListRow(
-                          title = appText("Silenzioso", "صامت"),
-                          icon = Icons.Rounded.VolumeOff,
-                          selected = profile == AlarmSoundProfile.SILENT,
-                      ) {
-                          previewPlayer.stop()
-                          previewing = null
-                          profile = AlarmSoundProfile.SILENT
-                          ringtoneUri = null
-                          ringtoneTitle = null
-                      }
+          volume_anchor=s.index('                    SoundListRow(\n                        title = appText("Silenzioso", "صامت"),')
+          volume_insert=s.index('\n                }\n            }\n        },\n        confirmButton', volume_anchor)
+          s=s[:volume_insert]+'''
 
+                  Text(
+                      appText("Volume di questa preghiera", "مستوى صوت هذه الصلاة"),
+                      fontWeight = FontWeight.ExtraBold,
+                      color = OrariForest,
+                  )
+                  Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      verticalAlignment = Alignment.CenterVertically,
+                      horizontalArrangement = Arrangement.spacedBy(10.dp),
+                  ) {
+                      Slider(
+                          value = prayerVolumePercent.toFloat(),
+                          onValueChange = { prayerVolumePercent = it.toInt().coerceIn(0, 100) },
+                          valueRange = 0f..100f,
+                          modifier = Modifier
+                              .weight(1f)
+                              .testTag("prayer-volume-slider-$prayerTag"),
+                      )
                       Text(
-                          appText("Volume di questa preghiera", "مستوى صوت هذه الصلاة"),
+                          "$prayerVolumePercent%",
+                          color = OrariGreen,
                           fontWeight = FontWeight.ExtraBold,
-                          color = OrariForest,
+                          modifier = Modifier.testTag("prayer-volume-value-$prayerTag"),
                       )
-                      Row(
-                          modifier = Modifier.fillMaxWidth(),
-                          verticalAlignment = Alignment.CenterVertically,
-                          horizontalArrangement = Arrangement.spacedBy(10.dp),
-                      ) {
-                          Slider(
-                              value = prayerVolumePercent.toFloat(),
-                              onValueChange = { prayerVolumePercent = it.toInt().coerceIn(0, 100) },
-                              valueRange = 0f..100f,
-                              modifier = Modifier
-                                  .weight(1f)
-                                  .testTag("prayer-volume-slider-$prayerTag"),
-                          )
-                          Text(
-                              "$prayerVolumePercent%",
-                              color = OrariGreen,
-                              fontWeight = FontWeight.ExtraBold,
-                              modifier = Modifier.testTag("prayer-volume-value-$prayerTag"),
-                          )
-                      }
-                      Text(
-                          appText(
-                              "Scala il volume sveglia Android solo per questa preghiera.",
-                              "يخفض أو يرفع مستوى منبه أندرويد لهذه الصلاة فقط.",
-                          ),
-                          style = MaterialTheme.typography.bodySmall,
-                          color = OrariForest.copy(alpha = 0.66f),
-                      )
-                  }'''
-          s=rep(s,anchor,replacement,'dialog volume controls')
+                  }
+                  Text(
+                      appText(
+                          "Scala il volume sveglia Android solo per questa preghiera.",
+                          "يخفض أو يرفع مستوى منبه أندرويد لهذه الصلاة فقط.",
+                      ),
+                      style = MaterialTheme.typography.bodySmall,
+                      color = OrariForest.copy(alpha = 0.66f),
+                  )'''+s[volume_insert:]
           s=rep(s,
           '                    onSave(profile, storedUri, storedTitle)',
           '                    onSave(profile, storedUri, storedTitle, prayerVolumePercent)',
