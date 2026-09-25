@@ -62,10 +62,10 @@ UI:
 
 Persistence:
 
-- version the alarm-rule codec migration safely;
-- V1/V2 persisted rules must still decode;
-- missing prayer volume migrates to 100%;
-- updating sound or enable state must not reset stored prayer volume.
+- store prayer playback percentages in dedicated prayer-alert preferences keyed by Fajr/Dhuhr/Asr/Maghrib/Isha;
+- do not rewrite or version the existing alarm-rule codec solely for this feature;
+- missing values migrate implicitly to 100%;
+- updating sound, enable state or alarm-rule revision must not reset stored prayer volume.
 
 ## Daily inspiration notification
 
@@ -106,9 +106,10 @@ Candidate must remain exactly one commit and a direct child of this SPEC.
 
 Add deterministic coverage for at least:
 
-- existing alarm V1/V2 persistence -> prayer volume = 100%;
-- new persistence round-trip retains independent prayer volumes;
-- sound/profile changes preserve prayer volume;
+- existing alarm V1/V2 persistence remains unchanged;
+- missing prayer-volume preferences resolve to 100%;
+- dedicated preference round-trip retains independent prayer volumes;
+- sound/profile changes do not alter prayer-volume preferences;
 - ringing payload carries prayer volume;
 - local playback gain conversion clamps 0..100%;
 - two-takbir variant has a unique stable storage ID and exact dedicated resource mapping;
