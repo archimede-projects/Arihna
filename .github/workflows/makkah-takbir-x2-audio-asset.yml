@@ -58,8 +58,12 @@ jobs:
           FOUND="$(find /tmp/probe -type f -name "$DERIVED_NAME" -print -quit)"
           test -n "$FOUND"
           cp "$FOUND" "$DERIVED_NAME"
-          test "$(stat -c '%s' "$DERIVED_NAME")" = "$DERIVED_SIZE"
-          test "$(sha256sum "$DERIVED_NAME" | awk '{print $1}')" = "$DERIVED_SHA256"
+          ACTUAL_SIZE="$(stat -c '%s' "$DERIVED_NAME")"
+          ACTUAL_SHA="$(sha256sum "$DERIVED_NAME" | awk '{print $1}')"
+          echo "ACTUAL_SIZE=$ACTUAL_SIZE EXPECTED_SIZE=$DERIVED_SIZE"
+          echo "ACTUAL_SHA=$ACTUAL_SHA EXPECTED_SHA=$DERIVED_SHA256"
+          test "$ACTUAL_SIZE" = "$DERIVED_SIZE"
+          test "$ACTUAL_SHA" = "$DERIVED_SHA256"
 
       - name: Publish frozen audio asset
         env:
