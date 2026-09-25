@@ -12,8 +12,8 @@ enum class AlarmOccurrenceHandlingResult {
 class AlarmOccurrenceHandler(
     private val ruleRepository: AlarmRuleRepository,
     private val notificationDelivery: AlarmNotificationDelivery,
-    private val reconcileNow: suspend () -> Unit,
     private val playbackVolumePercent: suspend (com.archimedeprojects.arihna.feature.alarms.domain.AlarmRule) -> Int = { 100 },
+    private val reconcileNow: suspend () -> Unit,
 ) {
     suspend fun handle(envelope: AlarmOccurrenceEnvelope): AlarmOccurrenceHandlingResult {
         val rule = ruleRepository.get(envelope.alarmId)
