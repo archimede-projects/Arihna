@@ -1,0 +1,39 @@
+name: Makkah takbir source probe
+
+on:
+  push:
+    branches:
+      - driver/takbir-makkah-source-probe-20260925
+    paths:
+      - .github/workflows/takbir-makkah-source-probe.yml
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download verified Commons source and inspect first 35 seconds
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC='https://upload.wikimedia.org/wikipedia/commons/a/a7/Adhan%2C_Great_Mosque_of_Mecca_-_Jan_21%2C_2013.webm'
+          curl -fL --retry 4 --retry-delay 2 -A 'Arihna-build/1.0' "$SRC" -o /tmp/makkah.webm
+          echo "SOURCE_SIZE=$(stat -c '%s' /tmp/makkah.webm)"
+          echo "SOURCE_SHA256=$(sha256sum /tmp/makkah.webm | awk '{print $1}')"
+          ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 /tmp/makkah.webm | sed 's/^/SOURCE_DURATION=/'
+          ffmpeg -hide_banner -y -i /tmp/makkah.webm -t 35 -vn -ac 1 -ar 48000 /tmp/first35.wav
+          for DB in 30 35 40 45 50; do
+            echo "=== SILENCE -${DB}dB ==="
+            ffmpeg -hide_banner -nostats -i /tmp/first35.wav -af "silencedetect=noise=-${DB}dB:d=0.20" -f null - 2>&1 | grep -E 'silence_(start|end)' || true
+          done
+          ffmpeg -hide_banner -y -i /tmp/first35.wav -filter_complex "showwavespic=s=2400x500:colors=white" -frames:v 1 /tmp/waveform.png
+          ffmpeg -hide_banner -y -i /tmp/makkah.webm -t 35 -vn -c:a libopus -b:a 96k /tmp/first35.opus
+      - uses: actions/upload-artifact@v4
+        with:
+          name: makkah-adhan-source-probe
+          path: |
+            /tmp/waveform.png
+            /tmp/first35.opus
+          if-no-files-found: error
