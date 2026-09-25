@@ -1,0 +1,29 @@
+name: Fetch pinned takbir audio
+
+on:
+  push:
+    branches:
+      - driver/fetch-takbir-audio-20260925
+    paths:
+      - .github/workflows/fetch-takbir-audio.yml
+
+permissions:
+  contents: read
+
+jobs:
+  fetch:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Fetch and expose pinned CC0 asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://upload.wikimedia.org/wikipedia/commons/6/6b/Allahuakbar.opus'
+          curl -fL --retry 3 --retry-delay 2 "$URL" -o /tmp/takbir.opus
+          test -s /tmp/takbir.opus
+          echo "TAKBIR_SIZE=$(stat -c '%s' /tmp/takbir.opus)"
+          echo "TAKBIR_SHA256=$(sha256sum /tmp/takbir.opus | awk '{print $1}')"
+          echo 'TAKBIR_BASE64_BEGIN'
+          base64 -w0 /tmp/takbir.opus
+          echo
+          echo 'TAKBIR_BASE64_END'
