@@ -166,58 +166,31 @@ Release:
 - direct download: `https://github.com/archimede-projects/Arihna/releases/download/quran-imlai-0d7d12c2-20260925/arihna-quran-imlai.apk`
 
 ## Latest user request / actual work
-2026-09-25 user clarified the requested short prayer audio: the current short adhan is still a complete adhan; the desired option must pronounce only `الله أكبر` twice total and then stop.
+2026-09-25 user said: `Però che non stai facendo niente su GitHub. correggimi se sbaglio.`
 
-Actually done:
+Actually done / live-verified:
 - Read continuity from `chat-context`.
-- Live-verified current `main = 0d7d12c2e89a8012446bde6967d366f31ca8e77e`.
-- Recorded the user's physical Galaxy S25 result for Quran Imlāʾī as PASS.
-- Published the physically validated Imlāʾī runtime as a new stable release using byte-identical prerelease APK bytes.
-- Stable driver: `driver/stable-0d7d12c2-release-20260925`.
-- Stable workflow commit: `9f116813648e5869952821263422ec7d43214778`.
-- Stable workflow run `36129364528`: completed/success.
-- Stable job `108052809140`: completed/success.
-- Stable release `arihna-stable-0d7d12c2-20260925`, id `396546790`, target `0d7d12c2e89a8012446bde6967d366f31ca8e77e`, `draft=false`, `prerelease=false`.
-- Stable asset id `588214739`, `arihna.apk`, size `387455087`, SHA-256 `3f66fe87d29aab6d4163620339a06908e24e4a9b7431b4af02f979f88e9183ff`.
-- Inspected current prayer/alarm implementation:
-  - existing `AdhanVariant.SHORT` is only an existing adhan recording variant and must NOT be repurposed for the new semantics;
-  - current Settings volume control changes global Android `STREAM_ALARM`;
-  - ringing uses `MediaPlayer`, so a safe per-prayer local gain can be applied without permanently changing system alarm volume;
-  - daily inspiration already has a deterministic `dailyInspirationFor(date)` source suitable for notification reuse.
-- Created new SPEC branch `spec/daily-inspiration-takbir-prayer-volume-20260925`.
-- SPEC commit `00fff2b11b13b611eb50536387aa1942ba0483d3`, direct child of stable runtime `0d7d12c2...`.
-- SPEC file: `docs/specs/daily-inspiration-takbir-prayer-volume-20260925.md`.
-- No new runtime candidate has been created yet.
+- Live-verified `main = 0d7d12c2e89a8012446bde6967d366f31ca8e77e`; it is intentionally unchanged during current feature construction.
+- Live-verified current SPEC branch `spec/daily-inspiration-takbir-prayer-volume-20260925` at `a72bb5bcc57a15335f143f642b70447e7cf7d5ff` (`spec(audio): pin two-takbir source bytes`).
+- Live-verified scratch implementation branch `scratch/daily-inspiration-takbir-prayer-volume-v1-20260925` at `784799e4fd2c7c2701d30b372599d174f7373e12`.
+- Compare shows scratch is 19 commits ahead of the SPEC; these are active implementation/test commits, not yet the final candidate.
+- Current scratch work includes:
+  - per-prayer volume preference model/repository;
+  - daily inspiration notification controller + settings wiring + reschedule receiver;
+  - pinned CC0 takbir source download/provenance;
+  - exact two-takbir playback model and local gain;
+  - per-prayer volume UI;
+  - initial tests for adhan variant, alarm VM injection, daily notification payload.
+- No exact-SHA gate has been run yet for this feature and no new runtime has been promoted to `main`.
 
-## New feature semantics pinned by SPEC
-1. Daily inspiration notification:
-   - reuse exact Home `dailyInspirationFor(date)`;
-   - dedicated notification, not an alarm/fullscreen event;
-   - opt-in control, default OFF for existing users;
-   - default 08:00 device-local time with user-selectable time;
-   - no duplicate same-date delivery;
-   - reschedule on boot/time/timezone/app replacement;
-   - no exact-alarm requirement.
+Why `main` has not moved:
+- Project discipline requires the shipping candidate to be exactly one commit and a direct child of the SPEC.
+- The 19 scratch commits are deliberately temporary construction commits.
+- Only after implementation/test cleanup will they be compacted into one candidate commit direct child of SPEC `a72bb5c...`, then API28/API36 exact-SHA gates will run.
+- `main` will move only if those gates are green.
 
-2. Two-takbir prayer alert:
-   - distinct new option, not `AdhanVariant.SHORT`;
-   - exact audible content: `الله أكبر` + `الله أكبر`, then stop;
-   - no shahada/hayya/remaining adhan phrases;
-   - not a sped-up full adhan;
-   - existing adhan variants/storage IDs preserved.
-
-3. Per-prayer volume:
-   - independent 0–100% persisted level for Fajr/Dhuhr/Asr/Maghrib/Isha;
-   - migration default 100%;
-   - implemented as local MediaPlayer gain over the current Android alarm-stream baseline;
-   - never permanently change the phone's global alarm volume when a prayer fires;
-   - allows, for example, Fajr/Isha 100% and Dhuhr/Asr 40% when the global alarm baseline is set appropriately.
-
-## Current state / exact next action
-- Current stable baseline is now `arihna-stable-0d7d12c2-20260925`.
-- Current `main` remains `0d7d12c2...`; no new feature runtime changes are on main yet.
-- Exact next engineering action: create candidate v1 as exactly one commit direct child of SPEC `00fff2b...`, implementing:
-  1. dedicated exact two-takbir audio behavior;
-  2. per-prayer persisted volume sliders + playback gain;
-  3. daily inspiration notification scheduling/settings.
-- Then run full exact-SHA static/build + API28 + API36 gates; promote only if all green; publish signed S25 prerelease and physically validate before any stable promotion.
+## Exact next action
+- Finish remaining regression coverage and compile review on scratch.
+- Assemble/squash the finished tree into one candidate commit direct child of SPEC `a72bb5c...`.
+- Run exact-SHA static/build + API28 + API36 gates.
+- If green, fast-forward `main`, publish signed S25 prerelease, redownload/verify SHA-256 + signer, then request physical S25 validation.
