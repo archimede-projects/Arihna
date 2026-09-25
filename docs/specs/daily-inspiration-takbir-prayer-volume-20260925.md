@@ -155,3 +155,9 @@ Implementation contract:
 - no full-adhan asset is used for this option;
 - preview and real alarm use the same bundled bytes and the same exactly-two repetition count;
 - pin the downloaded asset byte size and SHA-256 in provenance/tests before candidate gating.
+
+Verified source bytes:
+- CI probe run: `36152777056`, job `108129908041` — success;
+- format: Ogg Opus, stereo, 48 kHz;
+- size: `21136` bytes;
+- SHA-256: `ccb7a98ba419b9e1163e57a41423016766fae9c07a004862423c757bab5985c3`.
