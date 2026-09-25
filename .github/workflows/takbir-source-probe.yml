@@ -1,0 +1,26 @@
+name: Takbir source probe
+
+on:
+  push:
+    branches:
+      - driver/takbir-source-probe-20260925
+    paths:
+      - .github/workflows/takbir-source-probe.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify-source:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download pinned Commons takbir source
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://commons.wikimedia.org/wiki/Special:Redirect/file/Allahuakbar.opus'
+          curl -fL --retry 4 --retry-delay 2 "$URL" -o /tmp/allahuakbar.opus
+          test -s /tmp/allahuakbar.opus
+          file /tmp/allahuakbar.opus
+          echo "TAKBIR_SIZE=$(stat -c '%s' /tmp/allahuakbar.opus)"
+          echo "TAKBIR_SHA256=$(sha256sum /tmp/allahuakbar.opus | awk '{print $1}')"
