@@ -166,37 +166,47 @@ Release:
 - direct download: `https://github.com/archimede-projects/Arihna/releases/download/quran-imlai-0d7d12c2-20260925/arihna-quran-imlai.apk`
 
 ## Latest user request / actual work
-2026-09-30 user asked to move to a new chat because this one became slow, and requested a persistent GitHub file that can be read in a new chat so ChatGPT immediately understands the Arihna project state and keeps it updated after every prompt.
+2026-09-30 user opened a new chat and explicitly requested:
+- open `archimede-projects/Arihna`, branch `chat-context`;
+- read `docs/CHATGPT_START_HERE.md` and this continuity file;
+- live-verify GitHub state;
+- resume exactly from the persisted handoff;
+- keep updating continuity after every prompt.
 
-Actually done / live-verified:
-- Read continuity from `chat-context`.
-- Live-verified `main = 2182e303afde1e3823af03cbb8d8afabf3541c52` (`fix(audio): replace short takbir with Makkah pair`).
-- Live-verified current Makkah S25 prerelease:
+Actually done / live-verified in this new chat:
+- Read both handoff files completely from `chat-context`.
+- Repository access is live; default runtime branch remains `main`.
+- Live `main = 2182e303afde1e3823af03cbb8d8afabf3541c52` with message `fix(audio): replace short takbir with Makkah pair`.
+- Runtime parent is SPEC `32d1d1a5e61c5329d8bf3fe91367d6f820e9b981`.
+- Exact-SHA gate run `36178297990` is still `completed/success`.
+- Current Makkah S25 prerelease is still live:
   - tag `takbir-makkah-x2-2182e303-20260930`;
   - release id `400013270`;
   - target `2182e303afde1e3823af03cbb8d8afabf3541c52`;
   - draft=false, prerelease=true;
+  - asset id `600849859`;
   - asset `arihna-takbir-makkah-x2.apk`;
   - bytes `387702804`;
-  - SHA-256 `b6ccd3a67326967958e4f91d7fab176c8ee72ff9a403c10962ecd060a4f5b7ac`.
-- Created new bootstrap file on `chat-context` only:
-  - `docs/CHATGPT_START_HERE.md`
-  - commit `3f06e3f931ff1237489540271ed4359b867bc51c`.
-- The bootstrap file instructs every future chat to:
-  1. read `CHATGPT_START_HERE.md`;
-  2. read this continuity file;
-  3. live-verify GitHub state;
-  4. perform the requested work;
-  5. update this continuity file before every final reply;
-  6. never merge/write continuity into `main`.
-- No runtime, `main`, release or APK state changed by this handoff setup.
+  - GitHub asset digest `sha256:b6ccd3a67326967958e4f91d7fab176c8ee72ff9a403c10962ecd060a4f5b7ac`.
+- Last physically validated stable baseline is also still live:
+  - tag `arihna-stable-977fbde9-20260921`;
+  - release id `392867609`;
+  - target `977fbde989facc3b392f6af5a65449a5322d58c6`;
+  - asset `arihna.apk`;
+  - bytes `386945577`;
+  - GitHub asset digest `sha256:002d640a734eadf46b141b4489ae3c26d2803d9d49b4bacc772f7c678ab20813`.
+- No runtime, release, APK or `main` mutation was performed during this bootstrap verification.
+- No new physical Galaxy S25 PASS was reported in this prompt.
+- The Makkah prerelease APK signer was not independently redownloaded/reverified in this bootstrap pass; therefore no new signer-verification claim is added here.
 
 ## Exact new-chat bootstrap prompt
 User can paste:
 `Apri il repo archimede-projects/Arihna, branch chat-context. Leggi docs/CHATGPT_START_HERE.md e docs/CHATGPT_CONTINUITY.md, verifica lo stato live su GitHub e riprendi esattamente da lì. Aggiorna la continuità dopo ogni mio prompt.`
 
 ## Current state / exact next action
-- Project handoff is now persistent across chats through `docs/CHATGPT_START_HERE.md` + `docs/CHATGPT_CONTINUITY.md` on `chat-context`.
-- Current runtime remains Makkah correction `2182e303...`.
-- Current Makkah prerelease is ready for Galaxy S25 physical validation.
-- Next functional action remains: user validates `Takbīr Makkah · Allahu Akbar ×2` on Galaxy S25; if PASS, publish a new stable from the exact validated prerelease bytes and reverify SHA/signer/metadata.
+- Cross-chat handoff is active and verified through `docs/CHATGPT_START_HERE.md` + `docs/CHATGPT_CONTINUITY.md` on `chat-context`.
+- Current runtime remains Makkah correction `2182e303afde1e3823af03cbb8d8afabf3541c52`.
+- Exact-SHA automated gate remains PASS at run `36178297990`.
+- Current Makkah prerelease remains ready for Galaxy S25 physical validation.
+- Last physically validated stable baseline remains `arihna-stable-977fbde9-20260921`.
+- Exact next functional action: user installs/tests `arihna-takbir-makkah-x2.apk` on Galaxy S25 and validates `Takbīr Makkah · Allahu Akbar ×2`; only after an explicit physical PASS should stable publication proceed from the exact validated prerelease bytes, followed by SHA-256 + signer + metadata re-verification.
