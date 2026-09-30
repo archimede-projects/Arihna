@@ -166,20 +166,37 @@ Release:
 - direct download: `https://github.com/archimede-projects/Arihna/releases/download/quran-imlai-0d7d12c2-20260925/arihna-quran-imlai.apk`
 
 ## Latest user request / actual work
-2026-09-30 user sent `?` asking for status.
+2026-09-30 user asked to move to a new chat because this one became slow, and requested a persistent GitHub file that can be read in a new chat so ChatGPT immediately understands the Arihna project state and keeps it updated after every prompt.
 
 Actually done / live-verified:
 - Read continuity from `chat-context`.
 - Live-verified `main = 2182e303afde1e3823af03cbb8d8afabf3541c52` (`fix(audio): replace short takbir with Makkah pair`).
-- Live-verified prerelease `takbir-makkah-x2-2182e303-20260930`:
+- Live-verified current Makkah S25 prerelease:
+  - tag `takbir-makkah-x2-2182e303-20260930`;
   - release id `400013270`;
   - target `2182e303afde1e3823af03cbb8d8afabf3541c52`;
   - draft=false, prerelease=true;
-  - asset `arihna-takbir-makkah-x2.apk`, id `600849859`;
+  - asset `arihna-takbir-makkah-x2.apk`;
   - bytes `387702804`;
   - SHA-256 `b6ccd3a67326967958e4f91d7fab176c8ee72ff9a403c10962ecd060a4f5b7ac`.
-- No new runtime or release changes this turn.
+- Created new bootstrap file on `chat-context` only:
+  - `docs/CHATGPT_START_HERE.md`
+  - commit `3f06e3f931ff1237489540271ed4359b867bc51c`.
+- The bootstrap file instructs every future chat to:
+  1. read `CHATGPT_START_HERE.md`;
+  2. read this continuity file;
+  3. live-verify GitHub state;
+  4. perform the requested work;
+  5. update this continuity file before every final reply;
+  6. never merge/write continuity into `main`.
+- No runtime, `main`, release or APK state changed by this handoff setup.
 
-## Exact next action
-- User installs the Makkah prerelease on Galaxy S25 and validates the dedicated `Takbīr Makkah · Allahu Akbar ×2` option for audio quality and exact two-takbīr stop behavior.
-- If PASS, publish a new stable from the exact validated prerelease bytes and reverify SHA/signer/metadata.
+## Exact new-chat bootstrap prompt
+User can paste:
+`Apri il repo archimede-projects/Arihna, branch chat-context. Leggi docs/CHATGPT_START_HERE.md e docs/CHATGPT_CONTINUITY.md, verifica lo stato live su GitHub e riprendi esattamente da lì. Aggiorna la continuità dopo ogni mio prompt.`
+
+## Current state / exact next action
+- Project handoff is now persistent across chats through `docs/CHATGPT_START_HERE.md` + `docs/CHATGPT_CONTINUITY.md` on `chat-context`.
+- Current runtime remains Makkah correction `2182e303...`.
+- Current Makkah prerelease is ready for Galaxy S25 physical validation.
+- Next functional action remains: user validates `Takbīr Makkah · Allahu Akbar ×2` on Galaxy S25; if PASS, publish a new stable from the exact validated prerelease bytes and reverify SHA/signer/metadata.
