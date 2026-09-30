@@ -166,37 +166,39 @@ Release:
 - direct download: `https://github.com/archimede-projects/Arihna/releases/download/quran-imlai-0d7d12c2-20260925/arihna-quran-imlai.apk`
 
 ## Latest user request / actual work
-2026-09-25 user asked: `Ci sei?`
+2026-09-30 user sent `?` after rejecting the previous amateur/noisy short Takbīr and requesting Makkah Adhan voice with only two takbīr; user said the rest looked fine.
 
 Actually done / live-verified:
-- Read continuity from `chat-context`.
-- Live-verified current `main = ab1051c43514b4595b92ae3533a3ee644b41dd29` (`feat(alarms): add daily inspiration takbir and prayer volume`).
-- Verified definitive candidate branch `candidate/daily-inspiration-takbir-prayer-volume-v4-20260925` at the same SHA, exactly one commit direct child of SPEC `a72bb5bcc57a15335f143f642b70447e7cf7d5ff`.
-- Earlier v2/v3 gates failed and were not promoted; failures were test/driver compatibility issues, not shipped runtime state.
-- Exact-SHA v4 gate run `36169784286` completed/success:
-  - static/build job `108186229433` success;
-  - API28 full suite job `108186229507` success;
-  - API36 feature + Quran + permission matrix job `108186229245` success.
-- Release workflow run `36171137317`, job `108190668442`, completed/success.
-- S25 prerelease published:
-  - tag `daily-inspiration-takbir-volume-ab1051c4-20260925`;
-  - release id `396825325`;
-  - target `ab1051c43514b4595b92ae3533a3ee644b41dd29`;
-  - draft=false, prerelease=true;
-  - asset `arihna-daily-takbir-volume.apk`;
-  - size `387591200`;
-  - SHA-256 `47cfe5f15005a4dc1d9dcec64b24e967cb0473b8b11f7ab5d7ae681773c64530`;
+- `main = 2182e303afde1e3823af03cbb8d8afabf3541c52` (`fix(audio): replace short takbir with Makkah pair`).
+- SPEC `spec/takbir-makkah-x2-20260925` at `32d1d1a5e61c5329d8bf3fe91367d6f820e9b981`.
+- Definitive candidate `candidate/takbir-makkah-x2-v2-20260925` at `2182e303afde1e3823af03cbb8d8afabf3541c52`, exactly one commit direct child of SPEC.
+- Audio source: Wikimedia Commons `Adhan, Great Mosque of Mecca - Jan 21, 2013.webm`, attributed to Seyfula Islam, CC BY 3.0; source bytes `9359941`, SHA-256 `f4acc1bcc6e7919fce60b21162a3c794952c562a6df7b6aa7971f80d191eb5f0`.
+- Arihna derivative: first takbīr pair only, source interval 00:07.35–00:15.55, no time compression, duration `8.2065 s`, file `takbir_makkah_x2_cc_by.opus`, bytes `132738`, SHA-256 `18740acd61b8b5946a14fc7551dee851642c710d37501892195593477e065f89`. Runtime plays this pair once, then stops.
+- Exact-SHA gate `36178297990` completed/success:
+  - static/build `108214189737`;
+  - API28 full suite `108214190022`;
+  - API36 feature + Quran + permission matrix `108214189827`.
+- Published verified S25 prerelease on 2026-09-30:
+  - workflow run `36713171779`, job `109879596622`, success;
+  - tag `takbir-makkah-x2-2182e303-20260930`;
+  - release id `400013270`;
+  - target `2182e303afde1e3823af03cbb8d8afabf3541c52`;
+  - `draft=false`, `prerelease=true`;
+  - asset `arihna-takbir-makkah-x2.apk`, id `600849859`;
+  - bytes `387702804`;
+  - APK SHA-256 `b6ccd3a67326967958e4f91d7fab176c8ee72ff9a403c10962ecd060a4f5b7ac`;
   - signer cert SHA-256 `1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa`;
-  - post-publish redownload, digest, size, signer and metadata checks all passed.
-- Dedicated Takbīr source remains pinned to single CC0 `Allahuakbar.opus` bytes (21136 bytes, SHA-256 `ccb7a98ba419b9e1163e57a41423016766fae9c07a004862423c757bab5985c3`) and runtime repeats it exactly twice, then stops.
-- No further runtime/release changes made in this turn.
+  - published APK was redownloaded and digest/size/signer/metadata all reverified.
+  - direct download: `https://github.com/archimede-projects/Arihna/releases/download/takbir-makkah-x2-2182e303-20260930/arihna-takbir-makkah-x2.apk`.
+- Last published stable remains `arihna-stable-0d7d12c2-20260925`; Makkah correction is not stable until physical S25 PASS.
 
-## Current state / exact next action
-- New runtime is on `main` and prerelease is CI/release verified, but **not yet physically validated for these three new features on Galaxy S25**.
-- User should install `arihna-daily-takbir-volume.apk` and validate:
-  1. daily inspiration notification: enable, choose time, receive once, tap opens Arihna;
-  2. Takbīr option: preview and real prayer test must play exactly `الله أكبر` twice, then stop;
-  3. per-prayer volume: e.g. Fajr/Isha 100%, Dhuhr/Asr 40%, confirm audible distinction and global Android alarm volume unchanged;
-  4. full Adhan variants still work;
-  5. prayer scheduling, Quran, location/Qibla and custom alarms show no regression.
-- If user reports PASS, publish a new stable release using the exact physically validated prerelease bytes and reverify SHA/signer/metadata.
+## Physical validation / exact next action
+- User has already indicated daily inspiration notification and per-prayer volume look fine; old amateur Takbīr was rejected.
+- Install `arihna-takbir-makkah-x2.apk` on Galaxy S25 and validate:
+  1. select `Takbīr Makkah · Allahu Akbar ×2`;
+  2. preview and real prayer alert contain exactly two `الله أكبر` phrases, then stop;
+  3. no third takbīr, shahada, `حي على الصلاة`, or later Adhan phrase;
+  4. audio quality is clean/acceptable, no clipping or objectionable noise;
+  5. configured per-prayer local volume is respected;
+  6. quick smoke that daily inspiration notification and prayer-volume settings remain correct.
+- If user reports PASS, publish a new stable using the exact physically validated prerelease APK bytes and reverify SHA/signer/metadata.
