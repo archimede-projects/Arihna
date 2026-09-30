@@ -166,39 +166,20 @@ Release:
 - direct download: `https://github.com/archimede-projects/Arihna/releases/download/quran-imlai-0d7d12c2-20260925/arihna-quran-imlai.apk`
 
 ## Latest user request / actual work
-2026-09-30 user sent `?` after rejecting the previous amateur/noisy short Takbīr and requesting Makkah Adhan voice with only two takbīr; user said the rest looked fine.
+2026-09-30 user sent `?` asking for status.
 
 Actually done / live-verified:
-- `main = 2182e303afde1e3823af03cbb8d8afabf3541c52` (`fix(audio): replace short takbir with Makkah pair`).
-- SPEC `spec/takbir-makkah-x2-20260925` at `32d1d1a5e61c5329d8bf3fe91367d6f820e9b981`.
-- Definitive candidate `candidate/takbir-makkah-x2-v2-20260925` at `2182e303afde1e3823af03cbb8d8afabf3541c52`, exactly one commit direct child of SPEC.
-- Audio source: Wikimedia Commons `Adhan, Great Mosque of Mecca - Jan 21, 2013.webm`, attributed to Seyfula Islam, CC BY 3.0; source bytes `9359941`, SHA-256 `f4acc1bcc6e7919fce60b21162a3c794952c562a6df7b6aa7971f80d191eb5f0`.
-- Arihna derivative: first takbīr pair only, source interval 00:07.35–00:15.55, no time compression, duration `8.2065 s`, file `takbir_makkah_x2_cc_by.opus`, bytes `132738`, SHA-256 `18740acd61b8b5946a14fc7551dee851642c710d37501892195593477e065f89`. Runtime plays this pair once, then stops.
-- Exact-SHA gate `36178297990` completed/success:
-  - static/build `108214189737`;
-  - API28 full suite `108214190022`;
-  - API36 feature + Quran + permission matrix `108214189827`.
-- Published verified S25 prerelease on 2026-09-30:
-  - workflow run `36713171779`, job `109879596622`, success;
-  - tag `takbir-makkah-x2-2182e303-20260930`;
+- Read continuity from `chat-context`.
+- Live-verified `main = 2182e303afde1e3823af03cbb8d8afabf3541c52` (`fix(audio): replace short takbir with Makkah pair`).
+- Live-verified prerelease `takbir-makkah-x2-2182e303-20260930`:
   - release id `400013270`;
   - target `2182e303afde1e3823af03cbb8d8afabf3541c52`;
-  - `draft=false`, `prerelease=true`;
+  - draft=false, prerelease=true;
   - asset `arihna-takbir-makkah-x2.apk`, id `600849859`;
   - bytes `387702804`;
-  - APK SHA-256 `b6ccd3a67326967958e4f91d7fab176c8ee72ff9a403c10962ecd060a4f5b7ac`;
-  - signer cert SHA-256 `1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa`;
-  - published APK was redownloaded and digest/size/signer/metadata all reverified.
-  - direct download: `https://github.com/archimede-projects/Arihna/releases/download/takbir-makkah-x2-2182e303-20260930/arihna-takbir-makkah-x2.apk`.
-- Last published stable remains `arihna-stable-0d7d12c2-20260925`; Makkah correction is not stable until physical S25 PASS.
+  - SHA-256 `b6ccd3a67326967958e4f91d7fab176c8ee72ff9a403c10962ecd060a4f5b7ac`.
+- No new runtime or release changes this turn.
 
-## Physical validation / exact next action
-- User has already indicated daily inspiration notification and per-prayer volume look fine; old amateur Takbīr was rejected.
-- Install `arihna-takbir-makkah-x2.apk` on Galaxy S25 and validate:
-  1. select `Takbīr Makkah · Allahu Akbar ×2`;
-  2. preview and real prayer alert contain exactly two `الله أكبر` phrases, then stop;
-  3. no third takbīr, shahada, `حي على الصلاة`, or later Adhan phrase;
-  4. audio quality is clean/acceptable, no clipping or objectionable noise;
-  5. configured per-prayer local volume is respected;
-  6. quick smoke that daily inspiration notification and prayer-volume settings remain correct.
-- If user reports PASS, publish a new stable using the exact physically validated prerelease APK bytes and reverify SHA/signer/metadata.
+## Exact next action
+- User installs the Makkah prerelease on Galaxy S25 and validates the dedicated `Takbīr Makkah · Allahu Akbar ×2` option for audio quality and exact two-takbīr stop behavior.
+- If PASS, publish a new stable from the exact validated prerelease bytes and reverify SHA/signer/metadata.
