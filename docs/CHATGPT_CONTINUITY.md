@@ -166,17 +166,29 @@ Release:
 - direct download: `https://github.com/archimede-projects/Arihna/releases/download/quran-imlai-0d7d12c2-20260925/arihna-quran-imlai.apk`
 
 ## Latest user request / actual work
-2026-09-30 user shared a Settings screenshot and asked the difference between the global alarm-volume control and the per-prayer/Adhan volume.
+2026-10-05 user asked which physical tests must be performed on Galaxy S25 for the current Makkah two-takbīr prerelease.
 
 Actually done / live-verified:
 - Read continuity from `chat-context`.
-- Live-verified `main = 2182e303afde1e3823af03cbb8d8afabf3541c52`.
-- Inspected the current volume implementation.
-- Global Settings slider controls Android `STREAM_ALARM`.
-- Per-prayer slider stores an independent 0–100% playback gain for each prayer and applies it only to that prayer's playback.
-- The local prayer gain does not rewrite the global Android alarm level.
-- If the global alarm level is 0%, a prayer set to 100% can still be silent because the prayer gain is applied within the system alarm stream.
-- No runtime/code/release changes made this turn.
+- Re-read SPEC commit `32d1d1a5e61c5329d8bf3fe91367d6f820e9b981` and current prerelease metadata.
+- Live prerelease remains:
+  - tag `takbir-makkah-x2-2182e303-20260930`;
+  - release id `400013270`;
+  - target `2182e303afde1e3823af03cbb8d8afabf3541c52`;
+  - asset `arihna-takbir-makkah-x2.apk`;
+  - bytes `387702804`;
+  - SHA-256 `b6ccd3a67326967958e4f91d7fab176c8ee72ff9a403c10962ecd060a4f5b7ac`.
+- Physical validation requirements from the SPEC:
+  1. audio quality must sound clean/professional on Galaxy S25;
+  2. audible content must be exactly two `الله أكبر` phrases;
+  3. playback must stop after the second takbīr;
+  4. no shahada, `حي على الصلاة`, or later Adhan phrase may be audible;
+  5. recitation must not sound sped-up/time-compressed;
+  6. trim must not clip speech at start/end;
+  7. per-prayer local 0–100% playback gain must still behave correctly;
+  8. all other Adhan variants and unrelated core features must remain unaffected.
+- No physical PASS was claimed; user has not yet reported the result.
+- No runtime/code/release mutation this turn.
 
 ## Exact next action
 - Makkah prerelease remains pending physical Galaxy S25 validation.
