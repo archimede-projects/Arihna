@@ -21,7 +21,6 @@ import com.archimedeprojects.arihna.core.location.model.LocationSource
 import com.archimedeprojects.arihna.core.location.model.SelectedLocation
 import com.archimedeprojects.arihna.core.prayer.model.Coordinates
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaTheme
-import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeState
 import java.time.Instant
 import java.time.ZoneId
 import org.junit.Assert.assertEquals
@@ -109,8 +108,8 @@ class LocationSettingsScreenAndroidTest {
         composeRule.onNodeWithText("ISPIRAZIONE QUOTIDIANA").assertIsDisplayed()
         composeRule.onNodeWithTag("settings-daily-inspiration-switch").assertIsDisplayed()
         assertTrue(composeRule.onAllNodes(hasScrollAction()).fetchSemanticsNodes().isNotEmpty())
-        composeRule.onNodeWithText("SVEGLIA").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Volume sveglia").assertIsDisplayed()
+        assertTrue(composeRule.onAllNodesWithText("SVEGLIA").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithText("Volume sveglia").fetchSemanticsNodes().isEmpty())
         composeRule.onNodeWithText("TEST RAPIDI").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Test sveglia (10 secondi)").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Test Adhan (10 secondi)").performScrollTo().assertIsDisplayed()
@@ -130,7 +129,7 @@ class LocationSettingsScreenAndroidTest {
                 .fetchSemanticsNodes().isEmpty(),
         )
         composeRule.onNodeWithText("ISPIRAZIONE QUOTIDIANA").assertIsDisplayed()
-        composeRule.onNodeWithText("SVEGLIA").performScrollTo().assertIsDisplayed()
+        assertTrue(composeRule.onAllNodesWithText("SVEGLIA").fetchSemanticsNodes().isEmpty())
         composeRule.onNodeWithText("TEST RAPIDI").performScrollTo().assertIsDisplayed()
     }
 
@@ -261,28 +260,12 @@ class LocationSettingsScreenAndroidTest {
     }
 
     @Test
-    fun alarmVolumeUsesSlider() {
-        composeRule.setContent {
-            ArihnaTheme {
-                LocationSettingsScreen(
-                    contentPadding = PaddingValues(0.dp),
-                    uiState = LocationSettingsUiState(),
-                    onUseDevice = {},
-                    onDismissRationale = {},
-                    onConfirmRationale = {},
-                    onSearchQueryChanged = {},
-                    onSelectCity = {},
-                    onOpenAppSettings = {},
-                    onOpenLocationSettings = {},
-                    alarmSettings = AlarmSettingsPresentation(
-                        alarmVolumeState = AlarmVolumeState(current = 4, min = 0, max = 7),
-                    ),
-                )
-            }
-        }
+    fun globalAlarmVolumeControlIsAbsent() {
+        setScreen { LocationSettingsUiState() }
 
-        composeRule.onNodeWithTag("settings-alarm-volume-value").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithTag("settings-alarm-volume-slider").assertIsDisplayed()
+        assertTrue(composeRule.onAllNodesWithText("SVEGLIA").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithText("Volume sveglia").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithText("Volume globale delle sveglie del telefono").fetchSemanticsNodes().isEmpty())
     }
 
     private fun setScreen(state: () -> LocationSettingsUiState) {

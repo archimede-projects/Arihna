@@ -89,6 +89,7 @@ class AlarmsViewModel(
         soundProfile: AlarmSoundProfile,
         ringtoneUri: String?,
         ringtoneTitle: String?,
+        playbackVolumePercent: Int,
     ) {
         if (label.isBlank()) {
             message.value = "Inserisci un nome per la sveglia"
@@ -112,6 +113,7 @@ class AlarmsViewModel(
                     ),
                     ringtoneUri = ringtoneUri,
                     ringtoneTitle = ringtoneTitle,
+                    playbackVolumePercent = playbackVolumePercent.coerceIn(0, 100),
                 ),
             )
             if (existing != null) {
@@ -157,6 +159,7 @@ class AlarmsViewModel(
                     definition = rule.definition,
                     ringtoneUri = targetUri,
                     ringtoneTitle = targetTitle,
+                    playbackVolumePercent = rule.playbackVolumePercent,
                 ),
             )
             scheduler.cancel(rule.alarmId)
@@ -189,6 +192,7 @@ class AlarmsViewModel(
                         definition = rule.definition,
                         ringtoneUri = targetUri,
                         ringtoneTitle = targetTitle,
+                        playbackVolumePercent = rule.playbackVolumePercent,
                     ),
                 )
                 scheduler.cancel(rule.alarmId)

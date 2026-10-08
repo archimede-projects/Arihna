@@ -32,7 +32,8 @@ class PreferencesDataStoreAlarmRuleRepository(
                     it.soundProfile == draft.soundProfile &&
                     it.definition == draft.definition &&
                     it.ringtoneUri == draft.ringtoneUri &&
-                    it.ringtoneTitle == draft.ringtoneTitle
+                    it.ringtoneTitle == draft.ringtoneTitle &&
+                    it.playbackVolumePercent == draft.playbackVolumePercent
             } == true
             if (unchanged) {
                 persistedRule = existing
@@ -47,6 +48,7 @@ class PreferencesDataStoreAlarmRuleRepository(
                 definition = draft.definition,
                 ringtoneUri = draft.ringtoneUri,
                 ringtoneTitle = draft.ringtoneTitle,
+                playbackVolumePercent = draft.playbackVolumePercent.coerceIn(0, 100),
             )
             persistedRule = updated
             AlarmRulePreferencesCodec.write(
