@@ -1,0 +1,112 @@
+name: Makkah takbir S25 validated stable
+
+on:
+  push:
+    branches:
+      - driver/takbir-makkah-x2-stable-20261008
+    paths:
+      - .github/workflows/takbir-makkah-x2-stable-20261008.yml
+
+permissions:
+  contents: write
+
+jobs:
+  promote-exact-validated-bytes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      RUNTIME_SHA: 2182e303afde1e3823af03cbb8d8afabf3541c52
+      SOURCE_TAG: takbir-makkah-x2-2182e303-20260930
+      SOURCE_ASSET: arihna-takbir-makkah-x2.apk
+      EXPECTED_SHA256: b6ccd3a67326967958e4f91d7fab176c8ee72ff9a403c10962ecd060a4f5b7ac
+      EXPECTED_SIZE: '387702804'
+      EXPECTED_SIGNER_SHA256: 1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa
+      STABLE_TAG: arihna-stable-2182e303-20261008
+      STABLE_ASSET: arihna.apk
+      PACKAGE_NAME: com.archimedeprojects.arihna
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 2182e303afde1e3823af03cbb8d8afabf3541c52
+          fetch-depth: 0
+
+      - name: Verify runtime and source prerelease metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RUNTIME_SHA"
+          JSON="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$SOURCE_TAG")"
+          test "$(jq -r '.draft' <<<"$JSON")" = false
+          test "$(jq -r '.prerelease' <<<"$JSON")" = true
+          test "$(jq -r '.target_commitish' <<<"$JSON")" = "$RUNTIME_SHA"
+          test "$(jq '.assets | length' <<<"$JSON")" = 1
+          test "$(jq -r '.assets[0].name' <<<"$JSON")" = "$SOURCE_ASSET"
+          test "$(jq -r '.assets[0].state' <<<"$JSON")" = uploaded
+          test "$(jq -r '.assets[0].size' <<<"$JSON")" = "$EXPECTED_SIZE"
+          test "$(jq -r '.assets[0].digest' <<<"$JSON")" = "sha256:$EXPECTED_SHA256"
+          ! gh release view "$STABLE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1
+
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 12266719
+          packages: platform-tools
+
+      - name: Download and verify physically validated prerelease APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/source
+          gh release download "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "$SOURCE_ASSET" --dir /tmp/source
+          SRC="/tmp/source/$SOURCE_ASSET"
+          test "$(stat -c '%s' "$SRC")" = "$EXPECTED_SIZE"
+          test "$(sha256sum "$SRC" | awk '{print $1}')" = "$EXPECTED_SHA256"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$APKSIGNER" verify --verbose --print-certs "$SRC" | tee /tmp/source-signer.txt
+          tr '[:upper:]' '[:lower:]' < /tmp/source-signer.txt | tr -d ':' | grep -F "$EXPECTED_SIGNER_SHA256"
+          "$AAPT" dump badging "$SRC" | tee /tmp/source-badging.txt
+          grep -F "package: name='$PACKAGE_NAME'" /tmp/source-badging.txt
+          grep -F "sdkVersion:'28'" /tmp/source-badging.txt
+          grep -F "targetSdkVersion:'37'" /tmp/source-badging.txt
+          cp "$SRC" "$STABLE_ASSET"
+          test "$(sha256sum "$STABLE_ASSET" | awk '{print $1}')" = "$EXPECTED_SHA256"
+
+      - name: Publish stable from exact validated bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$STABLE_TAG" "$STABLE_ASSET"             --repo "$GITHUB_REPOSITORY"             --target "$RUNTIME_SHA"             --title 'Arihna — Stable — S25 validated'             --notes "Stable Arihna release from runtime $RUNTIME_SHA. The user physically validated the Makkah two-takbīr correction on Galaxy S25. This stable APK is byte-identical to the validated prerelease asset $SOURCE_ASSET from $SOURCE_TAG: SHA-256 $EXPECTED_SHA256; bytes $EXPECTED_SIZE; signer SHA-256 $EXPECTED_SIGNER_SHA256."
+
+      - name: Redownload and reverify stable
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          JSON="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$STABLE_TAG")"
+          test "$(jq -r '.draft' <<<"$JSON")" = false
+          test "$(jq -r '.prerelease' <<<"$JSON")" = false
+          test "$(jq -r '.target_commitish' <<<"$JSON")" = "$RUNTIME_SHA"
+          test "$(jq '.assets | length' <<<"$JSON")" = 1
+          test "$(jq -r '.assets[0].name' <<<"$JSON")" = "$STABLE_ASSET"
+          test "$(jq -r '.assets[0].state' <<<"$JSON")" = uploaded
+          test "$(jq -r '.assets[0].size' <<<"$JSON")" = "$EXPECTED_SIZE"
+          test "$(jq -r '.assets[0].digest' <<<"$JSON")" = "sha256:$EXPECTED_SHA256"
+          rm -rf /tmp/stable && mkdir -p /tmp/stable
+          gh release download "$STABLE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "$STABLE_ASSET" --dir /tmp/stable
+          APK="/tmp/stable/$STABLE_ASSET"
+          test "$(stat -c '%s' "$APK")" = "$EXPECTED_SIZE"
+          test "$(sha256sum "$APK" | awk '{print $1}')" = "$EXPECTED_SHA256"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee /tmp/stable-signer.txt
+          tr '[:upper:]' '[:lower:]' < /tmp/stable-signer.txt | tr -d ':' | grep -F "$EXPECTED_SIGNER_SHA256"
+          echo "STABLE_RELEASE_ID=$(jq -r '.id' <<<"$JSON")"
+          echo "STABLE_URL=$(jq -r '.html_url' <<<"$JSON")"
+          echo "STABLE_ASSET_ID=$(jq -r '.assets[0].id' <<<"$JSON")"
