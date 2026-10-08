@@ -40,8 +40,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -83,15 +81,11 @@ import com.archimedeprojects.arihna.feature.alarms.platform.AlarmDiagnosticKind
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmDiagnosticScheduleResult
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmDiagnosticTestScheduler
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmFullScreenAccess
-import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeChangeResult
-import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeController
-import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeState
 import com.archimedeprojects.arihna.feature.alarms.platform.ExactAlarmAccessIntentFactory
 import com.archimedeprojects.arihna.feature.home.DailyInspirationNotificationController
 import com.archimedeprojects.arihna.feature.home.DailyInspirationNotificationSettings
 import java.time.LocalTime
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 
 private val SettingsBackgroundTop = ArihnaDawnTop
 private val SettingsBackgroundBottom = ArihnaDawnBottom
@@ -136,9 +130,6 @@ fun LocationSettingsRoute(
     }
 
     var diagnosticMessage by remember { mutableStateOf<String?>(null) }
-    val alarmVolumeController = remember(activity) { AlarmVolumeController(activity) }
-    var alarmVolumeState by remember { mutableStateOf(alarmVolumeController.read()) }
-    var alarmVolumeMessage by remember { mutableStateOf<String?>(null) }
 
     fun diagnosticResultMessage(kind: AlarmDiagnosticKind, result: AlarmDiagnosticScheduleResult): String =
         when (result) {
@@ -184,8 +175,6 @@ fun LocationSettingsRoute(
             activity.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
         },
         alarmSettings = AlarmSettingsPresentation(
-            alarmVolumeState = alarmVolumeState,
-            alarmVolumeMessage = alarmVolumeMessage,
             diagnosticMessage = diagnosticMessage,
         ),
         dailyInspirationSettings = dailyInspirationSettings,
@@ -207,18 +196,6 @@ fun LocationSettingsRoute(
                 current.minute,
                 true,
             ).show()
-        },
-        onAlarmVolumeChange = { requested ->
-            when (val result = alarmVolumeController.setVolume(requested)) {
-                is AlarmVolumeChangeResult.Success -> {
-                    alarmVolumeState = result.state
-                    alarmVolumeMessage = null
-                }
-                is AlarmVolumeChangeResult.Failure -> {
-                    alarmVolumeState = result.state
-                    alarmVolumeMessage = result.message
-                }
-            }
         },
         onTestAlarm = {
             diagnosticMessage = diagnosticResultMessage(
@@ -254,7 +231,6 @@ fun LocationSettingsScreen(
     dailyInspirationSettings: DailyInspirationNotificationSettings = DailyInspirationNotificationSettings(),
     onDailyInspirationEnabled: (Boolean) -> Unit = {},
     onDailyInspirationTimeClick: () -> Unit = {},
-    onAlarmVolumeChange: (Int) -> Unit = {},
     onTestAlarm: () -> Unit = {},
     onTestAdhan: () -> Unit = {},
     onCancelDiagnostic: () -> Unit = {},
@@ -323,9 +299,6 @@ fun LocationSettingsScreen(
             onOpenAppSettings = onOpenAppSettings,
             onOpenLocationSettings = onOpenLocationSettings,
         )
-
-        SettingsSectionTitle(appText("Sveglia", "المنبه"), "settings-section-alarms")
-        AlarmVolumeCard(state = alarmSettings, onAlarmVolumeChange = onAlarmVolumeChange)
 
         SettingsSectionTitle(appText("Test rapidi", "اختبارات سريعة"), "settings-section-tests")
         AlarmDiagnosticCard(
@@ -558,8 +531,6 @@ data class AlarmSettingsPresentation(
     val exactReady: Boolean = false,
     val fullScreenReady: Boolean = false,
     val overlayReady: Boolean = false,
-    val alarmVolumeState: AlarmVolumeState = AlarmVolumeState(current = 0, min = 0, max = 1),
-    val alarmVolumeMessage: String? = null,
     val diagnosticMessage: String? = null,
 )
 
@@ -678,102 +649,6 @@ private fun DailyInspirationNotificationCard(
                     )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun AlarmVolumeCard(
-    state: AlarmSettingsPresentation,
-    onAlarmVolumeChange: (Int) -> Unit,
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag("settings-alarm-volume-card"),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = SettingsSurface),
-        border = BorderStroke(1.dp, SettingsOutline),
-    ) {
-        AlarmVolumeSetting(state, onAlarmVolumeChange)
-    }
-}
-
-@Composable
-private fun AlarmVolumeSetting(
-    state: AlarmSettingsPresentation,
-    onAlarmVolumeChange: (Int) -> Unit,
-) {
-    val volume = state.alarmVolumeState
-    val current = volume.current.coerceIn(volume.min, volume.max)
-    val span = (volume.max - volume.min).coerceAtLeast(1)
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 10.dp)
-            .testTag("settings-alarm-volume"),
-        verticalArrangement = Arrangement.spacedBy(7.dp),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                Icons.Rounded.Alarm,
-                contentDescription = null,
-                tint = SettingsAccent,
-                modifier = Modifier.size(18.dp),
-            )
-            Text(
-                appText("Volume sveglia", "مستوى صوت المنبه"),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = SettingsText,
-                modifier = Modifier.weight(1f),
-            )
-            Text(
-                "${volume.percent}%",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.ExtraBold,
-                color = SettingsAccent,
-                modifier = Modifier.testTag("settings-alarm-volume-value"),
-            )
-        }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(SettingsSurfaceRaised, RoundedCornerShape(50))
-                .padding(horizontal = 8.dp, vertical = 1.dp),
-        ) {
-            Slider(
-                value = current.toFloat(),
-                onValueChange = { requested ->
-                    onAlarmVolumeChange(requested.roundToInt().coerceIn(volume.min, volume.max))
-                },
-                valueRange = volume.min.toFloat()..volume.max.toFloat(),
-                // Continuous track: no dense notches / shutter-like stepping.
-                steps = 0,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("settings-alarm-volume-slider"),
-                colors = SliderDefaults.colors(
-                    thumbColor = SettingsText,
-                    activeTrackColor = SettingsText,
-                    inactiveTrackColor = SettingsMuted.copy(alpha = 0.16f),
-                ),
-            )
-        }
-        Text(
-            appText(
-                "Volume globale delle sveglie del telefono",
-                "هذا يغيّر مستوى صوت المنبهات في الهاتف بالكامل",
-            ),
-            style = MaterialTheme.typography.bodySmall,
-            color = SettingsMuted,
-        )
-        state.alarmVolumeMessage?.let {
-            Text(it, style = MaterialTheme.typography.bodySmall, color = SettingsDanger)
         }
     }
 }

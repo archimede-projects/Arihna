@@ -128,25 +128,6 @@ class AlarmOverlayVolumeAndroidTest {
         overlay.hide()
     }
 
-    @Test
-    fun alarmVolumeControllerReadsAndReappliesRealAlarmStream() {
-        val controller = AlarmVolumeController(context)
-        val before = controller.read()
-        assertTrue(before.current in before.min..before.max)
-        assertTrue(before.percent in 0..100)
-
-        when (val result = controller.setVolume(before.current)) {
-            is AlarmVolumeChangeResult.Success -> {
-                assertEquals(before.current, result.state.current)
-                assertTrue(result.state.percent in 0..100)
-            }
-            is AlarmVolumeChangeResult.Failure -> {
-                assertTrue(result.message.isNotBlank())
-                assertTrue(result.state.current in result.state.min..result.state.max)
-            }
-        }
-    }
-
     private fun payload() = AlarmRingingPayload(
         alarmId = "overlay-test",
         ruleRevision = 1L,
