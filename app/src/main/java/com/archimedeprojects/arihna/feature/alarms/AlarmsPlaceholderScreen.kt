@@ -28,6 +28,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -64,6 +65,7 @@ import java.time.DayOfWeek
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.roundToInt
 
 @Composable
 fun AlarmsRoute(
@@ -89,7 +91,7 @@ fun AlarmsRoute(
                 creating = false
                 editingRule = null
             },
-            onSave = { rule, label, time, weekdays, sound, ringtoneUri, ringtoneTitle ->
+            onSave = { rule, label, time, weekdays, sound, ringtoneUri, ringtoneTitle, volumePercent ->
                 viewModel.saveCustom(
                     existing = rule,
                     label = label,
@@ -98,6 +100,7 @@ fun AlarmsRoute(
                     soundProfile = sound,
                     ringtoneUri = ringtoneUri,
                     ringtoneTitle = ringtoneTitle,
+                    playbackVolumePercent = volumePercent,
                 )
                 creating = false
                 editingRule = null
@@ -320,7 +323,7 @@ internal fun CustomAlarmEditorDialog(
     initialRule: AlarmRule?,
     onDismiss: () -> Unit,
     onSave: (
-        AlarmRule?, String, LocalTime, Set<DayOfWeek>, AlarmSoundProfile, String?, String?,
+        AlarmRule?, String, LocalTime, Set<DayOfWeek>, AlarmSoundProfile, String?, String?, Int,
     ) -> Unit,
     onDelete: (AlarmRule) -> Unit = {},
 ) {
@@ -349,6 +352,9 @@ internal fun CustomAlarmEditorDialog(
     }
     var ringtoneTitle by remember(initialRule?.alarmId) {
         mutableStateOf(initialRule?.ringtoneTitle)
+    }
+    var volumePercent by remember(initialRule?.alarmId) {
+        mutableStateOf(initialRule?.playbackVolumePercent ?: 100)
     }
 
     val ringtoneLauncher = rememberLauncherForActivityResult(
@@ -566,6 +572,47 @@ internal fun CustomAlarmEditorDialog(
                                     modifier = Modifier.testTag("alarm-sound-switch"),
                                 )
                             }
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.22f),
+                            )
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 18.dp, vertical = 14.dp)
+                                    .testTag("alarm-volume-control"),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        "Volume di questa sveglia",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                    Text(
+                                        "$volumePercent%",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = ArihnaGold,
+                                        modifier = Modifier.testTag("alarm-volume-value"),
+                                    )
+                                }
+                                Slider(
+                                    value = volumePercent.toFloat(),
+                                    onValueChange = {
+                                        volumePercent = it.roundToInt().coerceIn(0, 100)
+                                    },
+                                    valueRange = 0f..100f,
+                                    enabled = soundEnabled,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("alarm-volume-slider"),
+                                )
+                            }
                         }
                     }
 
@@ -632,6 +679,7 @@ internal fun CustomAlarmEditorDialog(
                                     },
                                     ringtoneUri,
                                     ringtoneTitle,
+                                    volumePercent,
                                 )
                             },
                             enabled = label.isNotBlank(),

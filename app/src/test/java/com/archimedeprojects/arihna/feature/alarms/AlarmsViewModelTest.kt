@@ -58,6 +58,7 @@ class AlarmsViewModelTest {
             soundProfile = AlarmSoundProfile.SYSTEM_DEFAULT,
             ringtoneUri = "content://alarm/4",
             ringtoneTitle = "Morning Flower",
+            playbackVolumePercent = 55,
         )
         advanceUntilIdle()
 
@@ -66,6 +67,7 @@ class AlarmsViewModelTest {
         val definition = saved.definition as AlarmDefinition.Custom
         assertEquals(LocalTime.NOON, definition.localTime)
         assertEquals("Morning Flower", saved.ringtoneTitle)
+        assertEquals(55, saved.playbackVolumePercent)
     }
 
     @Test
@@ -90,6 +92,7 @@ class AlarmsViewModelTest {
             soundProfile = AlarmSoundProfile.ADHAN,
             ringtoneUri = null,
             ringtoneTitle = null,
+            playbackVolumePercent = 42,
         )
         advanceUntilIdle()
 
@@ -98,6 +101,7 @@ class AlarmsViewModelTest {
         assertEquals(8L, updated.revision)
         assertNotEquals(existing.revision, updated.revision)
         assertEquals(AlarmSoundProfile.ADHAN, updated.soundProfile)
+        assertEquals(42, updated.playbackVolumePercent)
         assertEquals(listOf("save", "cancel:custom-stable", "schedule"), events)
     }
 
@@ -151,6 +155,7 @@ class AlarmsViewModelTest {
                 definition = draft.definition,
                 ringtoneUri = draft.ringtoneUri,
                 ringtoneTitle = draft.ringtoneTitle,
+                playbackVolumePercent = draft.playbackVolumePercent,
             )
             items.value = items.value.filterNot { it.alarmId == saved.alarmId } + saved
             return saved
