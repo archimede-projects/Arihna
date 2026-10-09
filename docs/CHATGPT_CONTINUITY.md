@@ -209,3 +209,12 @@ Actually done / live-verified:
 - If all static/build, API28 and API36 jobs PASS, live-recheck `main` is still `2182e303afde1e3823af03cbb8d8afabf3541c52`, then promote candidate v2 `b7b92ceb72e90748f29132889a5ec64a4c066eff` with non-forced fast-forward.
 - After promotion, publish an S25 prerelease for the per-alarm volume change, redownload and verify APK SHA-256 + persistent signer + metadata.
 - Physical S25 validation for the new change must confirm: no global volume control, independent custom-alarm volumes, independent per-prayer/Adhan volumes, and no cross-effect between alerts.
+
+2026-10-09 live status follow-up:
+- User asked what is currently being waited on.
+- Rechecked gate run `37926520862`: still `in_progress`.
+- `static-jvm-build`: in progress; exact lineage/scope and frozen GeoNames restore already PASS; Gradle unit tests + AndroidTest compile + APK step currently running.
+- `api28-full-suite`: in progress; exact candidate and setup already PASS; emulator connected Android tests currently running.
+- `api36-feature-quran-permission-matrix`: in progress; exact candidate/setup already PASS; emulator connected regression suite currently running.
+- Live `main` remains unchanged at `2182e303afde1e3823af03cbb8d8afabf3541c52`.
+- Therefore promotion is correctly blocked only on completion of those three gate jobs; no user action is required at this moment.
