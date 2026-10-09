@@ -205,6 +205,6 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- Check exact-SHA gate run `37929641889` for candidate v5 `c01414f82d257bcd2fa6c0a6b456d49c75f00b68`.
-- If static/build, API28 and API36 all PASS, live-recheck `main` is still `2182e303afde1e3823af03cbb8d8afabf3541c52`, then promote v5 via non-forced fast-forward.
-- Then publish and independently verify an S25 prerelease APK before physical validation.
+- Recheck release run `37931577325`.
+- If it completes success, fetch release `per-alarm-volume-c01414f8-20261009` and record release id, asset id/name/size/digest, signer verification evidence and direct download URL.
+- Then hand the verified prerelease APK to the user for Galaxy S25 physical validation: no global volume control; independent personal-alarm volumes; independent per-prayer/Adhan volumes; no cross-effect; existing alarm behavior and Makkah two-Takbir preserved.
