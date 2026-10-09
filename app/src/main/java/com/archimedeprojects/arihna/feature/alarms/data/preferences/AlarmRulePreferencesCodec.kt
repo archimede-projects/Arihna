@@ -17,6 +17,7 @@ internal object AlarmRulePreferencesCodec {
 
     private const val HEADER_V1 = "ARIHNA_ALARMS_V1"
     private const val HEADER_V2 = "ARIHNA_ALARMS_V2"
+    private const val HEADER_V3 = "ARIHNA_ALARMS_V3"
     private const val NONE = "-"
     private val encoder = Base64.getUrlEncoder().withoutPadding()
     private val decoder = Base64.getUrlDecoder()
@@ -29,6 +30,7 @@ internal object AlarmRulePreferencesCodec {
         val version = when (lines.firstOrNull()) {
             HEADER_V1 -> 1
             HEADER_V2 -> 2
+            HEADER_V3 -> 3
             else -> throw AlarmRulesPersistenceException("Unsupported or malformed alarm rules version")
         }
         if (lines.size == 1) return emptyList()
@@ -44,9 +46,9 @@ internal object AlarmRulePreferencesCodec {
         if (rules.map { it.alarmId }.toSet().size != rules.size) {
             throw AlarmRulesPersistenceException("Duplicate alarm id cannot be persisted")
         }
-        val rows = rules.sortedBy { it.alarmId }.map(::encodeRowV2)
+        val rows = rules.sortedBy { it.alarmId }.map(::encodeRowV3)
         return buildString {
-            append(HEADER_V2)
+            append(HEADER_V3)
             rows.forEach { row ->
                 append('\n')
                 append(row)
@@ -58,7 +60,7 @@ internal object AlarmRulePreferencesCodec {
         preferences[rulesKey] = encode(rules)
     }
 
-    private fun encodeRowV2(rule: AlarmRule): String = when (val definition = rule.definition) {
+    private fun encodeRowV3(rule: AlarmRule): String = when (val definition = rule.definition) {
         is AlarmDefinition.PrayerLinked -> listOf(
             "P",
             encodeText(rule.alarmId),
@@ -69,6 +71,7 @@ internal object AlarmRulePreferencesCodec {
             definition.offsetMinutes.toString(),
             encodeOptionalText(rule.ringtoneUri),
             encodeOptionalText(rule.ringtoneTitle),
+            rule.playbackVolumePercent.toString(),
         ).joinToString("|")
 
         is AlarmDefinition.Custom -> listOf(
@@ -85,6 +88,7 @@ internal object AlarmRulePreferencesCodec {
                 .ifEmpty { NONE },
             encodeOptionalText(rule.ringtoneUri),
             encodeOptionalText(rule.ringtoneTitle),
+            rule.playbackVolumePercent.toString(),
         ).joinToString("|")
     }
 
@@ -104,7 +108,11 @@ internal object AlarmRulePreferencesCodec {
     }
 
     private fun decodePrayerRow(fields: List<String>, version: Int): AlarmRule {
-        val expected = if (version == 1) 7 else 9
+        val expected = when (version) {
+            1 -> 7
+            2 -> 9
+            else -> 10
+        }
         if (fields.size != expected) throw AlarmRulesPersistenceException("Malformed prayer alarm row")
         return AlarmRule(
             alarmId = decodeText(fields[1]),
@@ -115,13 +123,18 @@ internal object AlarmRulePreferencesCodec {
                 prayer = AlarmPrayer.valueOf(fields[5]),
                 offsetMinutes = fields[6].toInt(),
             ),
-            ringtoneUri = if (version == 2) decodeOptionalText(fields[7]) else null,
-            ringtoneTitle = if (version == 2) decodeOptionalText(fields[8]) else null,
+            ringtoneUri = if (version >= 2) decodeOptionalText(fields[7]) else null,
+            ringtoneTitle = if (version >= 2) decodeOptionalText(fields[8]) else null,
+            playbackVolumePercent = if (version >= 3) fields[9].toInt().coerceIn(0, 100) else 100,
         )
     }
 
     private fun decodeCustomRow(fields: List<String>, version: Int): AlarmRule {
-        val expected = if (version == 1) 8 else 10
+        val expected = when (version) {
+            1 -> 8
+            2 -> 10
+            else -> 11
+        }
         if (fields.size != expected) throw AlarmRulesPersistenceException("Malformed custom alarm row")
         return AlarmRule(
             alarmId = decodeText(fields[1]),
@@ -133,8 +146,9 @@ internal object AlarmRulePreferencesCodec {
                 localTime = LocalTime.parse(fields[6]),
                 weekdays = decodeWeekdays(fields[7]),
             ),
-            ringtoneUri = if (version == 2) decodeOptionalText(fields[8]) else null,
-            ringtoneTitle = if (version == 2) decodeOptionalText(fields[9]) else null,
+            ringtoneUri = if (version >= 2) decodeOptionalText(fields[8]) else null,
+            ringtoneTitle = if (version >= 2) decodeOptionalText(fields[9]) else null,
+            playbackVolumePercent = if (version >= 3) fields[10].toInt().coerceIn(0, 100) else 100,
         )
     }
 
