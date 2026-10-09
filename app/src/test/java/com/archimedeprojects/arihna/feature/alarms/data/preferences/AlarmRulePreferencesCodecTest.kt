@@ -13,8 +13,9 @@ import org.junit.Test
 
 class AlarmRulePreferencesCodecTest {
     @Test
-    fun emptyCollectionHasStableV2EncodingAndV1StillDecodes() {
-        assertEquals("ARIHNA_ALARMS_V2", AlarmRulePreferencesCodec.encode(emptyList()))
+    fun emptyCollectionHasStableV3EncodingAndOlderVersionsStillDecode() {
+        assertEquals("ARIHNA_ALARMS_V3", AlarmRulePreferencesCodec.encode(emptyList()))
+        assertEquals(emptyList<AlarmRule>(), AlarmRulePreferencesCodec.decode("ARIHNA_ALARMS_V3"))
         assertEquals(emptyList<AlarmRule>(), AlarmRulePreferencesCodec.decode("ARIHNA_ALARMS_V2"))
         assertEquals(emptyList<AlarmRule>(), AlarmRulePreferencesCodec.decode("ARIHNA_ALARMS_V1"))
         assertEquals(emptyList<AlarmRule>(), AlarmRulePreferencesCodec.decode(null))
@@ -31,6 +32,7 @@ class AlarmRulePreferencesCodecTest {
                 definition = AlarmDefinition.PrayerLinked(AlarmPrayer.FAJR, -35),
                 ringtoneUri = "content://media/alarm/17",
                 ringtoneTitle = "Morning Flower",
+                playbackVolumePercent = 82,
             ),
             AlarmRule(
                 alarmId = "custom:work",
@@ -42,11 +44,12 @@ class AlarmRulePreferencesCodecTest {
                     localTime = LocalTime.of(6, 45, 12),
                     weekdays = setOf(DayOfWeek.FRIDAY, DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY),
                 ),
+                playbackVolumePercent = 37,
             ),
         )
 
         val encoded = AlarmRulePreferencesCodec.encode(rules)
-        assertTrue(encoded.startsWith("ARIHNA_ALARMS_V2\n"))
+        assertTrue(encoded.startsWith("ARIHNA_ALARMS_V3\n"))
         assertEquals(rules.sortedBy { it.alarmId }, AlarmRulePreferencesCodec.decode(encoded))
     }
 
@@ -57,6 +60,10 @@ class AlarmRulePreferencesCodecTest {
         assertEquals(AlarmSoundProfile.SYSTEM_DEFAULT, decoded.soundProfile)
         assertNull(decoded.ringtoneUri)
         assertNull(decoded.ringtoneTitle)
+        assertEquals(100, decoded.playbackVolumePercent)
+
+        val oldV2 = "ARIHNA_ALARMS_V2\nC|Y3VzdG9tLW9sZA|4|1|SYSTEM_DEFAULT|VmVjY2hpYQ|07:30|-|-|-"
+        assertEquals(100, AlarmRulePreferencesCodec.decode(oldV2).single().playbackVolumePercent)
     }
 
     @Test
@@ -71,7 +78,7 @@ class AlarmRulePreferencesCodecTest {
 
     @Test(expected = AlarmRulesPersistenceException::class)
     fun rejectsUnknownVersionRatherThanSilentlyDroppingRules() {
-        AlarmRulePreferencesCodec.decode("ARIHNA_ALARMS_V3")
+        AlarmRulePreferencesCodec.decode("ARIHNA_ALARMS_V4")
     }
 
     @Test(expected = AlarmRulesPersistenceException::class)

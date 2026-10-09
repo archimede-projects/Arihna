@@ -83,9 +83,11 @@ data class AlarmRuleDraft(
     val definition: AlarmDefinition,
     val ringtoneUri: String? = null,
     val ringtoneTitle: String? = null,
+    val playbackVolumePercent: Int = 100,
 ) {
     init {
         require(alarmId.isNotBlank()) { "alarmId must not be blank" }
+        require(playbackVolumePercent in 0..100) { "playbackVolumePercent must be in 0..100" }
     }
 }
 

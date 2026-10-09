@@ -3,11 +3,11 @@ package com.archimedeprojects.arihna.feature.settings
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.dp
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaTheme
-import com.archimedeprojects.arihna.feature.alarms.platform.AlarmVolumeState
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -17,7 +17,7 @@ class AlarmSettingsOverlayVolumeAndroidTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun settingsHideCapabilityRowsWhileKeepingRealAlarmVolume() {
+    fun settingsDoNotExposeGlobalAlarmVolumeControl() {
         composeRule.setContent {
             ArihnaTheme {
                 LocationSettingsScreen(
@@ -30,23 +30,14 @@ class AlarmSettingsOverlayVolumeAndroidTest {
                     onSelectCity = {},
                     onOpenAppSettings = {},
                     onOpenLocationSettings = {},
-                    alarmSettings = AlarmSettingsPresentation(
-                        notificationReady = true,
-                        exactReady = true,
-                        fullScreenReady = true,
-                        overlayReady = false,
-                        alarmVolumeState = AlarmVolumeState(current = 8, min = 0, max = 15),
-                    ),
                 )
             }
         }
 
-        assertTrue(composeRule.onAllNodesWithText("Popup sveglia").fetchSemanticsNodes().isEmpty())
-        assertTrue(composeRule.onAllNodesWithText("Notifiche").fetchSemanticsNodes().isEmpty())
-        assertTrue(composeRule.onAllNodesWithText("Allarmi esatti").fetchSemanticsNodes().isEmpty())
-        assertTrue(composeRule.onAllNodesWithText("Schermo intero").fetchSemanticsNodes().isEmpty())
-        composeRule.onNodeWithText("Volume sveglia").assertIsDisplayed()
-        composeRule.onNodeWithText("53%").assertIsDisplayed()
-        composeRule.onNodeWithText("Volume globale delle sveglie del telefono").assertIsDisplayed()
+        assertTrue(composeRule.onAllNodesWithText("Volume sveglia").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithText("Volume globale delle sveglie del telefono").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithTag("settings-alarm-volume-slider").fetchSemanticsNodes().isEmpty())
+        composeRule.onNodeWithTag("settings-test-alarm-one-minute").assertIsDisplayed()
+        composeRule.onNodeWithTag("settings-test-adhan-one-minute").assertIsDisplayed()
     }
 }
