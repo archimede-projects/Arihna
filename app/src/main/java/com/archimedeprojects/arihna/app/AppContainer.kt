@@ -124,7 +124,7 @@ class AppContainer(context: Context) {
             reconcileNow = { alarmReconciler.reconcile() },
             playbackVolumePercent = { rule ->
                 val prayer = (rule.definition as? AlarmDefinition.PrayerLinked)?.prayer
-                if (prayer == null) 100 else prayerAlertPreferencesRepository.volumeFor(prayer)
+                if (prayer == null) rule.playbackVolumePercent else prayerAlertPreferencesRepository.volumeFor(prayer)
             },
         )
     }
