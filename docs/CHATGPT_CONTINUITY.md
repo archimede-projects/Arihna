@@ -205,6 +205,6 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- Wait for exact-SHA gate run `37927977561` for candidate v4 `3fd7caad82f37e1c32745df30c4370c0281d120c`.
-- If static/build, API28 and API36 all PASS, live-recheck `main` is still `2182e303afde1e3823af03cbb8d8afabf3541c52`, then promote v4 via non-forced fast-forward.
+- Follow exact-SHA gate run `37929641889` for candidate v5 `c01414f82d257bcd2fa6c0a6b456d49c75f00b68`.
+- If static/build, API28 and API36 all PASS, live-recheck `main` is still `2182e303afde1e3823af03cbb8d8afabf3541c52`, then promote v5 via non-forced fast-forward.
 - Then publish and independently verify an S25 prerelease APK before physical validation.
