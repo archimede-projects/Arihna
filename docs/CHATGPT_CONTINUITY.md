@@ -205,12 +205,10 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- User installs the verified S25 prerelease `arihna-per-alarm-volume.apk`.
-- Physical checks required before stable:
-  1. Settings has no global alarm-volume control.
-  2. Personal alarm A and B can have different saved volumes and persist independently.
-  3. Fajr/other prayer Adhan volumes remain independently configurable per prayer.
-  4. Changing a personal alarm volume does not change prayer/Adhan volume, and vice versa.
-  5. Ringtone selection, repeat schedule, enable/disable, stop/snooze still work.
-  6. Makkah Takbir remains exactly two Takbir and stops.
-- Only after explicit user PASS on Galaxy S25 may stable be published, using the exact validated prerelease bytes (no rebuild).
+- Continue physical Galaxy S25 validation of the same installed prerelease:
+  1. Create/open two personal alarms and assign clearly different volumes (for example 25% and 80%); save, reopen, and verify both values persist independently.
+  2. Trigger/test both alarms and verify the audible levels differ and changing one does not alter the other.
+  3. Set different per-prayer/Adhan volumes (for example Fajr vs Dhuhr), verify persistence and independence.
+  4. Verify custom-alarm volume changes do not affect prayer/Adhan volume, and prayer/Adhan changes do not affect custom alarms.
+  5. Confirm ringtone/repeat/enable/stop/snooze remain correct and Makkah Takbir still plays exactly twice and stops.
+- Do not publish stable until the user explicitly reports physical PASS for the remaining checks.
