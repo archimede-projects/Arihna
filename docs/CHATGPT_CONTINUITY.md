@@ -166,30 +166,46 @@ Release:
 - direct download: `https://github.com/archimede-projects/Arihna/releases/download/quran-imlai-0d7d12c2-20260925/arihna-quran-imlai.apk`
 
 ## Latest user request / actual work
-2026-10-05 user asked which physical tests must be performed on Galaxy S25 for the current Makkah two-takbīr prerelease.
+2026-10-09 user confirmed the current Makkah two-takbir behavior is now perfect on Galaxy S25, then requested a product change: there must be no global alarm-volume control; volume must be controlled independently for each personal alarm and each prayer/Adhan.
 
 Actually done / live-verified:
-- Read continuity from `chat-context`.
-- Re-read SPEC commit `32d1d1a5e61c5329d8bf3fe91367d6f820e9b981` and current prerelease metadata.
-- Live prerelease remains:
-  - tag `takbir-makkah-x2-2182e303-20260930`;
-  - release id `400013270`;
-  - target `2182e303afde1e3823af03cbb8d8afabf3541c52`;
-  - asset `arihna-takbir-makkah-x2.apk`;
-  - bytes `387702804`;
-  - SHA-256 `b6ccd3a67326967958e4f91d7fab176c8ee72ff9a403c10962ecd060a4f5b7ac`.
-- Physical validation requirements from the SPEC:
-  1. audio quality must sound clean/professional on Galaxy S25;
-  2. audible content must be exactly two `الله أكبر` phrases;
-  3. playback must stop after the second takbīr;
-  4. no shahada, `حي على الصلاة`, or later Adhan phrase may be audible;
-  5. recitation must not sound sped-up/time-compressed;
-  6. trim must not clip speech at start/end;
-  7. per-prayer local 0–100% playback gain must still behave correctly;
-  8. all other Adhan variants and unrelated core features must remain unaffected.
-- No physical PASS was claimed; user has not yet reported the result.
-- No runtime/code/release mutation this turn.
+- User feedback is treated as physical Galaxy S25 PASS for the Makkah two-takbir prerelease.
+- Live `main` was verified at `2182e303afde1e3823af03cbb8d8afabf3541c52` before starting the new change.
+- Inspected current implementation:
+  - prayer/Adhan volume already persists independently per prayer (0–100%);
+  - personal alarms had `AlarmRule.playbackVolumePercent` available at delivery time but it was not persisted/exposed and custom delivery defaulted to 100%;
+  - Settings exposed a global Android `STREAM_ALARM` volume slider.
+- Created SPEC branch `spec/per-alarm-volume-only-20261009`.
+- SPEC commit: `c2d9a227068b7e7a7fb9e64e0f1f244ee094dab7`.
+- SPEC file: `docs/specs/per-alarm-volume-only-20261009.md`.
+- Candidate v1 `f2157b67d9b25c94186c27d8f530116159342d4c` was superseded before gate because pre-gate review found one historical codec test still treating V3 as unknown.
+- Definitive candidate v2:
+  - branch `candidate/per-alarm-volume-only-v2-20261009`;
+  - SHA `b7b92ceb72e90748f29132889a5ec64a4c066eff`;
+  - exactly one commit, direct child of SPEC;
+  - message `feat(audio): make volume per alarm only`.
+- Candidate v2 behavior:
+  - removes global alarm-volume UI from Settings;
+  - Settings no longer changes Android `STREAM_ALARM`;
+  - adds 0–100% volume slider to each personal alarm editor;
+  - persists personal-alarm volume in alarm-rule format V3;
+  - V1/V2 persisted alarms migrate to 100% without losing existing fields;
+  - changing sound/ringtone preserves the rule volume;
+  - custom alarm delivery uses that rule's persisted volume;
+  - prayer/Adhan delivery continues using the separate per-prayer volume repository.
+- Added/updated unit and Android UI regressions for persistence, migration, custom editor volume, removal of global UI and delivery propagation.
+- Gate driver:
+  - branch `driver/per-alarm-volume-only-v2-gate-20261009`;
+  - workflow commit `73634e835b4a78b8a6cc2b6a611ad578a4faa2f6`;
+  - run `37926520862`.
+- Current gate status at last check: in progress.
+  - static/build job `113806665782`: in progress; exact lineage/scope contract already PASS.
+  - API28 job `113806666291`: in progress; exact candidate check PASS.
+  - API36 job `113806665596`: in progress; exact candidate check and setup PASS; emulator tests running.
+- `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- Makkah prerelease remains pending physical Galaxy S25 validation.
-- If requested, make a separate SPEC-first UI change to keep, relabel, or remove the global alarm-volume control.
+- Wait for exact-SHA gate run `37926520862` to complete.
+- If all static/build, API28 and API36 jobs PASS, live-recheck `main` is still `2182e303afde1e3823af03cbb8d8afabf3541c52`, then promote candidate v2 `b7b92ceb72e90748f29132889a5ec64a4c066eff` with non-forced fast-forward.
+- After promotion, publish an S25 prerelease for the per-alarm volume change, redownload and verify APK SHA-256 + persistent signer + metadata.
+- Physical S25 validation for the new change must confirm: no global volume control, independent custom-alarm volumes, independent per-prayer/Adhan volumes, and no cross-effect between alerts.
