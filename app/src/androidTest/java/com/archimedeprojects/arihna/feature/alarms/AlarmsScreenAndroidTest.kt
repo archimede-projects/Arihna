@@ -1,7 +1,9 @@
 package com.archimedeprojects.arihna.feature.alarms
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -9,6 +11,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.unit.dp
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaTheme
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmDefinition
@@ -108,7 +111,7 @@ class AlarmsScreenAndroidTest {
                         ringtoneTitle = "Morning Flower",
                     ),
                     onDismiss = {},
-                    onSave = { _, _, _, _, _, _, _ -> },
+                    onSave = { _, _, _, _, _, _, _, _ -> },
                     onDelete = { deleted = it },
                 )
             }
@@ -139,13 +142,35 @@ class AlarmsScreenAndroidTest {
     }
 
     @Test
+    fun personalAlarmEditorControlsAndSavesIndependentVolume() {
+        var savedVolume = -1
+        composeRule.setContent {
+            ArihnaTheme {
+                CustomAlarmEditorDialog(
+                    initialRule = customRule().copy(playbackVolumePercent = 65),
+                    onDismiss = {},
+                    onSave = { _, _, _, _, _, _, _, volume -> savedVolume = volume },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("alarm-volume-slider").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("alarm-volume-value").assertTextEquals("65%")
+        composeRule.onNodeWithTag("alarm-volume-slider")
+            .performSemanticsAction(SemanticsActions.SetProgress) { setProgress -> setProgress(35f) }
+        composeRule.onNodeWithTag("alarm-volume-value").assertTextEquals("35%")
+        composeRule.onNodeWithTag("alarm-editor-save").performClick()
+        composeRule.runOnIdle { assertEquals(35, savedVolume) }
+    }
+
+    @Test
     fun newAlarmEditorDoesNotExposeDeleteAction() {
         composeRule.setContent {
             ArihnaTheme {
                 CustomAlarmEditorDialog(
                     initialRule = null,
                     onDismiss = {},
-                    onSave = { _, _, _, _, _, _, _ -> },
+                    onSave = { _, _, _, _, _, _, _, _ -> },
                 )
             }
         }

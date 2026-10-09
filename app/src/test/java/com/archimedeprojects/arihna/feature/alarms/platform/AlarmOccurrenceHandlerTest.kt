@@ -68,6 +68,23 @@ class AlarmOccurrenceHandlerTest {
     }
 
     @Test
+    fun resolvedPlaybackVolumeIsPropagatedToDelivery() = runBlocking {
+        val repository = MutableRuleRepository(oneShotRule().copy(playbackVolumePercent = 35))
+        val delivery = FakeDelivery(AlarmNotificationDeliveryResult.DELIVERED)
+        val handler = AlarmOccurrenceHandler(
+            ruleRepository = repository,
+            notificationDelivery = delivery,
+            playbackVolumePercent = { it.playbackVolumePercent },
+            reconcileNow = {},
+        )
+
+        val result = handler.handle(envelope(repository.current!!))
+
+        assertEquals(AlarmOccurrenceHandlingResult.DELIVERED, result)
+        assertEquals(35, delivery.lastRule?.playbackVolumePercent)
+    }
+
+    @Test
     fun recurringDeliveryStaysEnabledAndRequestsNextReconciliation() = runBlocking {
         val recurring = oneShotRule().copy(
             definition = AlarmDefinition.Custom(
@@ -114,9 +131,11 @@ class AlarmOccurrenceHandlerTest {
         private val result: AlarmNotificationDeliveryResult,
     ) : AlarmNotificationDelivery {
         var calls = 0
+        var lastRule: AlarmRule? = null
         override fun ensureChannels() = Unit
         override fun deliver(rule: AlarmRule, occurrence: AlarmOccurrence): AlarmNotificationDeliveryResult {
             calls += 1
+            lastRule = rule
             return result
         }
     }
