@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
+import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.net.Uri
@@ -17,6 +18,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import androidx.core.app.NotificationCompat
+import kotlin.math.roundToInt
 import com.archimedeprojects.arihna.R
 import com.archimedeprojects.arihna.feature.alarms.domain.AdhanVariant
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmDefinition
@@ -206,11 +208,96 @@ internal object AlarmRingingNotificationFactory {
         (31 * alarmId.hashCode() + salt) and Int.MAX_VALUE
 }
 
+internal interface AlarmStreamVolumeBackend {
+    val isVolumeFixed: Boolean
+    fun minVolume(): Int
+    fun maxVolume(): Int
+    fun currentVolume(): Int
+    fun setVolume(index: Int)
+}
+
+internal class AndroidAlarmStreamVolumeBackend(context: Context) : AlarmStreamVolumeBackend {
+    private val audioManager =
+        context.applicationContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+    override val isVolumeFixed: Boolean
+        get() = audioManager.isVolumeFixed
+
+    override fun minVolume(): Int = audioManager.getStreamMinVolume(AudioManager.STREAM_ALARM)
+
+    override fun maxVolume(): Int = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+
+    override fun currentVolume(): Int = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
+
+    override fun setVolume(index: Int) {
+        audioManager.setStreamVolume(AudioManager.STREAM_ALARM, index, 0)
+    }
+}
+
+internal data class AlarmStreamVolumeLease(
+    val originalIndex: Int,
+    val appliedIndex: Int,
+)
+
+internal class AlarmStreamVolumeSession(
+    private val backend: AlarmStreamVolumeBackend,
+) {
+    private var lease: AlarmStreamVolumeLease? = null
+
+    fun apply(percent: Int): Boolean {
+        restore()
+        if (backend.isVolumeFixed) return false
+        val min = runCatching { backend.minVolume() }.getOrElse { return false }
+        val max = runCatching { backend.maxVolume() }.getOrElse { return false }
+        val original = runCatching { backend.currentVolume().coerceIn(min, max) }.getOrElse { return false }
+        val target = alarmStreamVolumeIndex(percent, min, max)
+        return try {
+            backend.setVolume(target)
+            val actual = backend.currentVolume().coerceIn(min, max)
+            if (actual == target) {
+                lease = AlarmStreamVolumeLease(originalIndex = original, appliedIndex = target)
+                true
+            } else {
+                false
+            }
+        } catch (_: SecurityException) {
+            false
+        } catch (_: RuntimeException) {
+            false
+        }
+    }
+
+    fun restore() {
+        val active = lease ?: return
+        lease = null
+        runCatching {
+            if (!backend.isVolumeFixed && backend.currentVolume() == active.appliedIndex) {
+                backend.setVolume(active.originalIndex)
+            }
+        }
+    }
+}
+
+internal fun alarmStreamVolumeIndex(percent: Int, min: Int, max: Int): Int {
+    val low = min.coerceAtMost(max)
+    val high = max.coerceAtLeast(min)
+    if (high <= low) return low
+    val normalized = percent.coerceIn(0, 100)
+    if (normalized == 0) return low
+    return (low + ((high - low) * (normalized / 100f))).roundToInt().coerceIn(low, high)
+}
+
+internal fun effectivePlaybackGain(percent: Int, streamVolumeApplied: Boolean): Float =
+    if (streamVolumeApplied && percent.coerceIn(0, 100) > 0) 1f else playbackGain(percent)
+
 class AlarmRingingService : Service() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var mediaPlayer: MediaPlayer? = null
     private var activeNotificationId: Int? = null
     private var activeAlarmId: String? = null
+    private val alarmStreamVolumeSession by lazy {
+        AlarmStreamVolumeSession(AndroidAlarmStreamVolumeBackend(this))
+    }
     private val ringingOverlay by lazy { AlarmRingingOverlay(this) }
     private val safetyStop = Runnable { stopRinging() }
 
@@ -250,7 +337,20 @@ class AlarmRingingService : Service() {
         } else {
             startForeground(activeNotificationId ?: 1, notification)
         }
-        startAudio(payload.soundProfile, payload.ringtoneUri, payload.playbackVolumePercent)
+        val streamVolumeApplied = if (payload.soundProfile == AlarmSoundProfile.SILENT) {
+            false
+        } else {
+            alarmStreamVolumeSession.apply(payload.playbackVolumePercent)
+        }
+        startAudio(
+            payload.soundProfile,
+            payload.ringtoneUri,
+            payload.playbackVolumePercent,
+            streamVolumeApplied,
+        )
+        if (payload.soundProfile != AlarmSoundProfile.SILENT && mediaPlayer == null) {
+            alarmStreamVolumeSession.restore()
+        }
         ringingOverlay.show(
             payload = payload,
             onStop = { stopRinging() },
@@ -269,13 +369,14 @@ class AlarmRingingService : Service() {
         profile: AlarmSoundProfile,
         selectedRingtoneUri: String?,
         playbackVolumePercent: Int,
+        streamVolumeApplied: Boolean,
     ) {
         if (profile == AlarmSoundProfile.SILENT) return
         val attributes = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_ALARM)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build()
-        val gain = playbackGain(playbackVolumePercent)
+        val gain = effectivePlaybackGain(playbackVolumePercent, streamVolumeApplied)
 
         if (profile == AlarmSoundProfile.ADHAN) {
             val variant = AdhanVariant.fromStorage(selectedRingtoneUri)
@@ -302,10 +403,12 @@ class AlarmRingingService : Service() {
                         }.onFailure {
                             if (mediaPlayer === completed) mediaPlayer = null
                             completed.release()
+                            alarmStreamVolumeSession.restore()
                         }
                     } else {
                         if (mediaPlayer === completed) mediaPlayer = null
                         completed.release()
+                        alarmStreamVolumeSession.restore()
                     }
                 }
                 mediaPlayer = player
@@ -352,6 +455,7 @@ class AlarmRingingService : Service() {
             player.release()
         }
         mediaPlayer = null
+        alarmStreamVolumeSession.restore()
     }
 
     private fun stopRinging() {
