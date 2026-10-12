@@ -205,10 +205,7 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- Continue physical Galaxy S25 validation of the same installed prerelease:
-  1. Create/open two personal alarms and assign clearly different volumes (for example 25% and 80%); save, reopen, and verify both values persist independently.
-  2. Trigger/test both alarms and verify the audible levels differ and changing one does not alter the other.
-  3. Set different per-prayer/Adhan volumes (for example Fajr vs Dhuhr), verify persistence and independence.
-  4. Verify custom-alarm volume changes do not affect prayer/Adhan volume, and prayer/Adhan changes do not affect custom alarms.
-  5. Confirm ringtone/repeat/enable/stop/snooze remain correct and Makkah Takbir still plays exactly twice and stops.
-- Do not publish stable until the user explicitly reports physical PASS for the remaining checks.
+- Check exact-SHA gate run `38241135739` for candidate `f251a9b630781252d028055d42fa2ce7f1ab3920`.
+- If static/build, API28 and API36 all PASS, live-recheck `main` is still `c01414f82d257bcd2fa6c0a6b456d49c75f00b68`, then promote by non-forced fast-forward and publish an independently verified S25 prerelease.
+- Physical S25 retest must specifically compare clearly different per-alert values (e.g. 20% vs 80%) while Android's pre-test alarm volume is held constant, verify audible difference, and verify the original Android alarm-stream level is restored after each ring.
+- Do not publish stable until explicit physical PASS.
