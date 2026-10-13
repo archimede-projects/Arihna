@@ -229,3 +229,15 @@ Actually done / live-verified:
 - Verify audible difference and that Android alarm volume returns to its prior value after ringing stops.
 - Repeat with two prayer/Adhan volume levels.
 - Do not publish stable until explicit physical PASS.
+
+2026-10-13 final live verification before S25 handoff:
+- Release `per-alert-runtime-volume-f251a9b6-20261013` live-verified.
+- Release id `411542845`, prerelease=true, draft=false.
+- Target exact runtime `f251a9b630781252d028055d42fa2ce7f1ab3920`.
+- Asset id `636647368`, name `arihna-per-alert-runtime-volume.apk`, size `387688508`.
+- Asset digest `sha256:61a20e1e9a7d78f87c143a85b5f66a2885476d92db24ffa5114fa77761cf7c26`.
+- Release workflow `38381610411` completed/success; job `115243144107` completed/success.
+- CI redownloaded the published APK and reverified exact SHA/size and signer.
+- Verified signer cert SHA-256: `1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa`.
+- Direct APK: `https://github.com/archimede-projects/Arihna/releases/download/per-alert-runtime-volume-f251a9b6-20261013/arihna-per-alert-runtime-volume.apk`.
+- Physical S25 validation still pending.
