@@ -205,7 +205,7 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- Check exact-SHA gate run `38241135739` for candidate `f251a9b630781252d028055d42fa2ce7f1ab3920`.
-- If static/build, API28 and API36 all PASS, live-recheck `main` is still `c01414f82d257bcd2fa6c0a6b456d49c75f00b68`, then promote by non-forced fast-forward and publish an independently verified S25 prerelease.
-- Physical S25 retest must specifically compare clearly different per-alert values (e.g. 20% vs 80%) while Android's pre-test alarm volume is held constant, verify audible difference, and verify the original Android alarm-stream level is restored after each ring.
+- Check release run `38381610411`.
+- If release workflow completes success, live-verify release target, asset digest/size and independent redownload signer verification, then hand the APK to the user for Galaxy S25 physical retest.
+- Physical retest: compare clearly different per-alert values (e.g. 20% vs 80%) while Android alarm volume is held constant; verify audible difference and verify Android alarm-stream level is restored afterward.
 - Do not publish stable until explicit physical PASS.
