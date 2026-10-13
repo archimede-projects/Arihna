@@ -209,3 +209,23 @@ Actually done / live-verified:
 - If release workflow completes success, live-verify release target, asset digest/size and independent redownload signer verification, then hand the APK to the user for Galaxy S25 physical retest.
 - Physical retest: compare clearly different per-alert values (e.g. 20% vs 80%) while Android alarm volume is held constant; verify audible difference and verify Android alarm-stream level is restored afterward.
 - Do not publish stable until explicit physical PASS.
+
+
+2026-10-13 runtime-volume S25 prerelease ready:
+- Release workflow run 38381610411 completed/success.
+- Job 115243144107 completed/success.
+- main remains f251a9b630781252d028055d42fa2ce7f1ab3920.
+- Prerelease tag: per-alert-runtime-volume-f251a9b6-20261013.
+- Release id: 411542845.
+- Asset: arihna-per-alert-runtime-volume.apk.
+- Asset size: 387688508 bytes.
+- APK SHA-256: 61a20e1e9a7d78f87c143a85b5f66a2885476d92db24ffa5114fa77761cf7c26.
+- Published asset was redownloaded by CI and reverified successfully.
+- Physical Galaxy S25 validation for this corrected runtime is still pending.
+
+## Exact next action
+- Install the new prerelease on Galaxy S25.
+- Compare a low personal-alarm volume (for example 20%) with a high one (for example 80%) while Android alarm volume starts from the same level.
+- Verify audible difference and that Android alarm volume returns to its prior value after ringing stops.
+- Repeat with two prayer/Adhan volume levels.
+- Do not publish stable until explicit physical PASS.
