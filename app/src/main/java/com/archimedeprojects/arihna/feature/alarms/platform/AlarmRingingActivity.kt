@@ -1,5 +1,9 @@
 package com.archimedeprojects.arihna.feature.alarms.platform
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -51,6 +55,19 @@ import kotlinx.coroutines.delay
 
 class AlarmRingingActivity : ComponentActivity() {
     private var payload: AlarmRingingPayload? = null
+    private var sessionEndedReceiverRegistered = false
+    private val sessionEndedReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (
+                shouldDismissRingingActivity(
+                    activeAlarmId = payload?.alarmId,
+                    endedAlarmId = AlarmRingingSessionContract.endedAlarmId(intent),
+                )
+            ) {
+                finishAndRemoveTask()
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,6 +77,7 @@ class AlarmRingingActivity : ComponentActivity() {
             finish()
             return
         }
+        registerSessionEndedReceiver()
         setContent {
             ArihnaTheme(darkTheme = true) {
                 AlarmRingingScreen(current, onStop = ::stopAndFinish, onSnooze = ::snoozeAndFinish)
@@ -78,6 +96,26 @@ class AlarmRingingActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun registerSessionEndedReceiver() {
+        if (sessionEndedReceiverRegistered) return
+        val filter = IntentFilter(AlarmRingingSessionContract.ACTION_SESSION_ENDED)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(sessionEndedReceiver, filter, RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(sessionEndedReceiver, filter)
+        }
+        sessionEndedReceiverRegistered = true
+    }
+
+    override fun onDestroy() {
+        if (sessionEndedReceiverRegistered) {
+            runCatching { unregisterReceiver(sessionEndedReceiver) }
+            sessionEndedReceiverRegistered = false
+        }
+        super.onDestroy()
     }
 
     private fun configureAlarmWindow() {
