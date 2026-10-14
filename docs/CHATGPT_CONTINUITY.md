@@ -205,7 +205,6 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- User listens to the 4-second preview `alarm-clock-short-first-4s.mp3`.
-- If user approves it, define a fresh SPEC for bundling this exact preview as an Arihna-owned personal-alarm ringtone that loops at constant cadence and obeys per-alarm volume, while preserving the Android ringtone picker.
-- If user wants a slightly different cut boundary, regenerate only the listening preview first; do not integrate until explicit approval.
-- Separately gate Adhan auto-dismiss v3 `c2948bf73bf85ff2518525f7d07118c0270470ff` before any main promotion.
+- Check Adhan auto-dismiss v3 gate run `38517031636`.
+- If static/build + API28 + API36 all PASS, live-recheck main remains `f251a9b630781252d028055d42fa2ce7f1ab3920`, then promote v3 by non-forced fast-forward and publish/verify an S25 prerelease for physical Adhan-completion validation.
+- After that stream is resolved, create a fresh SPEC from the then-current live main to bundle the exact approved 4.0-second vintage ringtone asset with constant looping, per-alarm volume, and preserved Android ringtone picker.
