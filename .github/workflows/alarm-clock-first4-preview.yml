@@ -1,0 +1,71 @@
+name: Alarm clock first 4 seconds preview
+
+on:
+  push:
+    branches:
+      - driver/alarm-clock-first4-preview-20261014
+    paths:
+      - .github/workflows/alarm-clock-first4-preview.yml
+
+permissions:
+  contents: write
+
+env:
+  SOURCE_REPO: Kalashnikov42/AlarmAppNSS
+  SOURCE_COMMIT: 99ca0011e4995791fe1abd70aefeacba177a7422
+  SOURCE_BLOB_SHA: f021ca6206ddd2fb0c5c9c7a23921259b77dd26e
+  SOURCE_FILE: alarm-clock-short-6402.mp3
+  OUTPUT_FILE: alarm-clock-short-first-4s.mp3
+  RELEASE_TAG: audio-preview-alarm-clock-first4-20261014
+
+jobs:
+  cut-and-publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch exact CC0 reference bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 \
+            "https://raw.githubusercontent.com/$SOURCE_REPO/$SOURCE_COMMIT/$SOURCE_FILE" \
+            --output "$SOURCE_FILE"
+          test "$(stat -c '%s' "$SOURCE_FILE")" = "171840"
+          test "$(git hash-object "$SOURCE_FILE")" = "$SOURCE_BLOB_SHA"
+
+      - name: Cut exact first four seconds
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v ffmpeg >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
+          ffmpeg -hide_banner -loglevel error -y \
+            -i "$SOURCE_FILE" \
+            -af "atrim=start=0:end=4,asetpts=PTS-STARTPTS" \
+            -c:a libmp3lame -b:a 160k \
+            "$OUTPUT_FILE"
+          DURATION="$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$OUTPUT_FILE")"
+          python3 - "$DURATION" <<'PY'
+          import sys
+          d=float(sys.argv[1])
+          assert 3.95 <= d <= 4.10, d
+          PY
+          sha256sum "$OUTPUT_FILE" | tee preview-sha256.txt
+          printf '%s\n' "$DURATION" | tee preview-duration.txt
+
+      - name: Publish listening preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release delete "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "$RELEASE_TAG" "$OUTPUT_FILE" preview-sha256.txt preview-duration.txt \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --title "Audio preview — alarm clock first 4 seconds" \
+            --notes "Listening-only preview. Exact first four seconds of alarm-clock-short-6402.mp3. Original Freesound sound 219244 by ZyryTSounds is CC0. Not an Arihna runtime release."
