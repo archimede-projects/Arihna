@@ -1,6 +1,7 @@
 package com.archimedeprojects.arihna.feature.alarms.platform
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.drawable.GradientDrawable
 import android.provider.Settings
@@ -9,7 +10,10 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.TextView
+import androidx.lifecycle.Lifecycle
+import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmSoundProfile
 import org.junit.Assert.assertEquals
@@ -126,6 +130,41 @@ class AlarmOverlayVolumeAndroidTest {
         assertEquals(1, stopClicks)
         assertEquals(1, snoozeClicks)
         overlay.hide()
+    }
+
+    @Test
+    fun matchingSessionEndedSignalClosesRingingActivityButMismatchedIdDoesNot() {
+        val ringingPayload = AlarmRingingPayload(
+            alarmId = "adhan-fajr-test",
+            ruleRevision = 1L,
+            title = "Fajr",
+            soundProfile = AlarmSoundProfile.ADHAN,
+            isPrayer = true,
+            occurrenceToken = "adhan-fajr-token",
+        )
+        val launchIntent = AlarmRingingIntentContract.put(
+            Intent(context, AlarmRingingActivity::class.java),
+            ringingPayload,
+        )
+        val scenario = ActivityScenario.launch<AlarmRingingActivity>(launchIntent)
+        try {
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+            assertTrue(scenario.state != Lifecycle.State.DESTROYED)
+
+            context.sendBroadcast(
+                AlarmRingingSessionContract.endedIntent(context, "different-alarm"),
+            )
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+            assertTrue(scenario.state != Lifecycle.State.DESTROYED)
+
+            context.sendBroadcast(
+                AlarmRingingSessionContract.endedIntent(context, ringingPayload.alarmId),
+            )
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+            assertEquals(Lifecycle.State.DESTROYED, scenario.state)
+        } finally {
+            scenario.close()
+        }
     }
 
     @Test

@@ -1,6 +1,7 @@
 package com.archimedeprojects.arihna.feature.alarms.platform
 
 import com.archimedeprojects.arihna.feature.alarms.domain.AdhanVariant
+import com.archimedeprojects.arihna.feature.alarms.domain.AlarmSoundProfile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -62,6 +63,21 @@ class AlarmRingingPlaybackTest {
         val rejected = FakeAlarmStreamVolumeBackend(current = 5, failSet = true)
         assertFalse(AlarmStreamVolumeSession(rejected).apply(80))
         assertEquals(5, rejected.current)
+    }
+
+    @Test
+    fun onlyAdhanAutoEndsAfterNaturalAudioCompletion() {
+        assertTrue(shouldAutoEndRingingOnNaturalCompletion(AlarmSoundProfile.ADHAN))
+        assertFalse(shouldAutoEndRingingOnNaturalCompletion(AlarmSoundProfile.SYSTEM_DEFAULT))
+        assertFalse(shouldAutoEndRingingOnNaturalCompletion(AlarmSoundProfile.SILENT))
+    }
+
+    @Test
+    fun ringingActivityDismissalIsScopedToMatchingAlarmId() {
+        assertTrue(shouldDismissRingingActivity("fajr", "fajr"))
+        assertFalse(shouldDismissRingingActivity("fajr", "isha"))
+        assertFalse(shouldDismissRingingActivity("fajr", null))
+        assertFalse(shouldDismissRingingActivity(null, "fajr"))
     }
 
     @Test
