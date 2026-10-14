@@ -205,7 +205,7 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- First finish exact-SHA gate `38514479391` for Adhan auto-dismiss candidate `476fc1c6c1b64db83a95e8876646cd147a936472`; do not stack the ringtone feature on an unpromoted candidate.
-- If that gate passes, promote/release/test according to the current Adhan auto-dismiss flow.
-- Then create a fresh SPEC from the new live main for the bundled `Sveglia vintage` ringtone, preserving all prior alarm/Adhan behavior.
-- Implementation should add an Arihna-owned built-in ringtone entry plus the existing Android ringtone picker, persist the built-in selection deterministically, loop it for personal alarms, honor per-alarm volume, and include required CC BY 4.0 attribution/provenance.
+- Let the user listen to the new candidate links and identify the closest one.
+- If none matches, continue targeted search based on the user's description of what differs (faster/slower, metallic bell vs buzzer, two-bell hammer vs single bell, rhythmic pattern, pitch).
+- Do not implement a ringtone until the user explicitly chooses/approves one.
+- In parallel, continue the already-running Adhan auto-dismiss gate flow independently.
