@@ -205,6 +205,6 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- First continue listening search with the user; start with `wuc_bell_high_and_low.wav` because it directly matches separate high/low wind-up-clock bell strikes.
-- If the user approves a sound, only then plan the bundled ringtone feature and license/provenance.
-- Separately, fix the Adhan auto-dismiss Android activity-close test/implementation using a new sibling candidate under SPEC `02ddb3522adcc97691b287d1e2c1a1acc8fac064`; do not mutate main until a new exact-SHA gate is green.
+- Let user listen to `Generic Alarm Clock` first; if it is not close enough, prefer proposing/producing the exact first ~4 seconds of ZyryTSounds `alarm clock short` as a constant seamless loop, since that is the explicitly approved timbre and rhythm section.
+- Do not integrate any ringtone until user explicitly approves the sound.
+- Separately create and run a new exact-SHA gate for Adhan auto-dismiss v3 `c2948bf73bf85ff2518525f7d07118c0270470ff`; do not mutate main until green.
