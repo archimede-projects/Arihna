@@ -205,6 +205,6 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- Check Adhan auto-dismiss v3 gate run `38517031636`.
-- If static/build + API28 + API36 all PASS, live-recheck main remains `f251a9b630781252d028055d42fa2ce7f1ab3920`, then promote v3 by non-forced fast-forward and publish/verify an S25 prerelease for physical Adhan-completion validation.
-- After that stream is resolved, create a fresh SPEC from the then-current live main to bundle the exact approved 4.0-second vintage ringtone asset with constant looping, per-alarm volume, and preserved Android ringtone picker.
+- Check v4 gate run `38520194602`.
+- If static/build + API28 + API36 all PASS, live-recheck main is still `f251a9b630781252d028055d42fa2ce7f1ab3920`, then promote candidate `7f786427639f66a413b862cbd0ed6e8cc1ff45a9` by non-forced fast-forward and publish/verify a new S25 prerelease for physical Adhan-completion validation.
+- Only after that, create a fresh SPEC from the then-current live main for the approved exact 4.0-second vintage ringtone.
