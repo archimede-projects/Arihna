@@ -209,3 +209,9 @@ Actually done / live-verified:
 - If none matches, continue targeted search based on the user's description of what differs (faster/slower, metallic bell vs buzzer, two-bell hammer vs single bell, rhythmic pattern, pitch).
 - Do not implement a ringtone until the user explicitly chooses/approves one.
 - In parallel, continue the already-running Adhan auto-dismiss gate flow independently.
+
+2026-10-14 ringtone search refinement:
+- User clarified the target is NOT a mechanical trill/rattle ("trrrrrr").
+- Desired sound is a clean repeating two-tone alternation: high/low, perceived as "tit-tot, tit-tot", with discrete separated tones rather than buzz/trill.
+- Search direction updated to electronic/digital two-tone alarm / high-low alternating beep / two-tone chime.
+- Do not implement yet; continue listening search until user identifies the target.
