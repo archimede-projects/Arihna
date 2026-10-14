@@ -205,6 +205,7 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- Let user listen to `Generic Alarm Clock` first; if it is not close enough, prefer proposing/producing the exact first ~4 seconds of ZyryTSounds `alarm clock short` as a constant seamless loop, since that is the explicitly approved timbre and rhythm section.
-- Do not integrate any ringtone until user explicitly approves the sound.
-- Separately create and run a new exact-SHA gate for Adhan auto-dismiss v3 `c2948bf73bf85ff2518525f7d07118c0270470ff`; do not mutate main until green.
+- User listens to the 4-second preview `alarm-clock-short-first-4s.mp3`.
+- If user approves it, define a fresh SPEC for bundling this exact preview as an Arihna-owned personal-alarm ringtone that loops at constant cadence and obeys per-alarm volume, while preserving the Android ringtone picker.
+- If user wants a slightly different cut boundary, regenerate only the listening preview first; do not integrate until explicit approval.
+- Separately gate Adhan auto-dismiss v3 `c2948bf73bf85ff2518525f7d07118c0270470ff` before any main promotion.
