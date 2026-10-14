@@ -57,6 +57,9 @@ internal fun createAlarmRingingPayload(
     playbackVolumePercent = rule.playbackVolumePercent,
 )
 
+internal fun shouldDismissRingingActivity(activeAlarmId: String?, endedAlarmId: String?): Boolean =
+    !activeAlarmId.isNullOrBlank() && activeAlarmId == endedAlarmId
+
 internal object AlarmRingingIntentContract {
     const val EXTRA_ALARM_ID = "arihna.ringing.alarm_id"
     const val EXTRA_RULE_REVISION = "arihna.ringing.rule_revision"
@@ -347,6 +350,7 @@ class AlarmRingingService : Service() {
             payload.ringtoneUri,
             payload.playbackVolumePercent,
             streamVolumeApplied,
+            payload.alarmId,
         )
         if (payload.soundProfile != AlarmSoundProfile.SILENT && mediaPlayer == null) {
             alarmStreamVolumeSession.restore()
@@ -370,6 +374,7 @@ class AlarmRingingService : Service() {
         selectedRingtoneUri: String?,
         playbackVolumePercent: Int,
         streamVolumeApplied: Boolean,
+        ringingAlarmId: String,
     ) {
         if (profile == AlarmSoundProfile.SILENT) return
         val attributes = AudioAttributes.Builder()
@@ -401,14 +406,30 @@ class AlarmRingingService : Service() {
                             completed.seekTo(0)
                             completed.start()
                         }.onFailure {
-                            if (mediaPlayer === completed) mediaPlayer = null
+                            val wasActive = mediaPlayer === completed
+                            if (wasActive) mediaPlayer = null
                             completed.release()
                             alarmStreamVolumeSession.restore()
+                            if (wasActive && shouldAutoEndRingingOnNaturalCompletion(profile)) {
+                                mainHandler.post {
+                                    if (activeAlarmId == ringingAlarmId && mediaPlayer == null) {
+                                        stopRinging()
+                                    }
+                                }
+                            }
                         }
                     } else {
-                        if (mediaPlayer === completed) mediaPlayer = null
+                        val wasActive = mediaPlayer === completed
+                        if (wasActive) mediaPlayer = null
                         completed.release()
                         alarmStreamVolumeSession.restore()
+                        if (wasActive && shouldAutoEndRingingOnNaturalCompletion(profile)) {
+                            mainHandler.post {
+                                if (activeAlarmId == ringingAlarmId && mediaPlayer == null) {
+                                    stopRinging()
+                                }
+                            }
+                        }
                     }
                 }
                 mediaPlayer = player
@@ -459,6 +480,7 @@ class AlarmRingingService : Service() {
     }
 
     private fun stopRinging() {
+        val finishedAlarmId = activeAlarmId
         mainHandler.removeCallbacks(safetyStop)
         ringingOverlay.hide()
         stopAudioOnly()
@@ -467,6 +489,7 @@ class AlarmRingingService : Service() {
         }
         activeNotificationId = null
         activeAlarmId = null
+        finishedAlarmId?.let(AlarmRingingActivity::finishIfRinging)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             stopForeground(STOP_FOREGROUND_REMOVE)
         } else {
@@ -529,6 +552,9 @@ class AlarmRingingService : Service() {
             )
     }
 }
+
+internal fun shouldAutoEndRingingOnNaturalCompletion(profile: AlarmSoundProfile): Boolean =
+    profile == AlarmSoundProfile.ADHAN
 
 internal fun playbackGain(percent: Int): Float = percent.coerceIn(0, 100) / 100f
 

@@ -52,6 +52,21 @@ import kotlinx.coroutines.delay
 class AlarmRingingActivity : ComponentActivity() {
     private var payload: AlarmRingingPayload? = null
 
+    override fun onResume() {
+        super.onResume()
+        activeActivity = this
+    }
+
+    override fun onPause() {
+        if (activeActivity === this) activeActivity = null
+        super.onPause()
+    }
+
+    override fun onDestroy() {
+        if (activeActivity === this) activeActivity = null
+        super.onDestroy()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         configureAlarmWindow()
@@ -80,6 +95,9 @@ class AlarmRingingActivity : ComponentActivity() {
         }
     }
 
+    internal fun matchesAlarm(alarmId: String): Boolean =
+        shouldDismissRingingActivity(payload?.alarmId, alarmId)
+
     private fun configureAlarmWindow() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
@@ -96,6 +114,17 @@ class AlarmRingingActivity : ComponentActivity() {
         WindowInsetsControllerCompat(window, window.decorView).apply {
             hide(WindowInsetsCompat.Type.systemBars())
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+    }
+
+    companion object {
+        @Volatile
+        private var activeActivity: AlarmRingingActivity? = null
+
+        internal fun finishIfRinging(alarmId: String) {
+            activeActivity
+                ?.takeIf { it.matchesAlarm(alarmId) }
+                ?.runOnUiThread { finishAndRemoveTask() }
         }
     }
 
