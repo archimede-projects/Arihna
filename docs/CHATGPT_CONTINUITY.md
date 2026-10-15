@@ -205,13 +205,6 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- User may choose a phone ringtone today via Orari -> prayer row sound icon -> Suoneria telefono -> tap the secondary ringtone-title/`Scegli suoneria` button -> Android alarm ringtone picker -> choose ringtone -> Conferma.
-- If requested, next feature should be a fresh SPEC from current live main for `Impostazioni orari` in the Orari screen, exposing:
-  1. calculation method;
-  2. Asr method;
-  3. high-latitude rule;
-  4. per-prayer manual minute corrections;
-  5. clearer display of the selected phone-ringtone name.
-- Keep exact physically validated Adhan prerelease bytes unchanged.
-- Vintage 4-second ringtone remains approved/frozen and still pending integration.
-- APK-size optimization remains separate work.
+- Await user choice among proposed UI approaches (A minimal, B balanced, C per-prayer advanced), or a requested hybrid.
+- After explicit choice, create a fresh SPEC from live main before any implementation.
+- Preserve all physically validated alarm/Adhan behavior and exact current prerelease bytes.
