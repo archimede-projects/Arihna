@@ -205,8 +205,13 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- Await user physical S25 results for the four checks above.
-- If PASS, record exact prerelease bytes as physically validated and preserve those bytes for any later stable publication; do not rebuild.
-- If FAIL, capture exact symptom (which UI remains, which notification remains, which profile/variant, whether normal alarm behavior regressed) and create a sibling candidate from the same Adhan auto-dismiss SPEC.
-- APK-size optimization remains separate diagnostics/spec work.
-- Vintage ringtone remains approved/frozen and unintegrated.
+- User may choose a phone ringtone today via Orari -> prayer row sound icon -> Suoneria telefono -> tap the secondary ringtone-title/`Scegli suoneria` button -> Android alarm ringtone picker -> choose ringtone -> Conferma.
+- If requested, next feature should be a fresh SPEC from current live main for `Impostazioni orari` in the Orari screen, exposing:
+  1. calculation method;
+  2. Asr method;
+  3. high-latitude rule;
+  4. per-prayer manual minute corrections;
+  5. clearer display of the selected phone-ringtone name.
+- Keep exact physically validated Adhan prerelease bytes unchanged.
+- Vintage 4-second ringtone remains approved/frozen and still pending integration.
+- APK-size optimization remains separate work.
