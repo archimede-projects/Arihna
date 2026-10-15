@@ -205,13 +205,6 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- User installs the exact prerelease APK `arihna-adhan-auto-dismiss.apk` from tag `adhan-auto-dismiss-3bd015a5-20261015`.
-- Physical S25 validation:
-  1. let an Adhan finish naturally without pressing Stop/Snooze;
-  2. confirm fullscreen/in-app overlay disappears automatically;
-  3. confirm ringing notification disappears automatically;
-  4. confirm normal personal alarm still stays active until Stop/Snooze;
-  5. confirm Makkah two-Takbir remains exact and auto-dismisses after its final completion.
-- If user reports PASS, preserve exact bytes as validated candidate; do not rebuild for stable.
-- If FAIL, inspect exact symptom and create a new sibling candidate from the same SPEC.
-- Only after this stream is resolved, start a fresh SPEC from current main for the exact approved first-4-second vintage ringtone.
+- Keep the currently verified Adhan prerelease unchanged for physical S25 validation; do not rebuild it merely for size.
+- If the user wants APK-size reduction, first perform a finer audit of the remaining 136193376-byte `other` category and compare debug vs optimized/release packaging, then write a separate SPEC so Quran offline behavior, GeoNames offline location, signer continuity and current validated alarm behavior are not regressed.
+- Vintage ringtone remains approved/frozen and unintegrated pending completion of the Adhan physical-validation stream.
