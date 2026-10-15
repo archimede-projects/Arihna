@@ -205,13 +205,13 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- Check release run `38762346292`.
-- If completed/success, fetch release tag `adhan-auto-dismiss-3bd015a5-20261015`, verify release metadata/asset digest/size from GitHub and use workflow logs to confirm signer + redownload verification.
-- Then hand the exact prerelease APK URL to the user for Galaxy S25 physical testing:
-  1. let an Adhan finish naturally without touching Stop/Snooze;
-  2. confirm fullscreen/in-app overlay and ringing notification disappear automatically;
-  3. confirm volume restoration as applicable;
-  4. confirm a normal personal alarm still remains until Stop/Snooze;
-  5. confirm Makkah two-Takbir still plays exactly twice then auto-dismisses.
-- Do not stable-publish until explicit physical PASS.
-- After this Adhan stream is resolved, create a fresh SPEC from live main for the exact approved first-4-second vintage ringtone.
+- User installs the exact prerelease APK `arihna-adhan-auto-dismiss.apk` from tag `adhan-auto-dismiss-3bd015a5-20261015`.
+- Physical S25 validation:
+  1. let an Adhan finish naturally without pressing Stop/Snooze;
+  2. confirm fullscreen/in-app overlay disappears automatically;
+  3. confirm ringing notification disappears automatically;
+  4. confirm normal personal alarm still stays active until Stop/Snooze;
+  5. confirm Makkah two-Takbir remains exact and auto-dismisses after its final completion.
+- If user reports PASS, preserve exact bytes as validated candidate; do not rebuild for stable.
+- If FAIL, inspect exact symptom and create a new sibling candidate from the same SPEC.
+- Only after this stream is resolved, start a fresh SPEC from current main for the exact approved first-4-second vintage ringtone.
