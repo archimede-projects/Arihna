@@ -1,0 +1,42 @@
+name: APK size audit
+
+on:
+  push:
+    branches:
+      - driver/apk-size-audit-20261015
+    paths:
+      - .github/workflows/apk-size-audit.yml
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download verified prerelease APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release download adhan-auto-dismiss-3bd015a5-20261015 \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern arihna-adhan-auto-dismiss.apk \
+            --dir /tmp/apk
+          test -s /tmp/apk/arihna-adhan-auto-dismiss.apk
+
+      - name: Report largest APK entries
+        run: |
+          set -euo pipefail
+          APK=/tmp/apk/arihna-adhan-auto-dismiss.apk
+          echo "APK_BYTES=$(stat -c '%s' "$APK")"
+          echo "APK_SHA256=$(sha256sum "$APK" | awk '{print $1}')"
+          echo "TOP_UNCOMPRESSED_ENTRIES"
+          unzip -l "$APK" | awk 'NR>3 && $1 ~ /^[0-9]+$/ {print $1, $4}' | sort -nr | head -40
+          echo "TOP_COMPRESSED_ENTRIES"
+          zipinfo -l "$APK" | awk 'NF>=9 && $1 ~ /^-/ {print $(NF-2), $(NF-1), $NF}' | sort -nr | head -40 || true
+          rm -rf /tmp/unpacked
+          mkdir -p /tmp/unpacked
+          unzip -q "$APK" -d /tmp/unpacked
+          echo "TOP_DISK_USAGE"
+          du -ab /tmp/unpacked | sort -nr | head -40
