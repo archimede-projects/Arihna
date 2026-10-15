@@ -205,7 +205,8 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- Finish/fetch APK size audit run `38786838046` and identify the exact contents of the remaining 136.2 MB `other` category.
-- If the user wants APK-size optimization, create a separate SPEC from current live main; do not mutate the verified Adhan candidate.
-- Current physical-validation APK remains the exact verified asset from tag `adhan-auto-dismiss-3bd015a5-20261015`.
+- Await user physical S25 results for the four checks above.
+- If PASS, record exact prerelease bytes as physically validated and preserve those bytes for any later stable publication; do not rebuild.
+- If FAIL, capture exact symptom (which UI remains, which notification remains, which profile/variant, whether normal alarm behavior regressed) and create a sibling candidate from the same Adhan auto-dismiss SPEC.
+- APK-size optimization remains separate diagnostics/spec work.
 - Vintage ringtone remains approved/frozen and unintegrated.
