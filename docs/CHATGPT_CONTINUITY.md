@@ -205,7 +205,13 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- Check gate run `38725084733` attempt 2, specifically API28 job `116393696721`.
-- If API28 completes success, treat v5 exact-SHA gate as green together with existing static/build + API36 success, then live-recheck main and promote `3bd015a592640bfa8da1ef9fb534f7764e242ca1` non-force.
-- Then publish and independently verify S25 prerelease for Adhan auto-dismiss before physical validation.
-- If API28 again fails for infrastructure/dependency-download reasons, retry the same exact SHA rather than creating a new candidate. If it fails an actual test, inspect and create the next sibling candidate only then.
+- Check release run `38762346292`.
+- If completed/success, fetch release tag `adhan-auto-dismiss-3bd015a5-20261015`, verify release metadata/asset digest/size from GitHub and use workflow logs to confirm signer + redownload verification.
+- Then hand the exact prerelease APK URL to the user for Galaxy S25 physical testing:
+  1. let an Adhan finish naturally without touching Stop/Snooze;
+  2. confirm fullscreen/in-app overlay and ringing notification disappear automatically;
+  3. confirm volume restoration as applicable;
+  4. confirm a normal personal alarm still remains until Stop/Snooze;
+  5. confirm Makkah two-Takbir still plays exactly twice then auto-dismisses.
+- Do not stable-publish until explicit physical PASS.
+- After this Adhan stream is resolved, create a fresh SPEC from live main for the exact approved first-4-second vintage ringtone.
