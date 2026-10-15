@@ -1,9 +1,9 @@
-name: Adhan auto-dismiss v4 exact-SHA gate
+name: Adhan auto-dismiss v5 exact-SHA gate
 
 on:
   push:
     branches:
-      - driver/adhan-auto-dismiss-on-completion-v4-gate-20261014
+      - driver/adhan-auto-dismiss-on-completion-v5b-gate-20261015
     paths:
       - .github/workflows/adhan-auto-dismiss-v4-exact-sha-gate.yml
 
@@ -12,7 +12,7 @@ permissions:
 
 env:
   SPEC_SHA: 02ddb3522adcc97691b287d1e2c1a1acc8fac064
-  CANDIDATE_SHA: 7f786427639f66a413b862cbd0ed6e8cc1ff45a9
+  CANDIDATE_SHA: 3bd015a592640bfa8da1ef9fb534f7764e242ca1
   PREVIOUS_MAIN_SHA: f251a9b630781252d028055d42fa2ce7f1ab3920
   GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
   FROZEN_ASSET_RELEASE: settings-s25-premium-3f28b6f0-20260906
@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 7f786427639f66a413b862cbd0ed6e8cc1ff45a9
+          ref: 3bd015a592640bfa8da1ef9fb534f7764e242ca1
           fetch-depth: 0
       - name: Verify exact lineage and Adhan dismissal contracts
         shell: bash
@@ -71,7 +71,7 @@ jobs:
           grep -Fq 'stopRinging()' "$SERVICE"
           grep -Fq 'finishIfRinging(alarmId: String)' "$ACTIVITY"
           grep -Fq 'finishedAlarmId?.let(AlarmRingingActivity::finishIfRinging)' "$SERVICE"
-          grep -Fq 'finishAndRemoveTask()' "$ACTIVITY"
+          grep -Fq 'activity.finish()' "$ACTIVITY"
           grep -Fq 'matchingSessionEndedSignalClosesRingingActivityButMismatchedIdDoesNot' "$OVERLAY_TEST"
           grep -Fq 'personalAlarmEditorControlsAndSavesIndependentVolume' app/src/androidTest/java/com/archimedeprojects/arihna/feature/alarms/AlarmsScreenAndroidTest.kt
           grep -Fq 'settingsDoNotExposeGlobalAlarmVolumeControl' app/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/AlarmSettingsOverlayVolumeAndroidTest.kt
@@ -110,7 +110,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 7f786427639f66a413b862cbd0ed6e8cc1ff45a9
+          ref: 3bd015a592640bfa8da1ef9fb534f7764e242ca1
           fetch-depth: 0
       - name: Verify exact candidate
         run: |
@@ -177,7 +177,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 7f786427639f66a413b862cbd0ed6e8cc1ff45a9
+          ref: 3bd015a592640bfa8da1ef9fb534f7764e242ca1
           fetch-depth: 0
       - name: Verify exact candidate
         run: |
