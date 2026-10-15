@@ -205,8 +205,7 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- Check v5 exact-SHA gate run `38725084733`.
-- If static/build, API28 and API36 all PASS, live-recheck main still equals `f251a9b630781252d028055d42fa2ce7f1ab3920`, then promote candidate `3bd015a592640bfa8da1ef9fb534f7764e242ca1` by non-forced fast-forward.
-- Publish and independently verify a new S25 prerelease for Adhan natural-completion auto-dismiss, preserving signer/digest discipline.
-- Physical S25 test: let an Adhan finish naturally without Stop/Snooze and verify fullscreen/overlay/ringing notification disappear automatically; confirm normal personal alarms still remain until Stop/Snooze.
-- After that stream is resolved, create a fresh SPEC from the then-current live main for the exact approved 4.0-second vintage ringtone.
+- Check gate run `38725084733` attempt 2, specifically API28 job `116393696721`.
+- If API28 completes success, treat v5 exact-SHA gate as green together with existing static/build + API36 success, then live-recheck main and promote `3bd015a592640bfa8da1ef9fb534f7764e242ca1` non-force.
+- Then publish and independently verify S25 prerelease for Adhan auto-dismiss before physical validation.
+- If API28 again fails for infrastructure/dependency-download reasons, retry the same exact SHA rather than creating a new candidate. If it fails an actual test, inspect and create the next sibling candidate only then.
