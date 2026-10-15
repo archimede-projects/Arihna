@@ -31,12 +31,37 @@ jobs:
           APK=/tmp/apk/arihna-adhan-auto-dismiss.apk
           echo "APK_BYTES=$(stat -c '%s' "$APK")"
           echo "APK_SHA256=$(sha256sum "$APK" | awk '{print $1}')"
-          echo "TOP_UNCOMPRESSED_ENTRIES"
-          unzip -l "$APK" | awk 'NR>3 && $1 ~ /^[0-9]+$/ {print $1, $4}' | sort -nr | head -40
-          echo "TOP_COMPRESSED_ENTRIES"
-          zipinfo -l "$APK" | awk 'NF>=9 && $1 ~ /^-/ {print $(NF-2), $(NF-1), $NF}' | sort -nr | head -40 || true
-          rm -rf /tmp/unpacked
-          mkdir -p /tmp/unpacked
-          unzip -q "$APK" -d /tmp/unpacked
-          echo "TOP_DISK_USAGE"
-          du -ab /tmp/unpacked | sort -nr | head -40
+          python3 - <<'PY'
+          import zipfile
+          from collections import defaultdict
+          apk='/tmp/apk/arihna-adhan-auto-dismiss.apk'
+          totals=defaultdict(lambda:[0,0,0])
+          with zipfile.ZipFile(apk) as z:
+              infos=z.infolist()
+              for i in infos:
+                  n=i.filename
+                  if n.startswith('assets/mushaf/'):
+                      cat='mushaf_svg'
+                  elif n.startswith('assets/geonames/'):
+                      cat='geonames'
+                  elif n.startswith('assets/quran/'):
+                      cat='quran_text'
+                  elif n.startswith('res/raw/'):
+                      cat='raw_audio'
+                  elif n.endswith('.dex'):
+                      cat='dex'
+                  elif n.startswith('lib/'):
+                      cat='native_libs'
+                  elif n.startswith('res/'):
+                      cat='other_res'
+                  else:
+                      cat='other'
+                  t=totals[cat]
+                  t[0]+=i.file_size; t[1]+=i.compress_size; t[2]+=1
+              print('CATEGORY_TOTALS')
+              for cat,(raw,comp,count) in sorted(totals.items(), key=lambda kv: kv[1][1], reverse=True):
+                  print(f'{cat} count={count} raw={raw} compressed={comp}')
+              print('TOP_COMPRESSED_ENTRIES')
+              for i in sorted(infos,key=lambda x:x.compress_size,reverse=True)[:40]:
+                  print(i.compress_size, i.file_size, i.filename)
+          PY
