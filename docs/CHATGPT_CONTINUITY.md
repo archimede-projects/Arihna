@@ -205,6 +205,7 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- Keep the currently verified Adhan prerelease unchanged for physical S25 validation; do not rebuild it merely for size.
-- If the user wants APK-size reduction, first perform a finer audit of the remaining 136193376-byte `other` category and compare debug vs optimized/release packaging, then write a separate SPEC so Quran offline behavior, GeoNames offline location, signer continuity and current validated alarm behavior are not regressed.
-- Vintage ringtone remains approved/frozen and unintegrated pending completion of the Adhan physical-validation stream.
+- Finish/fetch APK size audit run `38786838046` and identify the exact contents of the remaining 136.2 MB `other` category.
+- If the user wants APK-size optimization, create a separate SPEC from current live main; do not mutate the verified Adhan candidate.
+- Current physical-validation APK remains the exact verified asset from tag `adhan-auto-dismiss-3bd015a5-20261015`.
+- Vintage ringtone remains approved/frozen and unintegrated.
