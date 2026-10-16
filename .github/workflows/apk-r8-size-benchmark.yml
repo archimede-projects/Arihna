@@ -79,12 +79,9 @@ jobs:
 
           '''
           s=s[:m.end()]+insert+s[m.end():]
-          needle='''    buildFeatures {
-              compose = true
-              buildConfig = false
-          }
+          marker='''    compileOptions {
           '''
-          repl=needle+'''\n    buildTypes {
+          block='''    buildTypes {
               getByName("release") {
                   isMinifyEnabled = true
                   isShrinkResources = true
@@ -92,9 +89,10 @@ jobs:
                   proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
               }
           }
+
           '''
-          assert needle in s
-          s=s.replace(needle,repl,1)
+          assert marker in s
+          s=s.replace(marker,block+marker,1)
           p.write_text(s)
           PY
           grep -Fq 'isMinifyEnabled = true' app/build.gradle.kts
