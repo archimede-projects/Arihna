@@ -29,7 +29,7 @@ val prepareVintageAlarmSound by tasks.registering {
         }
         val digest = MessageDigest.getInstance("SHA-256")
             .digest(target.readBytes())
-            .joinToString("") { "%02x".format(it) }
+            .joinToString("") { "%02x".format(it.toInt() and 0xff) }
         check(digest == vintageAlarmSha256) {
             "Approved vintage alarm digest mismatch: $digest"
         }
