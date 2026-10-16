@@ -1,4 +1,5 @@
 import java.net.URI
+import java.security.MessageDigest
 import java.util.zip.ZipInputStream
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
@@ -14,6 +15,26 @@ val quranSvgCommit = "78d97544bfdc57e9f04bc97ace3f857ed972d772"
 val quranWarshSvgCommit = "b91d39e1065b57bdda3e94aca8ecf3575e50e1e6"
 val quranMetadataCommit = "052b515f3a24dfacbe4cafc3b89f0681a447f462"
 val generatedQuranAssets = layout.buildDirectory.dir("generated/quranAssets").get().asFile
+val vintageAlarmSourceUrl = "https://github.com/archimede-projects/Arihna/releases/download/audio-preview-alarm-clock-first4-20261014/alarm-clock-short-first-4s.mp3"
+val vintageAlarmSha256 = "43fe360338ad312448b4b4bdf69f02e06db4b8d32af21a1c137d70c54b868ccd"
+val generatedVintageRes = layout.buildDirectory.dir("generated/vintageAlarmRes").get().asFile
+
+val prepareVintageAlarmSound by tasks.registering {
+    val target = generatedVintageRes.resolve("raw/arihna_classic_alarm.mp3")
+    outputs.file(target)
+    doLast {
+        target.parentFile.mkdirs()
+        URI(vintageAlarmSourceUrl).toURL().openStream().use { input ->
+            target.outputStream().use { output -> input.copyTo(output) }
+        }
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(target.readBytes())
+            .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+        check(digest == vintageAlarmSha256) {
+            "Approved vintage alarm digest mismatch: $digest"
+        }
+    }
+}
 
 val prepareQuranAssets by tasks.registering {
     outputs.dir(generatedQuranAssets)
@@ -209,12 +230,19 @@ android {
     }
 
     sourceSets.getByName("main").assets.srcDir(generatedQuranAssets)
+    sourceSets.getByName("main").res.srcDir(generatedVintageRes)
 }
 
 tasks.matching { task ->
     task.name.startsWith("merge") && task.name.endsWith("Assets")
 }.configureEach {
     dependsOn(prepareQuranAssets)
+}
+
+tasks.matching { task ->
+    task.name.startsWith("merge") && task.name.endsWith("Resources")
+}.configureEach {
+    dependsOn(prepareVintageAlarmSound)
 }
 
 
