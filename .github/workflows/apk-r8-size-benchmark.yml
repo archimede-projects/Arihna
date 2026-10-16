@@ -84,7 +84,7 @@ jobs:
           block='''    buildTypes {
               getByName("release") {
                   isMinifyEnabled = true
-                  isShrinkResources = true
+                  isShrinkResources = false
                   signingConfig = signingConfigs.getByName("stableBenchmark")
                   proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
               }
@@ -96,10 +96,10 @@ jobs:
           p.write_text(s)
           PY
           grep -Fq 'isMinifyEnabled = true' app/build.gradle.kts
-          grep -Fq 'isShrinkResources = true' app/build.gradle.kts
+          grep -Fq 'isShrinkResources = false' app/build.gradle.kts
 
       - name: Build minified release benchmark
-        run: ./gradlew --no-daemon :app:assembleRelease --stacktrace
+        run: ./gradlew --no-daemon --max-workers=2 :app:assembleRelease --stacktrace
 
       - name: Report benchmark size
         shell: bash
