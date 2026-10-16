@@ -205,6 +205,13 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- Check release run `38890575817`.
-- If completed/success, fetch release `prayer-settings-ui-e8733b4b-20261016`, verify asset size/digest and signer from workflow logs and GitHub release metadata, then hand exact APK URL to user for S25 validation.
-- S25 validation focus: open Orari -> settings, change calculation method/Asr/high-latitude/manual offsets, verify persistence and visible corrections, verify reset, and verify Android ringtone name/change action; quick regression check Adhan auto-dismiss, Makkah x2, and per-alert volume.
+- Hand the exact verified APK to the user for S25 validation.
+- Physical S25 checklist:
+  1. Orari -> settings gear opens `Impostazioni orari`.
+  2. Change calculation method and confirm prayer times update.
+  3. Change Asr method and high-latitude rule; confirm persistence after leaving/reopening.
+  4. Apply manual minute corrections to at least Fajr and Isha; confirm corrected values are visible in Orari and persist.
+  5. Use `Ripristina predefiniti`; confirm method/Asr/high-latitude/offsets return to canonical defaults.
+  6. For one prayer choose `Suoneria Android`; confirm actual ringtone name is shown and `Cambia suoneria` opens Android picker.
+  7. Quick regression: Adhan auto-dismiss still works, Makkah x2 still exact, and per-alert volume still behaves correctly.
+- If PASS, record exact prerelease bytes as physically validated; do not rebuild for stable.
