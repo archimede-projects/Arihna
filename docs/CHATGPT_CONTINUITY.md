@@ -228,3 +228,10 @@ Actually done / live-verified:
   6. For one prayer choose `Suoneria Android`; verify actual ringtone name is visible and `Cambia suoneria` opens Android picker and selection persists.
   7. Quick regressions: normal Adhan auto-dismisses naturally; Makkah x2 exactly twice then dismisses; per-alert volumes still behave independently; personal alarm still requires Stop/Snooze.
 - Do not call physical PASS until explicit user report.
+
+2026-10-16 follow-up physical-test instructions:
+- User asked "Test da fare?" for the verified prayer-settings S25 prerelease.
+- Live reverified main is still `e8733b4b7702b99efd1f8886dd67b86a029e5319`.
+- Live reverified prerelease tag `prayer-settings-ui-e8733b4b-20261016`, asset `arihna-prayer-settings-ui.apk`, exact size `387786812`, SHA-256 `39070154590aead0fd99afcc2387bc39efb028711afb05b3c98b32dc0a0a62df`.
+- Give the concise S25 checklist: open prayer settings, change/persist calculation settings, manual offsets + reset, Android ringtone name/picker persistence, and quick Adhan/Makkah/volume/personal-alarm regressions.
+- Physical PASS remains pending until explicit user report.
