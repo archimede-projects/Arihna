@@ -1,0 +1,282 @@
+name: Prayer settings UI v2 exact-SHA gate
+
+on:
+  push:
+    branches:
+      - driver/prayer-settings-ui-v2-gate-20261016
+    paths:
+      - .github/workflows/prayer-settings-ui-v2-exact-sha-gate.yml
+
+permissions:
+  contents: read
+
+env:
+  SPEC_SHA: ab8addb5443e692229f7820c0886a306b035c8d2
+  CANDIDATE_SHA: e8733b4b7702b99efd1f8886dd67b86a029e5319
+  PREVIOUS_MAIN_SHA: 3bd015a592640bfa8da1ef9fb534f7764e242ca1
+  GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
+  FROZEN_ASSET_RELEASE: settings-s25-premium-3f28b6f0-20260906
+  FROZEN_ASSET_APK: arihna-settings-s25-premium.apk
+
+jobs:
+  static-jvm-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e8733b4b7702b99efd1f8886dd67b86a029e5319
+          fetch-depth: 0
+      - name: Verify exact lineage and prayer settings UI contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          test "$(git rev-list --count "$SPEC_SHA..$CANDIDATE_SHA")" -eq 1
+          test "$(git rev-parse "$SPEC_SHA^")" = "$PREVIOUS_MAIN_SHA"
+          git fetch origin main --force
+          test "$(git rev-parse origin/main)" = "$PREVIOUS_MAIN_SHA"
+
+          mapfile -t CHANGED < <(git diff --name-only "$SPEC_SHA..$CANDIDATE_SHA" | sort)
+          EXPECTED=(
+            'app/src/androidTest/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmOverlayVolumeAndroidTest.kt'
+            'app/src/androidTest/java/com/archimedeprojects/arihna/feature/prayers/PrayerAlertUiAndroidTest.kt'
+            'app/src/androidTest/java/com/archimedeprojects/arihna/feature/prayers/PrayerSettingsUiAndroidTest.kt'
+            'app/src/main/java/com/archimedeprojects/arihna/app/ArihnaApp.kt'
+            'app/src/main/java/com/archimedeprojects/arihna/app/ArihnaNavHost.kt'
+            'app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerSettingsScreen.kt'
+            'app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt'
+            'app/src/main/java/com/archimedeprojects/arihna/feature/prayerschedule/presentation/PrayerScheduleViewModel.kt'
+            'app/src/test/java/com/archimedeprojects/arihna/feature/prayerschedule/presentation/PrayerSettingsViewModelTest.kt'
+          )
+          test "${#CHANGED[@]}" -eq 9
+          diff -u <(printf '%s\n' "${EXPECTED[@]}") <(printf '%s\n' "${CHANGED[@]}")
+
+          SETTINGS=app/src/main/java/com/archimedeprojects/arihna/feature/settings/LocationSettingsScreen.kt
+          ALARMS=app/src/main/java/com/archimedeprojects/arihna/feature/alarms/AlarmsPlaceholderScreen.kt
+          CODEC=app/src/main/java/com/archimedeprojects/arihna/feature/alarms/data/preferences/AlarmRulePreferencesCodec.kt
+          CONTAINER=app/src/main/java/com/archimedeprojects/arihna/app/AppContainer.kt
+          test -z "$(grep -F 'Volume globale delle sveglie del telefono' "$SETTINGS" || true)"
+          test -z "$(grep -F 'settings-alarm-volume-slider' "$SETTINGS" || true)"
+          grep -Fq 'testTag("alarm-volume-slider")' "$ALARMS"
+          grep -Fq 'playbackVolumePercent ?: 100' "$ALARMS"
+          grep -Fq 'ARIHNA_ALARMS_V3' "$CODEC"
+          grep -Fq 'if (prayer == null) rule.playbackVolumePercent' "$CONTAINER"
+          SERVICE=app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
+          PLAYBACK_TEST=app/src/test/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingPlaybackTest.kt
+          grep -Fq 'audioManager.setStreamVolume(AudioManager.STREAM_ALARM, index, 0)' "$SERVICE"
+          grep -Fq 'AlarmStreamVolumeSession(AndroidAlarmStreamVolumeBackend(this))' "$SERVICE"
+          grep -Fq 'alarmStreamVolumeSession.restore()' "$SERVICE"
+          grep -Fq 'streamVolumeSessionTemporarilyAppliesAndRestoresOriginalVolume' "$PLAYBACK_TEST"
+          grep -Fq 'streamVolumeSessionDoesNotOverwriteUserChangeMadeWhileRinging' "$PLAYBACK_TEST"
+          ACTIVITY=app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingActivity.kt
+          OVERLAY_TEST=app/src/androidTest/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmOverlayVolumeAndroidTest.kt
+          grep -Fq 'shouldAutoEndRingingOnNaturalCompletion(profile)' "$SERVICE"
+          grep -Fq 'stopRinging()' "$SERVICE"
+          grep -Fq 'finishIfRinging(alarmId: String)' "$ACTIVITY"
+          grep -Fq 'finishedAlarmId?.let(AlarmRingingActivity::finishIfRinging)' "$SERVICE"
+          grep -Fq 'activity.finish()' "$ACTIVITY"
+          grep -Fq 'matchingSessionEndedSignalClosesRingingActivityButMismatchedIdDoesNot' "$OVERLAY_TEST"
+          grep -Fq 'personalAlarmEditorControlsAndSavesIndependentVolume' app/src/androidTest/java/com/archimedeprojects/arihna/feature/alarms/AlarmsScreenAndroidTest.kt
+          grep -Fq 'settingsDoNotExposeGlobalAlarmVolumeControl' app/src/androidTest/java/com/archimedeprojects/arihna/feature/settings/AlarmSettingsOverlayVolumeAndroidTest.kt
+          PRAYER_SETTINGS=app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerSettingsScreen.kt
+          PRAYER_TIMES=app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerTimesPlaceholderScreen.kt
+          PRAYER_VM=app/src/main/java/com/archimedeprojects/arihna/feature/prayerschedule/presentation/PrayerScheduleViewModel.kt
+          grep -Fq 'Impostazioni orari' "$PRAYER_SETTINGS"
+          grep -Fq 'PrayerCalculationMethod.entries' "$PRAYER_SETTINGS"
+          grep -Fq 'PrayerAdjustmentTarget.SUNRISE' "$PRAYER_SETTINGS"
+          grep -Fq 'Ripristina predefiniti' "$PRAYER_SETTINGS"
+          grep -Fq 'prayer-settings-open' "$PRAYER_TIMES"
+          grep -Fq 'Suoneria Android' "$PRAYER_TIMES"
+          grep -Fq 'Cambia suoneria' "$PRAYER_TIMES"
+          grep -Fq 'coerceIn(MIN_ADJUSTMENT, MAX_ADJUSTMENT)' "$PRAYER_VM"
+          grep -Fq 'settingsRepository = appContainer.prayerSettingsRepository' app/src/main/java/com/archimedeprojects/arihna/app/ArihnaApp.kt
+          grep -Fq 'applicationId = "com.archimedeprojects.arihna"' app/build.gradle.kts
+          grep -Fq 'minSdk = 28' app/build.gradle.kts
+          grep -Fq 'targetSdk = 37' app/build.gradle.kts
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 12266719
+          packages: platform-tools
+      - name: Restore frozen GeoNames
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+      - name: Unit tests AndroidTest compile and APK
+        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:assembleDebug --stacktrace
+
+  api28-full-suite:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e8733b4b7702b99efd1f8886dd67b86a029e5319
+          fetch-depth: 0
+      - name: Verify exact candidate
+        run: |
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 12266719
+          packages: platform-tools
+      - name: Restore frozen GeoNames
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+      - run: sudo chmod 666 /dev/kvm || true
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 28
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-boot-timeout: 600
+          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
+      - name: Require API28 Adhan dismissal regressions
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          files=list(Path('app/build/outputs/androidTest-results/connected').rglob('*.xml'))
+          assert files
+          failures=errors=skipped=0; names=set()
+          for f in files:
+              r=ET.parse(f).getroot()
+              failures+=int(r.attrib.get('failures','0')); errors+=int(r.attrib.get('errors','0'))
+              skipped+=int(r.attrib.get('skipped',r.attrib.get('disabled','0')))
+              names |= {c.attrib.get('name','') for c in r.iter('testcase')}
+          assert failures == errors == skipped == 0, (failures,errors,skipped)
+          required={
+            'personalAlarmEditorControlsAndSavesIndependentVolume',
+            'settingsDoNotExposeGlobalAlarmVolumeControl',
+            'missingValuesDefaultToHundredAndPrayersRoundTripIndependently',
+            'prayerDialogExposesIndependentVolumeAndDedicatedTwoTakbirChoice',
+            'matchingSessionEndedSignalClosesRingingActivityButMismatchedIdDoesNot',
+            'dedicatedSettingsPageExposesControlsAndAdjustmentActions',
+            'orariShowsAppliedCorrectionAndSettingsEntryPoint',
+            'androidRingtoneProfileShowsConcreteSelectedNameAndChangeAction',
+          }
+          assert required <= names, required-names
+          PY
+
+  api36-feature-quran-permission-matrix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e8733b4b7702b99efd1f8886dd67b86a029e5319
+          fetch-depth: 0
+      - name: Verify exact candidate
+        run: |
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 12266719
+          packages: platform-tools
+      - name: Restore frozen GeoNames
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+      - name: Prepare API36 gate
+        shell: bash
+        run: |
+          cat > /tmp/api36-gate.sh <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          CLASSES='com.archimedeprojects.arihna.feature.alarms.platform.AlarmOverlayVolumeAndroidTest,com.archimedeprojects.arihna.feature.alarms.AlarmsScreenAndroidTest,com.archimedeprojects.arihna.feature.settings.AlarmSettingsOverlayVolumeAndroidTest,com.archimedeprojects.arihna.feature.alarms.data.preferences.PrayerAlertPreferencesAndroidTest,com.archimedeprojects.arihna.feature.prayers.PrayerAlertUiAndroidTest,com.archimedeprojects.arihna.feature.prayers.PrayerSettingsUiAndroidTest,com.archimedeprojects.arihna.feature.quran.QuranFullscreenAndroidTest,com.archimedeprojects.arihna.feature.quran.QuranPostStableHardeningAndroidTest,com.archimedeprojects.arihna.feature.quran.TajwidCrashRegressionAndroidTest,com.archimedeprojects.arihna.feature.quran.QuranImlaiAndroidTest'
+          ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class="$CLASSES" --stacktrace
+          P=com.archimedeprojects.arihna
+          ./gradlew :app:installDebug --stacktrace
+          adb shell pm revoke "$P" android.permission.ACCESS_FINE_LOCATION || true
+          adb shell pm revoke "$P" android.permission.ACCESS_COARSE_LOCATION || true
+          adb shell pm grant "$P" android.permission.ACCESS_COARSE_LOCATION
+          adb shell pm grant "$P" android.permission.ACCESS_FINE_LOCATION
+          adb shell pm revoke "$P" android.permission.POST_NOTIFICATIONS || true
+          adb shell pm grant "$P" android.permission.POST_NOTIFICATIONS
+          echo API36_ADHAN_AUTO_DISMISS_SUCCESS > /tmp/api36-adhan-auto-dismiss.txt
+          SH
+          chmod +x /tmp/api36-gate.sh
+      - run: sudo chmod 666 /dev/kvm || true
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 600
+          script: /tmp/api36-gate.sh
+      - name: Require API36 Adhan dismissal and Quran regressions
+        shell: bash
+        run: |
+          test "$(cat /tmp/api36-adhan-auto-dismiss.txt)" = 'API36_ADHAN_AUTO_DISMISS_SUCCESS'
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          files=list(Path('app/build/outputs/androidTest-results/connected').rglob('*.xml'))
+          assert files
+          failures=errors=skipped=0; names=set()
+          for f in files:
+              r=ET.parse(f).getroot()
+              failures+=int(r.attrib.get('failures','0')); errors+=int(r.attrib.get('errors','0'))
+              skipped+=int(r.attrib.get('skipped',r.attrib.get('disabled','0')))
+              names |= {c.attrib.get('name','') for c in r.iter('testcase')}
+          assert failures == errors == skipped == 0, (failures,errors,skipped)
+          required={
+            'personalAlarmEditorControlsAndSavesIndependentVolume',
+            'settingsDoNotExposeGlobalAlarmVolumeControl',
+            'prayerDialogExposesIndependentVolumeAndDedicatedTwoTakbirChoice',
+            'imlaiKeepsHafsPageJumpBookmarkFullscreenAndSwitchState',
+            'matchingSessionEndedSignalClosesRingingActivityButMismatchedIdDoesNot',
+            'dedicatedSettingsPageExposesControlsAndAdjustmentActions',
+            'orariShowsAppliedCorrectionAndSettingsEntryPoint',
+            'androidRingtoneProfileShowsConcreteSelectedNameAndChangeAction',
+          }
+          assert required <= names, required-names
+          PY
