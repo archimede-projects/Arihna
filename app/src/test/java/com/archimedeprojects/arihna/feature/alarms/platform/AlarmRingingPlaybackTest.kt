@@ -90,6 +90,18 @@ class AlarmRingingPlaybackTest {
             adhanRawResource(AdhanVariant.TAKBIR_X2),
         )
     }
+    @Test
+    fun approvedVintageAlarmUsesBundledResourceAndStaysLoopingProfile() {
+        assertTrue(isArihnaClassicAlarm(ARIHNA_CLASSIC_ALARM_URI))
+        assertEquals(ARIHNA_CLASSIC_ALARM_TITLE, "Sveglia classica Arihna")
+        assertEquals(
+            com.archimedeprojects.arihna.R.raw.arihna_classic_alarm,
+            arihnaClassicAlarmRawResource(),
+        )
+        assertFalse(shouldAutoEndRingingOnNaturalCompletion(AlarmSoundProfile.SYSTEM_DEFAULT))
+    }
+
+
     private class FakeAlarmStreamVolumeBackend(
         var current: Int,
         private val min: Int = 1,

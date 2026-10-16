@@ -18,6 +18,8 @@ import com.archimedeprojects.arihna.feature.alarms.domain.AlarmDefinition
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmPrayer
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmRule
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmSoundProfile
+import com.archimedeprojects.arihna.feature.alarms.platform.ARIHNA_CLASSIC_ALARM_TITLE
+import com.archimedeprojects.arihna.feature.alarms.platform.ARIHNA_CLASSIC_ALARM_URI
 import java.time.DayOfWeek
 import java.time.LocalTime
 import org.junit.Assert.assertEquals
@@ -180,6 +182,39 @@ class AlarmsScreenAndroidTest {
         composeRule.onNodeWithTag("alarm-editor-cancel").assertIsDisplayed()
         composeRule.onNodeWithTag("alarm-editor-save").assertIsDisplayed()
     }
+
+    @Test
+    fun personalAlarmEditorSelectsAndSavesApprovedVintageSound() {
+        var savedSound: AlarmSoundProfile? = null
+        var savedUri: String? = null
+        var savedTitle: String? = null
+        composeRule.setContent {
+            ArihnaTheme {
+                CustomAlarmEditorDialog(
+                    initialRule = customRule(),
+                    onDismiss = {},
+                    onSave = { _, _, _, _, sound, uri, title, _ ->
+                        savedSound = sound
+                        savedUri = uri
+                        savedTitle = title
+                    },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("alarm-sound-vintage").performScrollTo().assertIsDisplayed().performClick()
+        composeRule.onNodeWithText(ARIHNA_CLASSIC_ALARM_TITLE).assertIsDisplayed()
+        composeRule.onNodeWithTag("alarm-sound-android").assertIsDisplayed()
+        composeRule.onNodeWithTag("alarm-sound-silent").assertIsDisplayed()
+        composeRule.onNodeWithTag("alarm-editor-save").performClick()
+
+        composeRule.runOnIdle {
+            assertEquals(AlarmSoundProfile.SYSTEM_DEFAULT, savedSound)
+            assertEquals(ARIHNA_CLASSIC_ALARM_URI, savedUri)
+            assertEquals(ARIHNA_CLASSIC_ALARM_TITLE, savedTitle)
+        }
+    }
+
 
     private fun customRule() = AlarmRule(
         alarmId = "custom-visible",
