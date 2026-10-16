@@ -205,7 +205,6 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- Check gate run `38889102973`.
-- If static/build + API28 + API36 all PASS, live-recheck main remains `3bd015a592640bfa8da1ef9fb534f7764e242ca1`, then promote exact candidate `e8733b4b7702b99efd1f8886dd67b86a029e5319` by non-forced fast-forward.
-- Then publish/verify S25 prerelease for the prayer-settings UI.
-- If the gate fails, inspect exact logs and only create another sibling for a genuine code/test issue.
+- Check release run `38890575817`.
+- If completed/success, fetch release `prayer-settings-ui-e8733b4b-20261016`, verify asset size/digest and signer from workflow logs and GitHub release metadata, then hand exact APK URL to user for S25 validation.
+- S25 validation focus: open Orari -> settings, change calculation method/Asr/high-latitude/manual offsets, verify persistence and visible corrections, verify reset, and verify Android ringtone name/change action; quick regression check Adhan auto-dismiss, Makkah x2, and per-alert volume.
