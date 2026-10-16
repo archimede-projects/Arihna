@@ -205,7 +205,7 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- Create sibling candidate v2 from the same prayer-settings SPEC only if test changes are required.
-- For API28: make the reset-control UI test explicitly scroll the reset button into view before clicking; keep product code unchanged unless a real UI defect is observed.
-- For API36: rerun/strengthen synchronization around the already physically validated AlarmRingingActivity finish test; do not mutate validated Adhan runtime behavior solely to satisfy emulator lifecycle timing.
-- Require full green static/build + API28 + API36 exact-SHA gate before promoting prayer-settings UI.
+- Check gate run `38889102973`.
+- If static/build + API28 + API36 all PASS, live-recheck main remains `3bd015a592640bfa8da1ef9fb534f7764e242ca1`, then promote exact candidate `e8733b4b7702b99efd1f8886dd67b86a029e5319` by non-forced fast-forward.
+- Then publish/verify S25 prerelease for the prayer-settings UI.
+- If the gate fails, inspect exact logs and only create another sibling for a genuine code/test issue.
