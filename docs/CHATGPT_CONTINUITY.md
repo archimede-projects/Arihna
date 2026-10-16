@@ -205,13 +205,13 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- Check release run `38901085088`.
-- If completed/success, fetch tag `asr-vintage-3492add5-20261016`, verify asset size/digest and signer from workflow logs + GitHub metadata, then hand exact APK URL to user.
-- Physical S25 validation:
-  1. Asr Standard/Hanafi selected state obvious and persists;
-  2. `Sveglia classica Arihna` visible/selectable;
-  3. exact approved 4-second cadence loops with no acceleration/speed/pitch change;
-  4. per-alarm volume works;
-  5. Stop/Snooze stops it;
-  6. Android ringtone remains selectable;
-  7. Adhan auto-dismiss and Makkah x2 still PASS.
+- Hand exact verified APK URL to user.
+- S25 validation checklist:
+  1. Asr Standard/Hanafi visibly shows which option is selected; switch and confirm highlight changes and persists.
+  2. In a personal alarm, `Sveglia classica Arihna` is visible/selectable.
+  3. Let it ring: confirm exact approved vintage cadence, no acceleration/pitch change, looping continuously.
+  4. Verify per-alarm volume changes audible level.
+  5. Stop and Snooze both stop the vintage sound immediately.
+  6. `Suoneria Android` remains selectable and picker still opens.
+  7. Quick regression: Adhan natural auto-dismiss and Makkah exactly two Takbir still work.
+- If all PASS, record this exact APK SHA-256 as physically validated and preserve exact bytes for any stable publication; never rebuild.
