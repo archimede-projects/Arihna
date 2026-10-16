@@ -205,33 +205,6 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- Hand the exact verified APK to the user for S25 validation.
-- Physical S25 checklist:
-  1. Orari -> settings gear opens `Impostazioni orari`.
-  2. Change calculation method and confirm prayer times update.
-  3. Change Asr method and high-latitude rule; confirm persistence after leaving/reopening.
-  4. Apply manual minute corrections to at least Fajr and Isha; confirm corrected values are visible in Orari and persist.
-  5. Use `Ripristina predefiniti`; confirm method/Asr/high-latitude/offsets return to canonical defaults.
-  6. For one prayer choose `Suoneria Android`; confirm actual ringtone name is shown and `Cambia suoneria` opens Android picker.
-  7. Quick regression: Adhan auto-dismiss still works, Makkah x2 still exact, and per-alert volume still behaves correctly.
-- If PASS, record exact prerelease bytes as physically validated; do not rebuild for stable.
-
-2026-10-16 user asked "Test da fare?":
-- Live reverified current main `e8733b4b7702b99efd1f8886dd67b86a029e5319`.
-- Live reverified S25 prerelease `prayer-settings-ui-e8733b4b-20261016` and exact asset `arihna-prayer-settings-ui.apk`, size `387786812`, SHA-256 `39070154590aead0fd99afcc2387bc39efb028711afb05b3c98b32dc0a0a62df`.
-- Physical S25 validation checklist to give user:
-  1. Orari -> gear -> `Impostazioni orari` opens.
-  2. Change calculation method; verify displayed prayer times change.
-  3. Change Asr method and high-latitude rule; leave page and reopen to verify persistence.
-  4. Apply manual corrections to at least Fajr and Isha; verify corrected values/labels appear in Orari and persist after reopen.
-  5. Use `Ripristina predefiniti`; verify method=Muslim World League, Asr=Standard, high-latitude=Automatic, all offsets=0.
-  6. For one prayer choose `Suoneria Android`; verify actual ringtone name is visible and `Cambia suoneria` opens Android picker and selection persists.
-  7. Quick regressions: normal Adhan auto-dismisses naturally; Makkah x2 exactly twice then dismisses; per-alert volumes still behave independently; personal alarm still requires Stop/Snooze.
-- Do not call physical PASS until explicit user report.
-
-2026-10-16 follow-up physical-test instructions:
-- User asked "Test da fare?" for the verified prayer-settings S25 prerelease.
-- Live reverified main is still `e8733b4b7702b99efd1f8886dd67b86a029e5319`.
-- Live reverified prerelease tag `prayer-settings-ui-e8733b4b-20261016`, asset `arihna-prayer-settings-ui.apk`, exact size `387786812`, SHA-256 `39070154590aead0fd99afcc2387bc39efb028711afb05b3c98b32dc0a0a62df`.
-- Give the concise S25 checklist: open prayer settings, change/persist calculation settings, manual offsets + reset, Android ringtone name/picker persistence, and quick Adhan/Makkah/volume/personal-alarm regressions.
-- Physical PASS remains pending until explicit user report.
+- Await user S25 results for the checklist above.
+- If all PASS, record exact prerelease SHA-256 `39070154590aead0fd99afcc2387bc39efb028711afb05b3c98b32dc0a0a62df` as physically validated; preserve exact bytes for any stable publication.
+- If any FAIL, capture exact screen/control/value and create sibling candidate from same SPEC if needed.
