@@ -4,6 +4,8 @@ import com.archimedeprojects.arihna.feature.alarms.domain.AlarmDefinition
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmPrayer
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmRule
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmSoundProfile
+import com.archimedeprojects.arihna.feature.alarms.platform.ARIHNA_CLASSIC_ALARM_TITLE
+import com.archimedeprojects.arihna.feature.alarms.platform.ARIHNA_CLASSIC_ALARM_URI
 import java.time.DayOfWeek
 import java.time.LocalTime
 import org.junit.Assert.assertEquals
@@ -105,6 +107,28 @@ class AlarmRulePreferencesCodecTest {
         )
         assertTrue(encoded.contains("|1,2,7|-|-"))
     }
+
+    @Test
+    fun vintageAlarmSelectionRoundTripsWithoutChangingStorageVersion() {
+        val vintage = AlarmRule(
+            alarmId = "custom-vintage",
+            revision = 7,
+            enabled = true,
+            soundProfile = AlarmSoundProfile.SYSTEM_DEFAULT,
+            definition = AlarmDefinition.Custom(
+                label = "Vintage",
+                localTime = LocalTime.of(6, 15),
+            ),
+            ringtoneUri = ARIHNA_CLASSIC_ALARM_URI,
+            ringtoneTitle = ARIHNA_CLASSIC_ALARM_TITLE,
+            playbackVolumePercent = 41,
+        )
+
+        val encoded = AlarmRulePreferencesCodec.encode(listOf(vintage))
+        assertTrue(encoded.startsWith("ARIHNA_ALARMS_V3\n"))
+        assertEquals(vintage, AlarmRulePreferencesCodec.decode(encoded).single())
+    }
+
 
     private fun prayer(id: String, prayer: AlarmPrayer) = AlarmRule(
         alarmId = id,
