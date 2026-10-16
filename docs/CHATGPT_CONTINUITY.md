@@ -205,13 +205,9 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- Hand exact verified APK URL to user for S25 validation.
-- Physical S25 checklist:
-  1. In Impostazioni orari, Standard/Hanafi clearly show which is selected and selection persists.
-  2. In a personal alarm, `Sveglia classica Arihna` is visible/selectable.
-  3. Sound is exactly the approved first 4 seconds, looping at constant cadence with no speed/pitch change.
-  4. Per-alarm volume changes audible level.
-  5. Stop and Snooze stop the loop immediately.
-  6. Android ringtone remains selectable separately; Silent remains available.
-  7. Quick regressions: Adhan natural-completion auto-dismiss still works; Makkah still exactly two Takbir.
-- If all PASS, record exact prerelease SHA-256 `c5d05fb7d4ac9b386ef1bd105a87c677f9691a922361ec9430985f3346dac64e` as physically validated and preserve exact bytes for any stable publication.
+- Ask user to choose the next objective, with recommendation:
+  A) publish stable now from exact validated bytes;
+  B) start APK-size optimization audit/spec;
+  C) do UI/UX polish.
+- If user chooses stable, reuse exact prerelease asset bytes SHA-256 `c5d05fb7d4ac9b386ef1bd105a87c677f9691a922361ec9430985f3346dac64e`; never rebuild.
+- If user chooses size optimization, first live-check the finer size-audit run/state and inspect build configuration before proposing runtime changes.
