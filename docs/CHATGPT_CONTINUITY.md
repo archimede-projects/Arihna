@@ -205,7 +205,13 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- Check gate run `38899214191`.
-- If static/build + API28 + API36 all PASS, live-recheck main remains `e8733b4b7702b99efd1f8886dd67b86a029e5319`, then promote exact candidate `3492add5cb3f74b5ffe4e477055be7aa676fb6c4` by non-forced fast-forward.
-- Then publish/verify S25 prerelease for Asr selected-state fix + exact approved vintage ringtone.
-- If v3 fails, inspect exact logs; create another sibling only for a genuine issue.
+- Check release run `38901085088`.
+- If completed/success, fetch tag `asr-vintage-3492add5-20261016`, verify asset size/digest and signer from workflow logs + GitHub metadata, then hand exact APK URL to user.
+- Physical S25 validation:
+  1. Asr Standard/Hanafi selected state obvious and persists;
+  2. `Sveglia classica Arihna` visible/selectable;
+  3. exact approved 4-second cadence loops with no acceleration/speed/pitch change;
+  4. per-alarm volume works;
+  5. Stop/Snooze stops it;
+  6. Android ringtone remains selectable;
+  7. Adhan auto-dismiss and Makkah x2 still PASS.
