@@ -205,6 +205,12 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- Stable publication is complete.
-- Recommended next workstream: APK-size optimization, starting with live recheck of the finer size-audit run and exact decomposition of the remaining ~136.2 MB "other" bucket plus the 68.8 MB DEX cause.
-- Any size optimization must start with a fresh SPEC from current stable/main and preserve offline Mushaf/GeoNames fidelity and all validated alarm/prayer/Quran behavior.
+- Check whether `driver/material-icons-source-audit-20261016` queued/completed its workflow; fetch logs and capture exact official 1.7.8 Rounded icon sources.
+- Complete the full main-source icon inventory (do not rely only on the preliminary 23-icon list).
+- Build a single direct-child candidate from SPEC `e623ba867e6e56c7bc9c6ac7b69cb28ac03e6aea` that:
+  1. removes `material-icons-extended`;
+  2. vendors only the exact used icon source definitions with provenance;
+  3. keeps all UI call sites/appearance semantically identical.
+- Build candidate debug APK with frozen GeoNames/persistent signer and measure exact APK + DEX before/after.
+- Only if the reduction is material and build/contracts pass, launch full exact-SHA static/API28/API36 gate.
+- Never touch the definitive stable until the optimized candidate is fully gated and physically S25 validated.
