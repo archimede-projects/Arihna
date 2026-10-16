@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Mosque
 import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.VolumeOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -94,6 +95,7 @@ fun PrayerTimesRoute(
     contentPadding: PaddingValues,
     prayerScheduleViewModel: PrayerScheduleViewModel,
     alarmsViewModel: AlarmsViewModel,
+    onOpenSettings: () -> Unit,
 ) {
     val scheduleState by prayerScheduleViewModel.uiState.collectAsState()
     val alarmsState by alarmsViewModel.uiState.collectAsState()
@@ -105,6 +107,7 @@ fun PrayerTimesRoute(
         rules = alarmsState.rules,
         onEnabled = alarmsViewModel::setPrayerEnabled,
         onOpenSound = { soundRule = it },
+        onOpenSettings = onOpenSettings,
     )
 
     soundRule?.let { rule ->
@@ -123,12 +126,13 @@ fun PrayerTimesRoute(
 }
 
 @Composable
-private fun PrayerTimesScreen(
+internal fun PrayerTimesScreen(
     contentPadding: PaddingValues,
     scheduleState: PrayerScheduleUiState,
     rules: List<AlarmRule>,
     onEnabled: (AlarmPrayer, Boolean) -> Unit,
     onOpenSound: (AlarmRule) -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     val prayerRules = rules.mapNotNull { rule ->
         val definition = rule.definition as? AlarmDefinition.PrayerLinked ?: return@mapNotNull null
@@ -156,18 +160,40 @@ private fun PrayerTimesScreen(
                 ),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    appText("Orari", "مواقيت الصلاة"),
-                    color = OrariForest,
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                )
-                Text(
-                    appText("Orari di preghiera e promemoria", "مواقيت الصلاة والتذكيرات"),
-                    color = OrariForest.copy(alpha = 0.68f),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        appText("Orari", "مواقيت الصلاة"),
+                        color = OrariForest,
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                    Text(
+                        appText("Orari di preghiera e promemoria", "مواقيت الصلاة والتذكيرات"),
+                        color = OrariForest.copy(alpha = 0.68f),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+                Surface(
+                    shape = CircleShape,
+                    color = OrariSageStrong,
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clickable(onClick = onOpenSettings)
+                        .testTag("prayer-settings-open"),
+                ) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Rounded.Settings,
+                            contentDescription = appText("Impostazioni orari", "إعدادات المواقيت"),
+                            tint = OrariForest,
+                        )
+                    }
+                }
             }
 
             when (scheduleState) {
@@ -206,11 +232,19 @@ private fun PrayerTimesScreen(
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         rows.forEach { (prayer, label, instant) ->
+                            val correctionMinutes = when (prayer) {
+                                AlarmPrayer.FAJR -> scheduleState.settings.adjustments.fajrMinutes
+                                AlarmPrayer.DHUHR -> scheduleState.settings.adjustments.dhuhrMinutes
+                                AlarmPrayer.ASR -> scheduleState.settings.adjustments.asrMinutes
+                                AlarmPrayer.MAGHRIB -> scheduleState.settings.adjustments.maghribMinutes
+                                AlarmPrayer.ISHA -> scheduleState.settings.adjustments.ishaMinutes
+                            }
                             PrayerReminderRow(
                                 modifier = Modifier.weight(1f),
                                 prayer = prayer,
                                 label = label,
                                 time = formatTime(instant, zone),
+                                correctionMinutes = correctionMinutes,
                                 rule = prayerRules[prayer],
                                 onEnabled = { onEnabled(prayer, it) },
                                 onOpenSound = onOpenSound,
@@ -240,6 +274,7 @@ private fun PrayerReminderRow(
     prayer: AlarmPrayer,
     label: String,
     time: String,
+    correctionMinutes: Int,
     rule: AlarmRule?,
     onEnabled: (Boolean) -> Unit,
     onOpenSound: (AlarmRule) -> Unit,
@@ -262,6 +297,15 @@ private fun PrayerReminderRow(
             Column(Modifier.weight(1f)) {
                 Text(label, color = OrariForest, fontWeight = FontWeight.ExtraBold)
                 Text(time, color = OrariGreen, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                if (correctionMinutes != 0) {
+                    Text(
+                        text = if (correctionMinutes > 0) "+$correctionMinutes min" else "$correctionMinutes min",
+                        color = OrariGreen,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.testTag("prayer-correction-${prayer.name.lowercase()}"),
+                    )
+                }
             }
             if (rule != null) {
                 SoundIconButton(rule = rule, onClick = { onOpenSound(rule) })
@@ -396,7 +440,7 @@ internal fun PrayerSoundDialog(
                 previewPlayer.stop()
                 previewing = null
                 ringtoneUri = uri.toString()
-                ringtoneTitle = AlarmRingtonePicker.title(context, uri) ?: "Suoneria telefono"
+                ringtoneTitle = AlarmRingtonePicker.title(context, uri)
                 profile = AlarmSoundProfile.SYSTEM_DEFAULT
             }
         }
@@ -492,8 +536,14 @@ internal fun PrayerSoundDialog(
                         Text(appText("  Scegli Adhan", "  اختر الأذان"), fontWeight = FontWeight.Bold)
                     }
 
+                    val androidRingtoneName = when {
+                        !ringtoneTitle.isNullOrBlank() && ringtoneTitle != "Suoneria telefono" -> ringtoneTitle!!
+                        ringtoneUri == null -> appText("Predefinita Android (sveglia)", "نغمة منبّه أندرويد الافتراضية")
+                        else -> appText("Suoneria Android selezionata", "نغمة أندرويد محددة")
+                    }
                     SoundListRow(
-                        title = appText("Suoneria telefono", "نغمة الهاتف"),
+                        title = appText("Suoneria Android", "نغمة أندرويد"),
+                        subtitle = androidRingtoneName,
                         icon = Icons.Rounded.Notifications,
                         selected = profile == AlarmSoundProfile.SYSTEM_DEFAULT,
                     ) {
@@ -502,12 +552,17 @@ internal fun PrayerSoundDialog(
                         profile = AlarmSoundProfile.SYSTEM_DEFAULT
                     }
                     if (profile == AlarmSoundProfile.SYSTEM_DEFAULT) {
-                        TextButton(
+                        OutlinedButton(
                             onClick = {
                                 previewPlayer.stop()
                                 ringtoneLauncher.launch(AlarmRingtonePicker.createIntent(ringtoneUri))
                             },
-                        ) { Text(ringtoneTitle ?: appText("Scegli suoneria", "اختر نغمة")) }
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("prayer-sound-change-ringtone"),
+                        ) {
+                            Text(appText("Cambia suoneria", "تغيير النغمة"))
+                        }
                     }
                     SoundListRow(
                         title = appText("Silenzioso", "صامت"),
@@ -603,6 +658,7 @@ private fun SoundListRow(
     title: String,
     icon: ImageVector,
     selected: Boolean,
+    subtitle: String? = null,
     onClick: () -> Unit,
 ) {
     Surface(
@@ -616,7 +672,16 @@ private fun SoundListRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Icon(icon, contentDescription = null, tint = OrariForest)
-            Text(title, modifier = Modifier.weight(1f), color = OrariForest, fontWeight = FontWeight.SemiBold)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, color = OrariForest, fontWeight = FontWeight.SemiBold)
+                subtitle?.let {
+                    Text(
+                        it,
+                        color = OrariForest.copy(alpha = 0.66f),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
             if (selected) {
                 Surface(shape = CircleShape, color = OrariGold, modifier = Modifier.size(10.dp)) {}
             }

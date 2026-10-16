@@ -165,7 +165,11 @@ class AlarmOverlayVolumeAndroidTest {
             }
             InstrumentationRegistry.getInstrumentation().waitForIdleSync()
             assertTrue(matchingHandled)
-            assertTrue(scenario.state != Lifecycle.State.RESUMED)
+            if (scenario.state != Lifecycle.State.DESTROYED) {
+                scenario.onActivity { activity ->
+                    assertTrue(activity.isFinishing || activity.isDestroyed)
+                }
+            }
         } finally {
             scenario.close()
         }
