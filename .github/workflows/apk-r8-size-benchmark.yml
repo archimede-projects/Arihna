@@ -1,0 +1,137 @@
+name: APK R8 size benchmark
+
+on:
+  push:
+    branches:
+      - driver/apk-r8-benchmark-20261016
+    paths:
+      - .github/workflows/apk-r8-size-benchmark.yml
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      RUNTIME_SHA: 3492add5cb3f74b5ffe4e477055be7aa676fb6c4
+      SIGNING_SOURCE_SHA: ce23a7f78695be95c7f8dfd2bcedbe22544da94c
+      DEBUG_KEYSTORE_SHA256: bc9057f26ad6de7efb70a5df06effb1ed259f1d015c3f062d0f757b3f0983b72
+      GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
+      FROZEN_ASSET_RELEASE: settings-s25-premium-3f28b6f0-20260906
+      FROZEN_ASSET_APK: arihna-settings-s25-premium.apk
+
+    steps:
+      - name: Checkout exact stable runtime
+        uses: actions/checkout@v4
+        with:
+          ref: 3492add5cb3f74b5ffe4e477055be7aa676fb6c4
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 12266719
+          packages: platform-tools
+
+      - name: Restore frozen GeoNames and persistent signer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames "$HOME/.android"
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+          git fetch --depth=1 origin location-step5-device-test
+          git cat-file -e "$SIGNING_SOURCE_SHA^{commit}"
+          git show "$SIGNING_SOURCE_SHA:.github/test-signing/arihna-debug.keystore.b64" | base64 --decode > "$HOME/.android/debug.keystore"
+          test "$(sha256sum "$HOME/.android/debug.keystore" | awk '{print $1}')" = "$DEBUG_KEYSTORE_SHA256"
+
+      - name: Apply transient release minification config
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path("app/build.gradle.kts")
+          s=p.read_text()
+          m=re.search(r'(?m)^android\s*\{\s*\n',s)
+          assert m
+          insert='''    signingConfigs {
+              create("stableBenchmark") {
+                  storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
+                  storePassword = "android"
+                  keyAlias = "androiddebugkey"
+                  keyPassword = "android"
+              }
+          }
+
+          '''
+          s=s[:m.end()]+insert+s[m.end():]
+          needle='''    buildFeatures {
+              compose = true
+              buildConfig = false
+          }
+          '''
+          repl=needle+'''\n    buildTypes {
+              getByName("release") {
+                  isMinifyEnabled = true
+                  isShrinkResources = true
+                  signingConfig = signingConfigs.getByName("stableBenchmark")
+                  proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+              }
+          }
+          '''
+          assert needle in s
+          s=s.replace(needle,repl,1)
+          p.write_text(s)
+          PY
+          grep -Fq 'isMinifyEnabled = true' app/build.gradle.kts
+          grep -Fq 'isShrinkResources = true' app/build.gradle.kts
+
+      - name: Build minified release benchmark
+        run: ./gradlew --no-daemon :app:assembleRelease --stacktrace
+
+      - name: Report benchmark size
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/release/app-release.apk
+          test -s "$APK"
+          echo "BENCHMARK_APK_SIZE=$(stat -c '%s' "$APK")"
+          echo "BENCHMARK_APK_SHA256=$(sha256sum "$APK" | awk '{print $1}')"
+          python3 - "$APK" <<'PY'
+          import sys,zipfile
+          from collections import defaultdict
+          apk=sys.argv[1]
+          with zipfile.ZipFile(apk) as z:
+              infos=z.infolist()
+              dex=[i for i in infos if i.filename.endswith(".dex")]
+              print("DEX_COUNT="+str(len(dex)))
+              print("DEX_COMPRESSED="+str(sum(i.compress_size for i in dex)))
+              print("DEX_RAW="+str(sum(i.file_size for i in dex)))
+              cats=defaultdict(lambda:[0,0,0])
+              for i in infos:
+                  n=i.filename
+                  if n.startswith("assets/mushaf/"): cat="mushaf_hafs"
+                  elif n.startswith("assets/mushaf-warsh/"): cat="mushaf_warsh"
+                  elif n.startswith("assets/geonames/"): cat="geonames"
+                  elif n.startswith("assets/quran/"): cat="quran_text"
+                  elif n.startswith("res/raw/"): cat="raw_audio"
+                  elif n.endswith(".dex"): cat="dex"
+                  else: cat="other"
+                  x=cats[cat]; x[0]+=i.file_size; x[1]+=i.compress_size; x[2]+=1
+              for k,v in sorted(cats.items(),key=lambda kv:kv[1][1],reverse=True):
+                  print(f"CATEGORY {k} count={v[2]} raw={v[0]} compressed={v[1]}")
+          PY
