@@ -1,0 +1,41 @@
+name: Material icons source audit
+
+on:
+  push:
+    branches:
+      - driver/material-icons-source-audit-20261016
+    paths:
+      - .github/workflows/material-icons-source-audit.yml
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3492add5cb3f74b5ffe4e477055be7aa676fb6c4
+
+      - name: Fetch exact AndroidX 1.7.8 icon sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://dl.google.com/dl/android/maven2/androidx/compose/material/material-icons-extended/1.7.8/material-icons-extended-1.7.8-sources.jar'
+          curl -fL "$URL" -o /tmp/icons.jar
+          sha256sum /tmp/icons.jar
+          unzip -q /tmp/icons.jar -d /tmp/icons
+          for ICON in Alarm Explore Home MenuBook Schedule Settings LocationOn MyLocation ChevronLeft ChevronRight ArrowBack Refresh Mosque Notifications VolumeOff AutoStories Bookmark BookmarkBorder Close Fullscreen History KeyboardArrowLeft Search; do
+            echo "=== ICON:$ICON ==="
+            find /tmp/icons -type f -iname "$ICON.kt" | sort
+          done
+          echo '=== SOURCE_BEGIN ==='
+          for ICON in Alarm Explore Home MenuBook Schedule Settings LocationOn MyLocation ChevronLeft ChevronRight ArrowBack Refresh Mosque Notifications VolumeOff AutoStories Bookmark BookmarkBorder Close Fullscreen History KeyboardArrowLeft Search; do
+            FILE="$(find /tmp/icons -type f -path '*/rounded/*' -iname "$ICON.kt" | head -1 || true)"
+            if [ -n "$FILE" ]; then
+              echo "===== $ICON :: ${FILE#/tmp/icons/} ====="
+              cat "$FILE"
+            fi
+          done
+          echo '=== SOURCE_END ==='
