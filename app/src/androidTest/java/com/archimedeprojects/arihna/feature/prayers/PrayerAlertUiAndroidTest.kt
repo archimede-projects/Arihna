@@ -68,4 +68,30 @@ class PrayerAlertUiAndroidTest {
             assertEquals(40, savedVolume)
         }
     }
+    @Test
+    fun androidRingtoneProfileShowsConcreteSelectedNameAndChangeAction() {
+        val rule = AlarmRule(
+            alarmId = "prayer-dhuhr",
+            revision = 1L,
+            enabled = true,
+            soundProfile = AlarmSoundProfile.SYSTEM_DEFAULT,
+            definition = AlarmDefinition.PrayerLinked(AlarmPrayer.DHUHR),
+            ringtoneUri = "content://media/internal/audio/media/42",
+            ringtoneTitle = "Morning Flower",
+        )
+        composeRule.setContent {
+            ArihnaTheme {
+                PrayerSoundDialog(
+                    rule = rule,
+                    initialVolumePercent = 80,
+                    onDismiss = {},
+                    onSave = { _, _, _, _ -> },
+                )
+            }
+        }
+        composeRule.onNodeWithText("Suoneria Android").assertIsDisplayed()
+        composeRule.onNodeWithText("Morning Flower").assertIsDisplayed()
+        composeRule.onNodeWithTag("prayer-sound-change-ringtone").assertIsDisplayed()
+    }
+
 }

@@ -65,6 +65,7 @@ fun ArihnaApp(
                     repository = prayerScheduleRepository,
                     clock = prayerClock,
                     ticker = OneSecondPrayerScheduleTicker(),
+                    settingsRepository = appContainer.prayerSettingsRepository,
                 )
             }
         }

@@ -40,6 +40,7 @@ import com.archimedeprojects.arihna.feature.alarms.platform.AlarmFullScreenAcces
 import com.archimedeprojects.arihna.feature.alarms.platform.ExactAlarmAccessIntentFactory
 import com.archimedeprojects.arihna.feature.home.DailyInspirationNotificationController
 import com.archimedeprojects.arihna.feature.home.HomePrayerScheduleRoute
+import com.archimedeprojects.arihna.feature.prayers.PrayerSettingsRoute
 import com.archimedeprojects.arihna.feature.prayers.PrayerTimesRoute
 import com.archimedeprojects.arihna.feature.prayerschedule.presentation.PrayerScheduleViewModel
 import com.archimedeprojects.arihna.feature.qibla.QiblaRoute
@@ -103,7 +104,10 @@ fun ArihnaNavHost(
                 Destination.entries.forEach { destination ->
                     val selected = currentDestination?.hierarchy?.any {
                         it.route == destination.route
-                    } == true
+                    } == true || (
+                        destination == Destination.Prayers &&
+                            currentDestination?.route == "prayer-settings"
+                    )
                     NavigationBarItem(
                         selected = selected,
                         onClick = {
@@ -175,6 +179,14 @@ fun ArihnaNavHost(
                     contentPadding = innerPadding,
                     prayerScheduleViewModel = prayerScheduleViewModel,
                     alarmsViewModel = alarmsViewModel,
+                    onOpenSettings = { navController.navigate("prayer-settings") },
+                )
+            }
+            composable("prayer-settings") {
+                PrayerSettingsRoute(
+                    contentPadding = innerPadding,
+                    viewModel = prayerScheduleViewModel,
+                    onBack = { navController.popBackStack() },
                 )
             }
             composable(Destination.Qibla.route) { qiblaBackStackEntry ->
