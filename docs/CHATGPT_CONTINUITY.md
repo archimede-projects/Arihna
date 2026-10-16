@@ -205,7 +205,7 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- Check gate run `38897227459`.
-- If static/build + API28 + API36 all PASS, live-recheck main remains `e8733b4b7702b99efd1f8886dd67b86a029e5319`, then promote exact candidate `46e41444c76ff51ec02c42b9cbb66f0a3f1acf0c` by non-forced fast-forward.
-- Then publish/verify S25 prerelease for Asr selected state + exact approved vintage ringtone.
-- If v2 still fails, inspect exact logs and create another sibling only for the real defect.
+- Check gate run `38899214191`.
+- If static/build + API28 + API36 all PASS, live-recheck main remains `e8733b4b7702b99efd1f8886dd67b86a029e5319`, then promote exact candidate `3492add5cb3f74b5ffe4e477055be7aa676fb6c4` by non-forced fast-forward.
+- Then publish/verify S25 prerelease for Asr selected-state fix + exact approved vintage ringtone.
+- If v3 fails, inspect exact logs; create another sibling only for a genuine issue.
