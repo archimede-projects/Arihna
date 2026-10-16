@@ -205,7 +205,14 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- If user wants it now, create a fresh SPEC from current main `e8733b4b7702b99efd1f8886dd67b86a029e5319` for the approved 4-second built-in vintage personal-alarm ringtone.
-- Use the exact approved audio bytes/content only; do not regenerate or alter speed/pitch.
-- Preserve Android system ringtone picker as a separate option.
-- Gate API28/API36/static before promotion and S25 prerelease.
+- Check gate run `38895712239`.
+- If static/build + API28 + API36 all PASS, live-recheck main remains `e8733b4b7702b99efd1f8886dd67b86a029e5319`, then promote exact candidate `4c44869346377bdd9db77eca038aadf1a288c691` by non-forced fast-forward.
+- Then publish/verify a new S25 prerelease containing both the Asr selected-state fix and exact approved vintage ringtone.
+- Physical S25 validation must confirm:
+  1. selected Asr option is obvious and persists;
+  2. vintage option is visible/selectable;
+  3. exact approved cadence loops without acceleration/speed/pitch change;
+  4. per-alarm volume works;
+  5. Stop/Snooze stops it;
+  6. Android ringtone remains selectable;
+  7. Adhan/Makkah regressions remain PASS.
