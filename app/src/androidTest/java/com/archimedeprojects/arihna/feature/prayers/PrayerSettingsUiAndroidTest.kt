@@ -2,6 +2,8 @@ package com.archimedeprojects.arihna.feature.prayers
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -53,6 +55,8 @@ class PrayerSettingsUiAndroidTest {
         composeRule.onNodeWithTag("prayer-settings-screen").assertIsDisplayed()
         composeRule.onNodeWithText("Metodo di calcolo").assertIsDisplayed()
         composeRule.onNodeWithText("Metodo Asr").assertIsDisplayed()
+        composeRule.onNodeWithTag("prayer-settings-asr-standard").assertIsSelected()
+        composeRule.onNodeWithTag("prayer-settings-asr-hanafi").assertIsNotSelected()
         composeRule.onNodeWithText("Alte latitudini").assertIsDisplayed()
         composeRule.onNodeWithText("Correzioni manuali (minuti)").assertIsDisplayed()
         composeRule.onNodeWithTag("prayer-setting-adjust-fajr-plus").performClick()

@@ -441,6 +441,29 @@ class AlarmRingingService : Service() {
             return
         }
 
+        if (profile == AlarmSoundProfile.SYSTEM_DEFAULT && isArihnaClassicAlarm(selectedRingtoneUri)) {
+            val player = MediaPlayer()
+            try {
+                player.setAudioAttributes(attributes)
+                resources.openRawResourceFd(arihnaClassicAlarmRawResource()).use { descriptor ->
+                    player.setDataSource(
+                        descriptor.fileDescriptor,
+                        descriptor.startOffset,
+                        descriptor.length,
+                    )
+                }
+                player.isLooping = true
+                player.setVolume(gain, gain)
+                player.prepare()
+                mediaPlayer = player
+                player.start()
+            } catch (_: Throwable) {
+                player.release()
+                mediaPlayer = null
+            }
+            return
+        }
+
         val candidates = buildList<Uri> {
             selectedRingtoneUri?.let { raw ->
                 runCatching { Uri.parse(raw) }.getOrNull()?.let(::add)
