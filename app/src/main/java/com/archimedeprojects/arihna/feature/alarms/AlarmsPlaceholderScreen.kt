@@ -60,7 +60,10 @@ import com.archimedeprojects.arihna.core.ui.theme.ArihnaSage
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmDefinition
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmRule
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmSoundProfile
+import com.archimedeprojects.arihna.feature.alarms.platform.ARIHNA_CLASSIC_ALARM_TITLE
+import com.archimedeprojects.arihna.feature.alarms.platform.ARIHNA_CLASSIC_ALARM_URI
 import com.archimedeprojects.arihna.feature.alarms.platform.AlarmRingtonePicker
+import com.archimedeprojects.arihna.feature.alarms.platform.isArihnaClassicAlarm
 import java.time.DayOfWeek
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -531,43 +534,60 @@ internal fun CustomAlarmEditorDialog(
                                 modifier = Modifier.padding(horizontal = 16.dp),
                                 color = MaterialTheme.colorScheme.outline.copy(alpha = 0.22f),
                             )
-                            Row(
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable {
-                                        ringtoneLauncher.launch(
-                                            AlarmRingtonePicker.createIntent(ringtoneUri),
-                                        )
-                                    }
                                     .padding(horizontal = 18.dp, vertical = 16.dp)
                                     .testTag("alarm-ringtone-row"),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
                             ) {
-                                Column(
-                                    modifier = Modifier.weight(1f),
-                                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                                Text(
+                                    "Suono",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                                AlarmSoundChoice(
+                                    title = ARIHNA_CLASSIC_ALARM_TITLE,
+                                    subtitle = "Suono vintage Arihna · 4 secondi",
+                                    selected = soundEnabled && isArihnaClassicAlarm(ringtoneUri),
+                                    tag = "alarm-sound-vintage",
                                 ) {
-                                    Text(
-                                        "Suono",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
+                                    soundEnabled = true
+                                    ringtoneUri = ARIHNA_CLASSIC_ALARM_URI
+                                    ringtoneTitle = ARIHNA_CLASSIC_ALARM_TITLE
+                                }
+                                AlarmSoundChoice(
+                                    title = "Suoneria Android",
+                                    subtitle = if (soundEnabled && !isArihnaClassicAlarm(ringtoneUri)) {
+                                        ringtoneTitle ?: "Predefinita Android"
+                                    } else {
+                                        "Scegli dal telefono"
+                                    },
+                                    selected = soundEnabled && !isArihnaClassicAlarm(ringtoneUri),
+                                    tag = "alarm-sound-android",
+                                ) {
+                                    ringtoneLauncher.launch(
+                                        AlarmRingtonePicker.createIntent(
+                                            ringtoneUri.takeUnless(::isArihnaClassicAlarm),
+                                        ),
                                     )
-                                    Text(
-                                        if (soundEnabled) {
-                                            ringtoneTitle ?: "Predefinito"
-                                        } else {
-                                            "Disattivato"
-                                        },
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
+                                }
+                                AlarmSoundChoice(
+                                    title = "Silenzioso",
+                                    subtitle = "Nessun suono",
+                                    selected = !soundEnabled,
+                                    tag = "alarm-sound-silent",
+                                ) {
+                                    soundEnabled = false
                                 }
                                 Switch(
                                     checked = soundEnabled,
-                                    onCheckedChange = { soundEnabled = it },
+                                    onCheckedChange = { enabled ->
+                                        soundEnabled = enabled
+                                        if (enabled && ringtoneTitle == null) {
+                                            ringtoneUri = null
+                                        }
+                                    },
                                     modifier = Modifier.testTag("alarm-sound-switch"),
                                 )
                             }
@@ -692,6 +712,46 @@ internal fun CustomAlarmEditorDialog(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun AlarmSoundChoice(
+    title: String,
+    subtitle: String,
+    selected: Boolean,
+    tag: String,
+    onClick: () -> Unit,
+) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = if (selected) ArihnaSage else Color.Transparent,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .testTag(tag),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(title, fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.SemiBold)
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Surface(
+                shape = CircleShape,
+                color = if (selected) ArihnaGold else MaterialTheme.colorScheme.outline.copy(alpha = 0.24f),
+                modifier = Modifier.width(12.dp).height(12.dp),
+            ) {}
         }
     }
 }
