@@ -205,6 +205,7 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- Await user S25 results for the checklist above.
-- If all PASS, record exact prerelease SHA-256 `39070154590aead0fd99afcc2387bc39efb028711afb05b3c98b32dc0a0a62df` as physically validated; preserve exact bytes for any stable publication.
-- If any FAIL, capture exact screen/control/value and create sibling candidate from same SPEC if needed.
+- If user wants it now, create a fresh SPEC from current main `e8733b4b7702b99efd1f8886dd67b86a029e5319` for the approved 4-second built-in vintage personal-alarm ringtone.
+- Use the exact approved audio bytes/content only; do not regenerate or alter speed/pitch.
+- Preserve Android system ringtone picker as a separate option.
+- Gate API28/API36/static before promotion and S25 prerelease.
