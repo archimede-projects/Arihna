@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -35,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -125,13 +127,30 @@ internal fun PrayerSettingsScreen(
                 Text(appText("Metodo Asr", "طريقة العصر"), color = ArihnaForest, fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     AsrMethod.entries.forEach { method ->
-                        OutlinedButton(
-                            onClick = { onAsrMethod(method) },
+                        val selected = settings.asrMethod == method
+                        Surface(
+                            shape = RoundedCornerShape(999.dp),
+                            color = if (selected) ArihnaForest else ArihnaSage,
+                            contentColor = if (selected) ArihnaCream else ArihnaForest,
                             modifier = Modifier
                                 .weight(1f)
+                                .selectable(
+                                    selected = selected,
+                                    onClick = { onAsrMethod(method) },
+                                    role = Role.RadioButton,
+                                )
                                 .testTag("prayer-settings-asr-${method.name.lowercase()}"),
                         ) {
-                            Text(if (method == AsrMethod.STANDARD) appText("Standard", "قياسي") else appText("Hanafi", "حنفي"))
+                            Box(
+                                modifier = Modifier.padding(horizontal = 18.dp, vertical = 13.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    if (method == AsrMethod.STANDARD) appText("Standard", "قياسي")
+                                    else appText("Hanafi", "حنفي"),
+                                    fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.SemiBold,
+                                )
+                            }
                         }
                     }
                 }
