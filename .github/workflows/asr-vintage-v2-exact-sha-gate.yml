@@ -1,9 +1,9 @@
-name: Asr selected state and vintage ringtone v2 gate
+name: Asr selected state and vintage ringtone v3 gate
 
 on:
   push:
     branches:
-      - driver/asr-vintage-v2-gate-20261016
+      - driver/asr-vintage-v3-gate-20261016
     paths:
       - .github/workflows/asr-vintage-v2-exact-sha-gate.yml
 
@@ -12,7 +12,7 @@ permissions:
 
 env:
   SPEC_SHA: 77c22eea6e96fcaf16f40116f9fa6d1b62cef75d
-  CANDIDATE_SHA: 46e41444c76ff51ec02c42b9cbb66f0a3f1acf0c
+  CANDIDATE_SHA: 3492add5cb3f74b5ffe4e477055be7aa676fb6c4
   PREVIOUS_MAIN_SHA: e8733b4b7702b99efd1f8886dd67b86a029e5319
   GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
   FROZEN_ASSET_RELEASE: settings-s25-premium-3f28b6f0-20260906
@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 46e41444c76ff51ec02c42b9cbb66f0a3f1acf0c
+          ref: 3492add5cb3f74b5ffe4e477055be7aa676fb6c4
           fetch-depth: 0
       - name: Verify exact lineage Asr selection and vintage ringtone contracts
         shell: bash
@@ -142,7 +142,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 46e41444c76ff51ec02c42b9cbb66f0a3f1acf0c
+          ref: 3492add5cb3f74b5ffe4e477055be7aa676fb6c4
           fetch-depth: 0
       - name: Verify exact candidate
         run: |
@@ -213,7 +213,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 46e41444c76ff51ec02c42b9cbb66f0a3f1acf0c
+          ref: 3492add5cb3f74b5ffe4e477055be7aa676fb6c4
           fetch-depth: 0
       - name: Verify exact candidate
         run: |
