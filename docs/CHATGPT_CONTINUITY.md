@@ -205,6 +205,7 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- Await user choice among proposed UI approaches (A minimal, B balanced, C per-prayer advanced), or a requested hybrid.
-- After explicit choice, create a fresh SPEC from live main before any implementation.
-- Preserve all physically validated alarm/Adhan behavior and exact current prerelease bytes.
+- Check gate run `38860658237`.
+- If static/build + API28 + API36 all PASS, live-recheck main still equals `3bd015a592640bfa8da1ef9fb534f7764e242ca1`, then promote candidate `5c18380acd8b2c29559c5ea5d3d26120be8ff3ba` by non-forced fast-forward.
+- Then build/publish/verify a new S25 prerelease for prayer-settings UI, preserving signer/digest discipline.
+- If gate fails, inspect exact logs; create a sibling candidate from the same SPEC only for real code/test failures.
