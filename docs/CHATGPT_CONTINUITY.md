@@ -205,9 +205,6 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- Ask user to choose the next objective, with recommendation:
-  A) publish stable now from exact validated bytes;
-  B) start APK-size optimization audit/spec;
-  C) do UI/UX polish.
-- If user chooses stable, reuse exact prerelease asset bytes SHA-256 `c5d05fb7d4ac9b386ef1bd105a87c677f9691a922361ec9430985f3346dac64e`; never rebuild.
-- If user chooses size optimization, first live-check the finer size-audit run/state and inspect build configuration before proposing runtime changes.
+- Stable publication is complete.
+- Recommended next workstream: APK-size optimization, starting with live recheck of the finer size-audit run and exact decomposition of the remaining ~136.2 MB "other" bucket plus the 68.8 MB DEX cause.
+- Any size optimization must start with a fresh SPEC from current stable/main and preserve offline Mushaf/GeoNames fidelity and all validated alarm/prayer/Quran behavior.
