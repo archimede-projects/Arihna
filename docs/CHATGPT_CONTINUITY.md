@@ -205,13 +205,13 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- Hand exact verified APK URL to user.
-- S25 validation checklist:
-  1. Asr Standard/Hanafi visibly shows which option is selected; switch and confirm highlight changes and persists.
+- Hand exact verified APK URL to user for S25 validation.
+- Physical S25 checklist:
+  1. In Impostazioni orari, Standard/Hanafi clearly show which is selected and selection persists.
   2. In a personal alarm, `Sveglia classica Arihna` is visible/selectable.
-  3. Let it ring: confirm exact approved vintage cadence, no acceleration/pitch change, looping continuously.
-  4. Verify per-alarm volume changes audible level.
-  5. Stop and Snooze both stop the vintage sound immediately.
-  6. `Suoneria Android` remains selectable and picker still opens.
-  7. Quick regression: Adhan natural auto-dismiss and Makkah exactly two Takbir still work.
-- If all PASS, record this exact APK SHA-256 as physically validated and preserve exact bytes for any stable publication; never rebuild.
+  3. Sound is exactly the approved first 4 seconds, looping at constant cadence with no speed/pitch change.
+  4. Per-alarm volume changes audible level.
+  5. Stop and Snooze stop the loop immediately.
+  6. Android ringtone remains selectable separately; Silent remains available.
+  7. Quick regressions: Adhan natural-completion auto-dismiss still works; Makkah still exactly two Takbir.
+- If all PASS, record exact prerelease SHA-256 `c5d05fb7d4ac9b386ef1bd105a87c677f9691a922361ec9430985f3346dac64e` as physically validated and preserve exact bytes for any stable publication.
