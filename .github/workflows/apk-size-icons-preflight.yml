@@ -1,4 +1,5 @@
 name: Arihna APK-size icons source preflight
+# v2: exact icons/rounded source path; exclude AutoMirrored duplicate
 
 on:
   push:
