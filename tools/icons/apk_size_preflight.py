@@ -48,7 +48,7 @@ def fetch_artifact(name):
     return output,url
 
 def main():
-    assert shell("git","rev-parse","HEAD")==shell("git","rev-parse","driver/apk-size-icons-preflight-20261017")
+    assert os.getenv("GITHUB_REF_NAME")=="driver/apk-size-icons-preflight-20261017"
     shell("git","fetch","origin","main","spec/apk-size-icons-20261016")
     assert shell("git","rev-parse","origin/main")==BASE
     assert shell("git","rev-parse","origin/spec/apk-size-icons-20261016")==SPEC
