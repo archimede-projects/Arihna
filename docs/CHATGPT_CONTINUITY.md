@@ -205,12 +205,8 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- Check whether `driver/material-icons-source-audit-20261016` queued/completed its workflow; fetch logs and capture exact official 1.7.8 Rounded icon sources.
-- Complete the full main-source icon inventory (do not rely only on the preliminary 23-icon list).
-- Build a single direct-child candidate from SPEC `e623ba867e6e56c7bc9c6ac7b69cb28ac03e6aea` that:
-  1. removes `material-icons-extended`;
-  2. vendors only the exact used icon source definitions with provenance;
-  3. keeps all UI call sites/appearance semantically identical.
-- Build candidate debug APK with frozen GeoNames/persistent signer and measure exact APK + DEX before/after.
-- Only if the reduction is material and build/contracts pass, launch full exact-SHA static/API28/API36 gate.
-- Never touch the definitive stable until the optimized candidate is fully gated and physically S25 validated.
+- Finish exact Material icon inventory from current main.
+- Retrieve exact official icon source definitions matching the resolved Compose BOM version.
+- Create one-commit candidate direct child of SPEC `e623ba867e6e56c7bc9c6ac7b69cb28ac03e6aea` that removes `material-icons-extended` and vendors only used icons.
+- Run static/build + API28/API36 exact-SHA gate and compare APK/DEX size against stable baseline.
+- Do not touch `main` until the gate is fully green and measured reduction is material.
