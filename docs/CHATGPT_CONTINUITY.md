@@ -205,8 +205,9 @@ Actually done / live-verified:
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
 ## Exact next action
-- Finish exact Material icon inventory from current main.
-- Retrieve exact official icon source definitions matching the resolved Compose BOM version.
-- Create one-commit candidate direct child of SPEC `e623ba867e6e56c7bc9c6ac7b69cb28ac03e6aea` that removes `material-icons-extended` and vendors only used icons.
-- Run static/build + API28/API36 exact-SHA gate and compare APK/DEX size against stable baseline.
-- Do not touch `main` until the gate is fully green and measured reduction is material.
+- Check audit run `39012822786`.
+- If R8 materially reduces DEX/APK while preserving offline asset sizes, create a fresh SPEC from current stable/main for production minified release packaging with exact persistent signer and full API28/API36 regression gate.
+- If R8 reduction is small or build fails from missing keep rules, inspect exact output and decide whether to:
+  1. add minimal keep rules and rerun audit, or
+  2. replace `material-icons-extended` with a small curated icon set/custom vectors as the next optimization target.
+- Do not touch Hafs/Warsh Mushaf or GeoNames for this optimization stream.
