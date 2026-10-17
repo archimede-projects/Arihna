@@ -1,0 +1,118 @@
+name: APK R8 size audit
+
+on:
+  push:
+    branches:
+      - driver/apk-r8-size-audit-20261017
+    paths:
+      - .github/workflows/apk-r8-size-audit.yml
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      RUNTIME_SHA: 3492add5cb3f74b5ffe4e477055be7aa676fb6c4
+      GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
+      FROZEN_ASSET_RELEASE: settings-s25-premium-3f28b6f0-20260906
+      FROZEN_ASSET_APK: arihna-settings-s25-premium.apk
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3492add5cb3f74b5ffe4e477055be7aa676fb6c4
+          fetch-depth: 0
+
+      - name: Verify exact stable runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RUNTIME_SHA"
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 12266719
+          packages: platform-tools
+
+      - name: Restore frozen GeoNames
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+
+      - name: Enable R8 only for audit release build
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("app/build.gradle.kts")
+          s=p.read_text()
+          marker='''    buildFeatures {
+              compose = true
+              buildConfig = false
+          }
+          '''
+          insert='''    buildTypes {
+              getByName("release") {
+                  isMinifyEnabled = true
+                  isShrinkResources = true
+                  proguardFiles(
+                      getDefaultProguardFile("proguard-android-optimize.txt"),
+                  )
+              }
+          }
+
+          '''
+          assert marker in s
+          p.write_text(s.replace(marker, marker+"\n"+insert, 1))
+          PY
+          git diff -- app/build.gradle.kts
+
+      - name: Build debug baseline and minified release
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon :app:assembleDebug :app:assembleRelease --stacktrace
+
+      - name: Compare APK and DEX sizes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import zipfile, os, glob
+          for label,path in [
+              ("DEBUG","app/build/outputs/apk/debug/app-debug.apk"),
+              ("R8_RELEASE","app/build/outputs/apk/release/app-release-unsigned.apk"),
+          ]:
+              assert os.path.isfile(path), path
+              size=os.path.getsize(path)
+              with zipfile.ZipFile(path) as z:
+                  dex=[i for i in z.infolist() if i.filename.endswith(".dex")]
+                  dex_comp=sum(i.compress_size for i in dex)
+                  dex_raw=sum(i.file_size for i in dex)
+                  mushaf=sum(i.compress_size for i in z.infolist() if i.filename.startswith("assets/mushaf/"))
+                  warsh=sum(i.compress_size for i in z.infolist() if i.filename.startswith("assets/mushaf-warsh/"))
+                  geo=sum(i.compress_size for i in z.infolist() if i.filename.startswith("assets/geonames/"))
+              print(f"{label}_APK_BYTES={size}")
+              print(f"{label}_DEX_COUNT={len(dex)}")
+              print(f"{label}_DEX_COMPRESSED={dex_comp}")
+              print(f"{label}_DEX_RAW={dex_raw}")
+              print(f"{label}_MUSHAF_COMPRESSED={mushaf}")
+              print(f"{label}_WARSH_COMPRESSED={warsh}")
+              print(f"{label}_GEONAMES_COMPRESSED={geo}")
+          PY
