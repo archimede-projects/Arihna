@@ -1,0 +1,55 @@
+name: Arihna APK-size icons source preflight
+
+on:
+  push:
+    branches:
+      - driver/apk-size-icons-preflight-20261017
+    paths:
+      - .github/workflows/apk-size-icons-preflight.yml
+
+permissions:
+  contents: write
+
+jobs:
+  official-icons-and-apk-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    env:
+      FROZEN_ASSET_RELEASE: settings-s25-premium-3f28b6f0-20260906
+      FROZEN_ASSET_APK: arihna-settings-s25-premium.apk
+      GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
+      STABLE_TAG: arihna-stable-3492add5-20261016
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 12266719
+          packages: platform-tools
+      - name: Restore frozen GeoNames and stable APK without modifying them
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/arihna-icons-preflight /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+          gh release download "$STABLE_TAG" --repo "$GITHUB_REPOSITORY" --pattern arihna.apk --dir /tmp/arihna-icons-preflight
+          mv /tmp/arihna-icons-preflight/arihna.apk /tmp/arihna-icons-preflight/arihna-stable.apk
+          echo "c5d05fb7d4ac9b386ef1bd105a87c677f9691a922361ec9430985f3346dac64e  /tmp/arihna-icons-preflight/arihna-stable.apk" | sha256sum -c -
+      - name: Extract exact Material Rounded source and compile before candidate commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: python3 tools/icons/apk_size_preflight.py
