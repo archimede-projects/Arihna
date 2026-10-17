@@ -1,0 +1,237 @@
+name: Arihna APK size icons v1 exact SHA gate
+
+on:
+  push:
+    branches:
+      - driver/apk-size-icons-v1-gate-20261017
+    paths:
+      - .github/workflows/apk-size-icons-exact-sha-gate.yml
+
+permissions:
+  contents: read
+
+env:
+  SPEC_SHA: e623ba867e6e56c7bc9c6ac7b69cb28ac03e6aea
+  CANDIDATE_SHA: adc40017694af03723c7c57afb996306c0ddcd39
+  BASE_MAIN_SHA: 3492add5cb3f74b5ffe4e477055be7aa676fb6c4
+  FROZEN_ASSET_RELEASE: settings-s25-premium-3f28b6f0-20260906
+  FROZEN_ASSET_APK: arihna-settings-s25-premium.apk
+  GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
+
+jobs:
+  static-jvm-build-size:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: adc40017694af03723c7c57afb996306c0ddcd39
+          fetch-depth: 0
+      - name: Exact-SHA lineage and icon scope contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          test "$(git rev-parse "$SPEC_SHA^")" = "$BASE_MAIN_SHA"
+          test "$(git rev-list --count "$SPEC_SHA..$CANDIDATE_SHA")" -eq 1
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$BASE_MAIN_SHA"
+
+          test "$(find app/src/main/java/androidx/compose/material/icons/rounded -name '*.kt' | wc -l)" -eq 14
+          grep -Fq 'implementation(libs.androidx.compose.material.icons.core)' app/build.gradle.kts
+          ! grep -Fq 'implementation(libs.androidx.compose.material.icons.extended)' app/build.gradle.kts
+          ! grep -Fq 'androidx-compose-material-icons-extended' gradle/libs.versions.toml
+          grep -Fq '2026.08.00' gradle/libs.versions.toml
+          grep -Fq '14db888d2f698178799a4c18a58bb134b3e98063c6748c443b339044e0145432' docs/size/MATERIAL_ICONS_SOURCE.md
+          grep -Fq '77b7e782a519a3e074fc91e09d59334ac1b815edd87d2e89c0c9ca7c95678e93' docs/size/MATERIAL_ICONS_SOURCE.md
+          test "$(git diff --name-only "$SPEC_SHA..$CANDIDATE_SHA" | wc -l)" -eq 18
+          git diff --name-only "$SPEC_SHA..$CANDIDATE_SHA" | grep -vE '^app/build.gradle.kts$|^gradle/libs.versions.toml$|^docs/size/MATERIAL_ICONS_SOURCE.md$|^app/src/main/java/' && exit 1 || true
+          test -z "$(git diff --name-only "$SPEC_SHA..$CANDIDATE_SHA" | grep -E '^app/src/main/(assets|res)/' || true)"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 12266719
+          packages: platform-tools
+      - name: Restore frozen GeoNames
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+      - name: JVM tests, AndroidTest compilation, exact candidate debug APK
+        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:assembleDebug --stacktrace
+      - name: Audit generated APK and DEX size
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import zipfile
+          p=Path('app/build/outputs/apk/debug/app-debug.apk')
+          assert p.is_file()
+          with zipfile.ZipFile(p) as z:
+              dex=[i for i in z.infolist() if i.filename.startswith('classes') and i.filename.endswith('.dex')]
+              comp=sum(i.compress_size for i in dex)
+              raw=sum(i.file_size for i in dex)
+              content=[i.filename for i in z.infolist() if any(s in i.filename for s in ('mushaf/','mushaf-warsh/','geonames/cities.db','quran/'))]
+              print('APK bytes',p.stat().st_size,'DEX compressed',comp,'raw',raw,'dex count',len(dex),'content entries',len(content))
+              assert p.stat().st_size < 360000000
+              assert comp < 40000000 and raw < 40000000
+              assert len(content) >= 1210
+          PY
+
+  api28-full-suite:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: adc40017694af03723c7c57afb996306c0ddcd39
+          fetch-depth: 0
+      - name: Verify exact candidate lineage
+        run: |
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 12266719
+          packages: platform-tools
+      - name: Restore frozen GeoNames
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+      - run: sudo chmod 666 /dev/kvm || true
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 28
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-boot-timeout: 600
+          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
+      - name: Assert complete API28 test suite and key regressions
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          files=list(Path('app/build/outputs/androidTest-results/connected').rglob('*.xml'))
+          assert files, 'No API28 XML test reports'
+          f=e=s=0; names=set()
+          for p in files:
+              r=ET.parse(p).getroot()
+              f+=int(r.attrib.get('failures','0'));e+=int(r.attrib.get('errors','0'))
+              s+=int(r.attrib.get('skipped',r.attrib.get('disabled','0')))
+              names |= {c.attrib.get('name','') for c in r.iter('testcase')}
+          assert f==e==s==0,(f,e,s)
+          required={'personalAlarmEditorControlsAndSavesIndependentVolume','settingsDoNotExposeGlobalAlarmVolumeControl','missingValuesDefaultToHundredAndPrayersRoundTripIndependently','prayerDialogExposesIndependentVolumeAndDedicatedTwoTakbirChoice','matchingSessionEndedSignalClosesRingingActivityButMismatchedIdDoesNot','dedicatedSettingsPageExposesControlsAndAdjustmentActions','orariShowsAppliedCorrectionAndSettingsEntryPoint','androidRingtoneProfileShowsConcreteSelectedNameAndChangeAction','personalAlarmEditorSelectsAndSavesApprovedVintageSound'}
+          assert required<=names,required-names
+          print('API28 pass',len(names),'test names')
+          PY
+
+  api36-quran-prayers-permissions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: adc40017694af03723c7c57afb996306c0ddcd39
+          fetch-depth: 0
+      - name: Verify exact candidate lineage
+        run: |
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 12266719
+          packages: platform-tools
+      - name: Restore frozen GeoNames
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+      - name: Prepare targeted API36 Android matrix
+        shell: bash
+        run: |
+          cat >/tmp/api36-icons-gate.sh <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          CLASSES='com.archimedeprojects.arihna.feature.alarms.platform.AlarmOverlayVolumeAndroidTest,com.archimedeprojects.arihna.feature.alarms.AlarmsScreenAndroidTest,com.archimedeprojects.arihna.feature.settings.AlarmSettingsOverlayVolumeAndroidTest,com.archimedeprojects.arihna.feature.alarms.data.preferences.PrayerAlertPreferencesAndroidTest,com.archimedeprojects.arihna.feature.prayers.PrayerAlertUiAndroidTest,com.archimedeprojects.arihna.feature.prayers.PrayerSettingsUiAndroidTest,com.archimedeprojects.arihna.feature.quran.QuranFullscreenAndroidTest,com.archimedeprojects.arihna.feature.quran.QuranPostStableHardeningAndroidTest,com.archimedeprojects.arihna.feature.quran.TajwidCrashRegressionAndroidTest,com.archimedeprojects.arihna.feature.quran.QuranImlaiAndroidTest'
+          ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class="$CLASSES" --stacktrace
+          P=com.archimedeprojects.arihna
+          ./gradlew :app:installDebug --stacktrace
+          adb shell pm revoke "$P" android.permission.ACCESS_FINE_LOCATION || true
+          adb shell pm revoke "$P" android.permission.ACCESS_COARSE_LOCATION || true
+          adb shell pm grant "$P" android.permission.ACCESS_COARSE_LOCATION
+          adb shell pm grant "$P" android.permission.ACCESS_FINE_LOCATION
+          adb shell pm revoke "$P" android.permission.POST_NOTIFICATIONS || true
+          adb shell pm grant "$P" android.permission.POST_NOTIFICATIONS
+          echo PASS >/tmp/api36-icons-matrix.txt
+          SH
+          chmod +x /tmp/api36-icons-gate.sh
+      - run: sudo chmod 666 /dev/kvm || true
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 600
+          script: /tmp/api36-icons-gate.sh
+      - name: Verify API36 Quran/Adhan/alarms regressions
+        shell: bash
+        run: |
+          test "$(cat /tmp/api36-icons-matrix.txt)" = PASS
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          files=list(Path('app/build/outputs/androidTest-results/connected').rglob('*.xml'))
+          assert files, 'No API36 XML test reports'
+          f=e=s=0; names=set()
+          for p in files:
+              r=ET.parse(p).getroot()
+              f+=int(r.attrib.get('failures','0'));e+=int(r.attrib.get('errors','0'))
+              s+=int(r.attrib.get('skipped',r.attrib.get('disabled','0')))
+              names |= {c.attrib.get('name','') for c in r.iter('testcase')}
+          assert f==e==s==0,(f,e,s)
+          required={'personalAlarmEditorControlsAndSavesIndependentVolume','settingsDoNotExposeGlobalAlarmVolumeControl','prayerDialogExposesIndependentVolumeAndDedicatedTwoTakbirChoice','imlaiKeepsHafsPageJumpBookmarkFullscreenAndSwitchState','matchingSessionEndedSignalClosesRingingActivityButMismatchedIdDoesNot','dedicatedSettingsPageExposesControlsAndAdjustmentActions','orariShowsAppliedCorrectionAndSettingsEntryPoint','androidRingtoneProfileShowsConcreteSelectedNameAndChangeAction','personalAlarmEditorSelectsAndSavesApprovedVintageSound'}
+          assert required<=names,required-names
+          print('API36 pass',len(names),'test names')
+          PY
