@@ -1,0 +1,124 @@
+name: Arihna stable adc40017 exact validated APK bytes
+
+on:
+  push:
+    branches:
+      - driver/stable-adc40017-20261017
+    paths:
+      - .github/workflows/stable-adc40017-20261017.yml
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  promote-exact-bytes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      RUNTIME_SHA: adc40017694af03723c7c57afb996306c0ddcd39
+      SOURCE_TAG: apk-icons-adc40017-20261017
+      SOURCE_ASSET: arihna-apk-icons.apk
+      EXPECTED_SHA256: d9b00e9e85daac4ef976e281aecc08c82b2d62823af12db81b89b191e364b383
+      EXPECTED_SIZE: '356542262'
+      EXPECTED_SIGNER_SHA256: 1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa
+      STABLE_TAG: arihna-stable-adc40017-20261017
+      STABLE_ASSET: arihna.apk
+
+    steps:
+      - name: Checkout exact runtime
+        uses: actions/checkout@v4
+        with:
+          ref: adc40017694af03723c7c57afb996306c0ddcd39
+          fetch-depth: 0
+
+      - name: Verify main and source prerelease metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RUNTIME_SHA"
+          git fetch origin main --force
+          test "$(git rev-parse origin/main)" = "$RUNTIME_SHA"
+          SRC_JSON="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$SOURCE_TAG")"
+          test "$(jq -r '.draft' <<<"$SRC_JSON")" = false
+          test "$(jq -r '.prerelease' <<<"$SRC_JSON")" = true
+          test "$(jq -r '.target_commitish' <<<"$SRC_JSON")" = "$RUNTIME_SHA"
+          test "$(jq '.assets | length' <<<"$SRC_JSON")" = 1
+          test "$(jq -r '.assets[0].name' <<<"$SRC_JSON")" = "$SOURCE_ASSET"
+          test "$(jq -r '.assets[0].state' <<<"$SRC_JSON")" = uploaded
+          test "$(jq -r '.assets[0].size' <<<"$SRC_JSON")" = "$EXPECTED_SIZE"
+          test "$(jq -r '.assets[0].digest' <<<"$SRC_JSON")" = "sha256:$EXPECTED_SHA256"
+          ! gh release view "$STABLE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1
+          OLD_JSON="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/arihna-stable-3492add5-20261016")"
+          test "$(jq -r '.assets[0].digest' <<<"$OLD_JSON")" = 'sha256:c5d05fb7d4ac9b386ef1bd105a87c677f9691a922361ec9430985f3346dac64e'
+          test "$(jq -r '.assets[0].size' <<<"$OLD_JSON")" = 387885070
+
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 12266719
+          packages: platform-tools
+
+      - name: Download exact physically validated prerelease bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/source
+          gh release download "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "$SOURCE_ASSET" --dir /tmp/source
+          cp "/tmp/source/$SOURCE_ASSET" "$STABLE_ASSET"
+          test "$(sha256sum "$STABLE_ASSET" | awk '{print $1}')" = "$EXPECTED_SHA256"
+          test "$(stat -c '%s' "$STABLE_ASSET")" = "$EXPECTED_SIZE"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          "$APKSIGNER" verify --verbose --print-certs "$STABLE_ASSET" | tee /tmp/source-apksigner.txt
+          tr '[:upper:]' '[:lower:]' < /tmp/source-apksigner.txt | tr -d ':' | grep -F "$EXPECTED_SIGNER_SHA256"
+          echo "SOURCE_APK_SHA256=$(sha256sum "$STABLE_ASSET" | awk '{print $1}')"
+          echo "SOURCE_APK_SIZE=$(stat -c '%s' "$STABLE_ASSET")"
+
+      - name: Publish stable from exact bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$STABLE_TAG" "$STABLE_ASSET" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$RUNTIME_SHA" \
+            --title 'Arihna — Stable — 2026-10-17' \
+            --notes "Stable release promoted directly from the identical physically Galaxy S25-validated apk-icons-adc40017-20261017 prerelease APK bytes. NO REBUILD. SHA-256 $EXPECTED_SHA256, APK size $EXPECTED_SIZE bytes, verified Arihna signer cert SHA-256 $EXPECTED_SIGNER_SHA256. Runtime $RUNTIME_SHA. Reduces APK size by 31342808 bytes (31.34 MB / 8.08 percent) by replacing material-icons-extended with only 24 exact official Rounded icon definitions. Retains 604 Hafs pages, 604 Warsh pages, GeoNames, Imlai, Quran, prayers, Adhan, independent volumes, Asr UI, approved 4-second vintage alarm, Makkah two-Takbir, Qibla and settings. Galaxy S25 user reported PASS tutto on 2026-10-17. Previous arihna-stable-3492add5-20261016 stays untouched and available for rollback."
+
+      - name: Redownload and verify stable bytes and metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "refs/tags/$STABLE_TAG:refs/tags/$STABLE_TAG"
+          test "$(git rev-parse "$STABLE_TAG^{commit}")" = "$RUNTIME_SHA"
+          JSON="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$STABLE_TAG")"
+          test "$(jq -r '.draft' <<<"$JSON")" = false
+          test "$(jq -r '.prerelease' <<<"$JSON")" = false
+          test "$(jq -r '.target_commitish' <<<"$JSON")" = "$RUNTIME_SHA"
+          test "$(jq '.assets | length' <<<"$JSON")" = 1
+          test "$(jq -r '.assets[0].name' <<<"$JSON")" = "$STABLE_ASSET"
+          test "$(jq -r '.assets[0].state' <<<"$JSON")" = uploaded
+          test "$(jq -r '.assets[0].size' <<<"$JSON")" = "$EXPECTED_SIZE"
+          test "$(jq -r '.assets[0].digest' <<<"$JSON")" = "sha256:$EXPECTED_SHA256"
+          rm -rf /tmp/stablecheck && mkdir -p /tmp/stablecheck
+          gh release download "$STABLE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "$STABLE_ASSET" --dir /tmp/stablecheck
+          DOWNLOADED="/tmp/stablecheck/$STABLE_ASSET"
+          test "$(sha256sum "$DOWNLOADED" | awk '{print $1}')" = "$EXPECTED_SHA256"
+          test "$(stat -c '%s' "$DOWNLOADED")" = "$EXPECTED_SIZE"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          "$APKSIGNER" verify --verbose --print-certs "$DOWNLOADED" | tee /tmp/stable-apksigner.txt
+          tr '[:upper:]' '[:lower:]' < /tmp/stable-apksigner.txt | tr -d ':' | grep -F "$EXPECTED_SIGNER_SHA256"
+          echo "VERIFIED_STABLE_URL=$(jq -r '.html_url' <<<"$JSON")"
+          echo "VERIFIED_STABLE_ASSET_URL=$(jq -r '.assets[0].browser_download_url' <<<"$JSON")"
+          echo "VERIFIED_STABLE_APK_SHA256=$EXPECTED_SHA256"
+          echo "VERIFIED_STABLE_SIGNER_SHA256=$EXPECTED_SIGNER_SHA256"
+          OLD_JSON="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/arihna-stable-3492add5-20261016")"
+          test "$(jq -r '.assets[0].digest' <<<"$OLD_JSON")" = 'sha256:c5d05fb7d4ac9b386ef1bd105a87c677f9691a922361ec9430985f3346dac64e'
+          test "$(jq -r '.assets[0].size' <<<"$OLD_JSON")" = 387885070
+          echo PREVIOUS_STABLE_PRESERVED=PASS
