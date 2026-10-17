@@ -90,7 +90,7 @@ def main():
     dest.mkdir(parents=True,exist_ok=True)
     source_kinds={}
     for icon in sorted(used):
-        member_suffix="/rounded/"+icon+".kt"
+        member_suffix="/icons/rounded/"+icon+".kt"
         options=[]
         for name,meta in sources.items():
             with zipfile.ZipFile(meta["jar"]) as z:
