@@ -1,0 +1,214 @@
+name: APK icon reduction v1 S25 verified prerelease
+
+on:
+  push:
+    branches:
+      - driver/apk-size-icons-v1-release-20261017
+    paths:
+      - .github/workflows/apk-size-icons-v1-release.yml
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  build-verify-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      RUNTIME_SHA: adc40017694af03723c7c57afb996306c0ddcd39
+      SPEC_SHA: e623ba867e6e56c7bc9c6ac7b69cb28ac03e6aea
+      VERIFIED_GATE_RUN: '39014049568'
+      VERIFIED_STATIC_JOB: '117342356971'
+      VERIFIED_API28_JOB: '117342356826'
+      VERIFIED_API36_JOB: '117342357108'
+      SIGNING_SOURCE_SHA: ce23a7f78695be95c7f8dfd2bcedbe22544da94c
+      DEBUG_CERT_SHA256_COMPACT: 1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa
+      DEBUG_KEYSTORE_SHA256: bc9057f26ad6de7efb70a5df06effb1ed259f1d015c3f062d0f757b3f0983b72
+      GEONAMES_SHA256: 7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb
+      FROZEN_ASSET_RELEASE: settings-s25-premium-3f28b6f0-20260906
+      FROZEN_ASSET_APK: arihna-settings-s25-premium.apk
+      PACKAGE_NAME: com.archimedeprojects.arihna
+      RELEASE_TAG: apk-icons-adc40017-20261017
+      APK_NAME: arihna-apk-icons.apk
+
+    steps:
+      - name: Checkout exact promoted runtime
+        uses: actions/checkout@v4
+        with:
+          ref: adc40017694af03723c7c57afb996306c0ddcd39
+          fetch-depth: 0
+
+      - name: Verify promoted runtime and definitive gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RUNTIME_SHA"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          test "$(git rev-list --parents -n1 HEAD | wc -w)" -eq 2
+          git fetch origin main --force
+          test "$(git rev-parse origin/main)" = "$RUNTIME_SHA"
+          for JOB in "$VERIFIED_STATIC_JOB" "$VERIFIED_API28_JOB" "$VERIFIED_API36_JOB"; do
+            ACTUAL="$(gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$JOB" --jq '[(.id|tostring),(.run_id|tostring),.status,.conclusion] | join(" ")')"
+            test "$ACTUAL" = "$JOB $VERIFIED_GATE_RUN completed success"
+          done
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$VERIFIED_GATE_RUN" --jq '[.status,.conclusion] | join(" ")')" = 'completed success'
+          ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 12266719
+          packages: platform-tools
+
+      - name: Restore frozen GeoNames and persistent signer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/geonames app/src/main/assets/geonames
+          mkdir -p /tmp/geonames app/src/main/assets/geonames "$HOME/.android"
+          gh release download "$FROZEN_ASSET_RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "$FROZEN_ASSET_APK" --dir /tmp/geonames
+          unzip -p "/tmp/geonames/$FROZEN_ASSET_APK" assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "$GEONAMES_SHA256  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+          git fetch --depth=1 origin location-step5-device-test
+          git cat-file -e "$SIGNING_SOURCE_SHA^{commit}"
+          git show "$SIGNING_SOURCE_SHA:.github/test-signing/arihna-debug.keystore.b64" | base64 --decode > "$HOME/.android/debug.keystore"
+          test "$(sha256sum "$HOME/.android/debug.keystore" | awk '{print $1}')" = "$DEBUG_KEYSTORE_SHA256"
+
+      - name: Verify Asr selection and vintage ringtone release contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          ASR_UI=app/src/main/java/com/archimedeprojects/arihna/feature/prayers/PrayerSettingsScreen.kt
+          ALARM_UI=app/src/main/java/com/archimedeprojects/arihna/feature/alarms/AlarmsPlaceholderScreen.kt
+          BUILTIN=app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/BuiltInAlarmSounds.kt
+          SERVICE=app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
+          grep -Fq 'settings.asrMethod == method' "$ASR_UI"
+          grep -Fq 'selectable(' "$ASR_UI"
+          grep -Fq 'Sveglia classica Arihna' "$BUILTIN"
+          grep -Fq 'arihna://alarm/classic-vintage' "$BUILTIN"
+          grep -Fq 'alarm-sound-vintage' "$ALARM_UI"
+          grep -Fq 'isArihnaClassicAlarm(selectedRingtoneUri)' "$SERVICE"
+          grep -Fq 'player.isLooping = true' "$SERVICE"
+          grep -Fq 'audio-preview-alarm-clock-first4-20261014' app/build.gradle.kts
+          grep -Fq '43fe360338ad312448b4b4bdf69f02e06db4b8d32af21a1c137d70c54b868ccd' app/build.gradle.kts
+          grep -Fq 'Freesound sound 219244' docs/audio/VINTAGE_ALARM_CC0.md
+          grep -Fq 'applicationId = "com.archimedeprojects.arihna"' app/build.gradle.kts
+          grep -Fq 'minSdk = 28' app/build.gradle.kts
+          grep -Fq 'compileSdk = 37' app/build.gradle.kts
+          grep -Fq 'targetSdk = 37' app/build.gradle.kts
+          ! grep -Fq 'android.permission.ACCESS_BACKGROUND_LOCATION' app/src/main/AndroidManifest.xml
+          ! grep -Fq 'android.permission.USE_EXACT_ALARM' app/src/main/AndroidManifest.xml
+          grep -Fq 'implementation(libs.androidx.compose.material.icons.core)' app/build.gradle.kts
+          ! grep -Fq 'implementation(libs.androidx.compose.material.icons.extended)' app/build.gradle.kts
+          ! grep -Fq 'androidx-compose-material-icons-extended' gradle/libs.versions.toml
+          test "$(find app/src/main/java/androidx/compose/material/icons/rounded -name '*.kt' | wc -l)" -eq 14
+          grep -Fq '356542262' docs/size/MATERIAL_ICONS_SOURCE.md
+          grep -Fq '1227' docs/size/MATERIAL_ICONS_SOURCE.md
+
+      - name: Apply transient persistent debug signing config
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path('app/build.gradle.kts')
+          s = p.read_text(encoding='utf-8')
+          assert 'signingConfigs {' not in s
+          match = re.search(r'(?m)^android\s*\{\s*\n', s)
+          assert match is not None
+          insert = '''    signingConfigs {
+              getByName("debug") {
+                  storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
+                  storePassword = "android"
+                  keyAlias = "androiddebugkey"
+                  keyPassword = "android"
+              }
+          }
+
+          '''
+          p.write_text(s[:match.end()] + insert + s[match.end():], encoding='utf-8')
+          PY
+          test "$(git diff --name-only | tr -d '\n')" = 'app/build.gradle.kts'
+
+      - name: Build exact promoted runtime
+        run: ./gradlew --no-daemon :app:assembleDebug --stacktrace
+
+      - name: Verify APK package SDK signer and digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee /tmp/apksigner.txt
+          tr '[:upper:]' '[:lower:]' < /tmp/apksigner.txt | tr -d ':' | grep -F "$DEBUG_CERT_SHA256_COMPACT"
+          "$AAPT" dump badging "$APK" | tee /tmp/badging.txt
+          grep -F "package: name='$PACKAGE_NAME'" /tmp/badging.txt
+          grep -F "sdkVersion:'28'" /tmp/badging.txt
+          grep -F "targetSdkVersion:'37'" /tmp/badging.txt
+          grep -F "compileSdkVersion='37'" /tmp/badging.txt
+          test "$(unzip -p "$APK" assets/geonames/cities.db | sha256sum | awk '{print $1}')" = "$GEONAMES_SHA256"
+          cp "$APK" "$APK_NAME"
+          sha256sum "$APK_NAME" | awk '{print $1}' > /tmp/apk-sha256.txt
+          stat -c '%s' "$APK_NAME" > /tmp/apk-size.txt
+          test "$(cat /tmp/apk-size.txt)" -lt 360000000
+          echo "FINAL_APK_SHA256=$(cat /tmp/apk-sha256.txt)"
+          echo "FINAL_APK_SIZE=$(cat /tmp/apk-size.txt)"
+
+      - name: Publish verified prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK_SHA="$(cat /tmp/apk-sha256.txt)"
+          APK_SIZE="$(cat /tmp/apk-size.txt)"
+          gh release create "$RELEASE_TAG" "$APK_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$RUNTIME_SHA" \
+            --title 'Arihna — APK -31 MB Material Icons — S25 validation' \
+            --prerelease \
+            --notes "Galaxy S25 validation build for APK-size Material Rounded icons optimization. Removed whole material-icons-extended runtime and preserved every used Rounded icon using exact official AndroidX 1.7.8 sources: 14 vendored and 10 from material-icons-core. Baseline APK 387885070 bytes, candidate preflight APK 356542262 bytes, saving 31342808 bytes (8.08%). All 1227 protected Hafs, Warsh, GeoNames, Quran, audio asset entries SHA-256 identical to the physically validated stable reference. Existing Asr selected-state, vintage alarm, Adhan, Makkah x2, volumes, Quran, Qibla, location and permissions preserved. SPEC $SPEC_SHA; runtime $RUNTIME_SHA; exact-SHA gate $VERIFIED_GATE_RUN PASS (static/build/size, API28 full suite, API36 Quran/feature/permission matrix). Published APK bytes $APK_SIZE; APK SHA-256 $APK_SHA. Physical Galaxy S25 validation is still REQUIRED before a future stable release; original stable arihna-stable-3492add5-20261016 is unchanged."
+
+      - name: Redownload and verify published APK and release metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_SHA="$(cat /tmp/apk-sha256.txt)"
+          git fetch origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse "$RELEASE_TAG^{commit}")" = "$RUNTIME_SHA"
+          JSON="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")"
+          test "$(jq -r '.draft' <<<"$JSON")" = false
+          test "$(jq -r '.prerelease' <<<"$JSON")" = true
+          test "$(jq -r '.target_commitish' <<<"$JSON")" = "$RUNTIME_SHA"
+          test "$(jq '.assets | length' <<<"$JSON")" = 1
+          test "$(jq -r '.assets[0].name' <<<"$JSON")" = "$APK_NAME"
+          test "$(jq -r '.assets[0].state' <<<"$JSON")" = uploaded
+          test "$(jq -r '.assets[0].digest' <<<"$JSON")" = "sha256:$EXPECTED_SHA"
+          rm -rf /tmp/releasecheck && mkdir -p /tmp/releasecheck
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "$APK_NAME" --dir /tmp/releasecheck
+          DOWNLOADED="/tmp/releasecheck/$APK_NAME"
+          test "$(sha256sum "$DOWNLOADED" | awk '{print $1}')" = "$EXPECTED_SHA"
+          test "$(stat -c '%s' "$DOWNLOADED")" = "$(cat /tmp/apk-size.txt)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          "$APKSIGNER" verify --verbose --print-certs "$DOWNLOADED" | tee /tmp/release-apksigner.txt
+          tr '[:upper:]' '[:lower:]' < /tmp/release-apksigner.txt | tr -d ':' | grep -F "$DEBUG_CERT_SHA256_COMPACT"
+          echo "VERIFIED_RELEASE_URL=$(jq -r '.html_url' <<<"$JSON")"
+          echo "VERIFIED_ASSET_URL=$(jq -r '.assets[0].browser_download_url' <<<"$JSON")"
+          echo "VERIFIED_APK_SHA256=$EXPECTED_SHA"
+          echo "VERIFIED_SIGNER_SHA256=$DEBUG_CERT_SHA256_COMPACT"
