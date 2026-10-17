@@ -271,7 +271,7 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation("androidx.compose.foundation:foundation")
     implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.compose.material.icons.extended)
+    implementation(libs.androidx.compose.material.icons.core)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation("com.caverock:androidsvg:1.4")
     debugImplementation(libs.androidx.compose.ui.tooling)
