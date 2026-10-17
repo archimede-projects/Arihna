@@ -10,6 +10,15 @@
 5. Never store secrets.
 6. If GitHub write access is unavailable, say so.
 
+## Current validated state — 2026-10-17
+- User explicitly confirmed **PASS tutto** after physically testing APK-size-optimized S25 prerelease on Galaxy S25. This is the physical validation for the exact prerelease asset `apk-icons-adc40017-20261017/arihna-apk-icons.apk`.
+- Latest live main runtime: `adc40017694af03723c7c57afb996306c0ddcd39` (already promoted via non-force FF after exact-SHA API28/API36/static gate PASS).
+- **Current physically validated STABLE**: `arihna-stable-adc40017-20261017`, release id `415664924`, runtime `adc40017694af03723c7c57afb996306c0ddcd39`, asset `arihna.apk` id `649912545`, size `356542262` bytes, SHA-256 `d9b00e9e85daac4ef976e281aecc08c82b2d62823af12db81b89b191e364b383`, signer SHA-256 `1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa`.
+- Stable asset: https://github.com/archimede-projects/Arihna/releases/download/arihna-stable-adc40017-20261017/arihna.apk
+- **Zero rebuild stable promotion:** stable copied physically validated prerelease bytes and redownloaded, SHA/firma/size checked; published stable and prerelease SHA identical.
+- Prior stable `arihna-stable-3492add5-20261016` remains untouched/available as rollback; APK SHA `c5d05fb7d4ac9b386ef1bd105a87c677f9691a922361ec9430985f3346dac64e`.
+- **NEXT ACTION:** maintain current stable; await user's next product objective. Do not start unrelated runtime modification spontaneously. For any future code change, create a new SPEC off current main, unique single-commit candidate direct child, run exact-SHA static/API28/API36 gate, then S25 prerelease and physical PASS before next stable. Keep continuity edits only on chat-context, never main.
+
 ## User working style
 - Italian, concise, operational.
 - Proceed directly when context is sufficient.
@@ -27,7 +36,7 @@
 - Use persistent Arihna signer; redownload published APK and verify SHA-256 + signer before handoff/stable claims.
 - Preserve unrelated features unless SPEC explicitly changes them.
 
-## Last physically validated stable baseline
+## Historical stable baseline (2026-09-21 — superseded)
 - Stable tag: `arihna-stable-977fbde9-20260921`
 - Runtime: `977fbde989facc3b392f6af5a65449a5322d58c6`
 - Release id: `392867609`
@@ -36,7 +45,7 @@
 - SHA-256: `002d640a734eadf46b141b4489ae3c26d2803d9d49b4bacc772f7c678ab20813`
 - Signer cert SHA-256: `1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa`
 - User physically validated the page-jump runtime PASS on Galaxy S25.
-- This remains the stable user baseline until the new Imlāʾī runtime is physically validated.
+- Historical statement (superseded): see **Current validated state — 2026-10-17** at top.
 
 ## Product definition: القرآن بالرسم الإملائي
 - Former “Facile” means exactly Quran in **الرسم الإملائي**.
@@ -165,7 +174,7 @@ Release:
 - signer cert SHA-256 verified: `1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa`
 - direct download: `https://github.com/archimede-projects/Arihna/releases/download/quran-imlai-0d7d12c2-20260925/arihna-quran-imlai.apk`
 
-## Latest user request / actual work
+## Historical user request / actual work (2026-10-09)
 2026-10-09 user confirmed the current Makkah two-takbir behavior is now perfect on Galaxy S25, then requested a product change: there must be no global alarm-volume control; volume must be controlled independently for each personal alarm and each prayer/Adhan.
 
 Actually done / live-verified:
@@ -204,7 +213,7 @@ Actually done / live-verified:
   - API36 job `113806665596`: in progress; exact candidate check and setup PASS; emulator tests running.
 - `main` has NOT been promoted and remains unchanged while the gate is running.
 
-## Exact next action
+## Historical next action (2026-10-16 — superseded)
 - In the next chat, bootstrap from this continuity file and continue the APK-size optimization stream.
 - First inventory all Material icon imports in main source and resolve the exact official source definitions/version.
 - Then implement on a candidate branch from SPEC `e623ba867e6e56c7bc9c6ac7b69cb28ac03e6aea`, keeping exactly one candidate commit direct child of SPEC.
@@ -257,3 +266,17 @@ Actually done / live-verified:
 - The release build's size matches 356542262 byte preflight/gate exactly; signed APK hash is different from unsigned/ephemeral-signer preflight SHA; canonical published prerelease SHA is d9b00e9e85daac4ef976e281aecc08c82b2d62823af12db81b89b191e364b383.
 - Historical stable arihna-stable-3492add5-20261016 SHA c5d05fb7d4ac9b386ef1bd105a87c677f9691a922361ec9430985f3346dac64e remains untouched and physically validated; do not replace until Galaxy S25 physical PASS. Updated main runtime is not a physically validated stable.
 - Exact next step: User installs linked S25 prerelease and tests launch/screens/navigational rounded icons, Quran Hafs 604 pages, Warsh 604 pages, Imlai, Adhan, alarms/vintage 4-second sound, independent volumes, prayers, Qibla, GeoNames and permissions. Collect clear S25 PASS/FAIL. Only after user confirms physical PASS, publish stable from these exact verified prerelease bytes with no rebuild, reverify stable SHA256 = d9b00e9e85daac4ef976e281aecc08c82b2d62823af12db81b89b191e364b383, same signer, tag target and asset contents. Never touch existing stable bytes.
+
+## 2026-10-17 — User PASS + definitive exact-bytes stable promotion (complete)
+- New prompt: "Pass tutto". Interpreted as explicit real-world Galaxy S25 physical validation PASS for the released APK-size optimized prerelease `apk-icons-adc40017-20261017`. All prior tests user was asked to run passed.
+- Live verified before release: main=`adc40017694af03723c7c57afb996306c0ddcd39`, prerelease id 415662217, target main, prerelease=true, asset `arihna-apk-icons.apk` id 649899990, digest `sha256:d9b00e9e85daac4ef976e281aecc08c82b2d62823af12db81b89b191e364b383`, size 356542262 bytes; original stable release id 414962535 remained untouched.
+- Reused prior proven stable-promotion GitHub Actions workflow template, adapted on independent release driver branch `driver/stable-adc40017-20261017` (driver created directly from runtime; not merged); workflow at `.github/workflows/stable-adc40017-20261017.yml`, workflow commit `62ee9ad834335b5246f69e644fbbceb5123a7b62`.
+- Stable promotion Actions run `39015519830`, job `117346732192`: **completed/success**, including exact main SHA/source release metadata check, prerelease asset download, SHA256/size/signing verification, stable release creation from the downloaded asset **without rebuild**, stable redownload and full SHA256/size/signature/metadata re-verification. Previous stable digest+size remained unchanged, `PREVIOUS_STABLE_PRESERVED=PASS` in logs.
+- Definitive stable tag: `arihna-stable-adc40017-20261017`, release ID `415664924`, draft=false, prerelease=false, target `adc40017694af03723c7c57afb996306c0ddcd39`.
+- Definitive stable asset: `arihna.apk`, asset ID `649912545`, size `356542262` bytes, digest `sha256:d9b00e9e85daac4ef976e281aecc08c82b2d62823af12db81b89b191e364b383`; signer cert SHA256 `1397008c1f962dbbd36dd8a8ea0216afdd06e4b2b3e08bc0f6d4b54344d7b0fa`. Same exact SHA, size and signer as physically validated prerelease.
+- Stable download: https://github.com/archimede-projects/Arihna/releases/download/arihna-stable-adc40017-20261017/arihna.apk
+- Stable release: https://github.com/archimede-projects/Arihna/releases/tag/arihna-stable-adc40017-20261017
+- New 356542262 vs prior stable 387885070: APK saving **31342808 bytes (~31.34 decimal MB, 8.08%)**, DEX saving 31336352 bytes, 1227 protected offline assets byte-identical to validated prior stable preflight. 604 Hafs/604 Warsh, GeoNames, Quran/Imlai, prayers, Adhan, vintage audio and all validated UI preserved.
+- Historical stable `arihna-stable-3492add5-20261016` (digest `c5d05fb7d4ac9b386ef1bd105a87c677f9691a922361ec9430985f3346dac64e`, size 387885070) **unchanged** as rollback.
+- No candidate, SPEC or main write needed for promotion; continuity updated only here on branch chat-context. No current outstanding gate or publishing task.
+- Exact next action: project stays on validated stable `adc40017`; await user-directed next objective, using SPEC-first workflow and existing rollback rules.
