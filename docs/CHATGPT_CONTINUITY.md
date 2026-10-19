@@ -19,6 +19,14 @@
 - Prior stable `arihna-stable-3492add5-20261016` remains untouched/available as rollback; APK SHA `c5d05fb7d4ac9b386ef1bd105a87c677f9691a922361ec9430985f3346dac64e`.
 - **NEXT ACTION:** maintain current stable; await user's next product objective. Do not start unrelated runtime modification spontaneously. For any future code change, create a new SPEC off current main, unique single-commit candidate direct child, run exact-SHA static/API28/API36 gate, then S25 prerelease and physical PASS before next stable. Keep continuity edits only on chat-context, never main.
 
+
+## 2026-10-19 — Roadmap requested, no implementation authorized
+- User prompt: "Prossimi obiettivi?" Request is planning/advice, not approval to modify runtime.
+- Live verified main `adc40017694af03723c7c57afb996306c0ddcd39`, stable `arihna-stable-adc40017-20261017` non-prerelease release ID 415664924, APK 356542262 bytes, SHA256 `d9b00e9e85daac4ef976e281aecc08c82b2d62823af12db81b89b191e364b383`. Prerelease still published and historical stable preserved. Open GitHub issues = 0. Source `PROJECT_SPEC.md` confirms offline-first, no paid APIs or Play Store publication, APK distribution by Releases, persistent signer and SPEC-first development.
+- Suggested user-selectable roadmap (NOT started): (1) hardening/reliability of Adhan/personal alarms around reboot, DST/timezone changes and permission/battery scenarios; (2) local export/import backup of user settings, alarms, prayer corrections, bookmarks/history (no cloud or paid services); (3) Quran reading usability: search surah/verse, navigation/bookmarks and accessibility without altering sacred content; (4) additional APK optimization from current ~356.54 MB via audited R8/resource/code shrink only as separate SPEC; preserve all 604+604 offline Mushaf pages, GeoNames and audio; (5) polish UI/UX and accessibility including RTL/night mode where needed. Do not imply features are absent or malfunctioning; each is potential improvement to assess.
+- Recommendation is to start with alarm/Adhan robustness; user decides. No SPEC, candidate, gate, release, main edit or stable replacement was performed this turn.
+- Exact next action: await selection; then draft new SPEC on a branch off current main and obtain scope if required, proceed with unique candidate direct child of SPEC, full exact-SHA static/API28/API36 and prerelease/physical PASS before stable. Continue to update this file on chat-context after each turn.
+
 ## User working style
 - Italian, concise, operational.
 - Proceed directly when context is sufficient.
