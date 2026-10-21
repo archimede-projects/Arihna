@@ -151,6 +151,12 @@ fun HomePrayerScheduleScreen(
                 onRefreshLocation = onRefreshLocation,
             )
         }
+        OutlinedButton(
+            onClick = onOpenPlanning,
+            modifier = Modifier.fillMaxWidth().testTag("home-open-planning"),
+        ) {
+            Text(appText("Planning · Da fare e promemoria", "التخطيط · المهام والتذكيرات"))
+        }
     }
 }
 
@@ -246,9 +252,6 @@ private fun ReadyContent(
         onOpenAlarms = onOpenAlarms,
         onOpenQuran = onOpenQuran,
     )
-    OutlinedButton(onClick = onOpenPlanning, modifier = Modifier.fillMaxWidth().testTag("home-open-planning")) {
-        Text(appText("Planning · Da fare e promemoria", "التخطيط · المهام والتذكيرات"))
-    }
     DailyActionCard(state.localDate)
 }
 

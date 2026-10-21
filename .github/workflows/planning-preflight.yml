@@ -1,4 +1,5 @@
 name: Arihna Planning isolated compile preflight
+# revision 2: include planning instrumentation and home entrypoint from any location state
 
 on:
   push:
