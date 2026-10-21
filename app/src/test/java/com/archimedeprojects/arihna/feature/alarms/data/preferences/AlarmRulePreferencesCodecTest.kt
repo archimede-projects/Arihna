@@ -4,6 +4,7 @@ import com.archimedeprojects.arihna.feature.alarms.domain.AlarmDefinition
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmPrayer
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmRule
 import com.archimedeprojects.arihna.feature.alarms.domain.AlarmSoundProfile
+import com.archimedeprojects.arihna.feature.alarms.domain.AdhanVariant
 import com.archimedeprojects.arihna.feature.alarms.platform.ARIHNA_CLASSIC_ALARM_TITLE
 import com.archimedeprojects.arihna.feature.alarms.platform.ARIHNA_CLASSIC_ALARM_URI
 import java.time.DayOfWeek
@@ -53,6 +54,29 @@ class AlarmRulePreferencesCodecTest {
         val encoded = AlarmRulePreferencesCodec.encode(rules)
         assertTrue(encoded.startsWith("ARIHNA_ALARMS_V3\n"))
         assertEquals(rules.sortedBy { it.alarmId }, AlarmRulePreferencesCodec.decode(encoded))
+    }
+
+    @Test
+    fun vibrationOnlyAlarmAndAdhanRoundTripWithoutBreakingV3() {
+        val rules = listOf(
+            AlarmRule(
+                alarmId = "prayer-isha", revision = 7, enabled = true,
+                soundProfile = AlarmSoundProfile.VIBRATION,
+                definition = AlarmDefinition.PrayerLinked(AlarmPrayer.ISHA),
+                ringtoneUri = AdhanVariant.TAKBIR_X2.storageValue,
+                ringtoneTitle = AdhanVariant.TAKBIR_X2.displayName,
+                playbackVolumePercent = 51,
+            ),
+            AlarmRule(
+                alarmId = "custom-vibrating", revision = 2, enabled = true,
+                soundProfile = AlarmSoundProfile.VIBRATION,
+                definition = AlarmDefinition.Custom("Promemoria", LocalTime.of(8, 15)),
+                playbackVolumePercent = 35,
+            ),
+        )
+        val persisted = AlarmRulePreferencesCodec.encode(rules)
+        assertTrue(persisted.startsWith("ARIHNA_ALARMS_V3"))
+        assertEquals(rules.sortedBy { it.alarmId }, AlarmRulePreferencesCodec.decode(persisted))
     }
 
     @Test

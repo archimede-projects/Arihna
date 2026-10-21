@@ -17,6 +17,9 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.core.app.NotificationCompat
 import kotlin.math.roundToInt
 import com.archimedeprojects.arihna.R
@@ -181,6 +184,7 @@ internal object AlarmRingingNotificationFactory {
             AlarmSoundProfile.ADHAN -> "Adhan in corso"
             AlarmSoundProfile.SYSTEM_DEFAULT -> payload.ringtoneTitle ?: "Sveglia in corso"
             AlarmSoundProfile.SILENT -> "Sveglia in corso"
+            AlarmSoundProfile.VIBRATION -> "Solo vibrazione"
         }
         val builder = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_notification_arihna)
@@ -296,6 +300,29 @@ internal fun effectivePlaybackGain(percent: Int, streamVolumeApplied: Boolean): 
 class AlarmRingingService : Service() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var mediaPlayer: MediaPlayer? = null
+    private var vibrating = false
+    private val vibrator: Vibrator by lazy {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            (getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        }
+    }
+    private fun startVibration() {
+        runCatching {
+            if (vibrator.hasVibrator()) {
+                vibrator.vibrate(
+                    VibrationEffect.createWaveform(longArrayOf(0, 650, 400, 650, 500), 0),
+                )
+                vibrating = true
+            }
+        }
+    }
+    private fun stopVibration() {
+        if (vibrating) runCatching { vibrator.cancel() }
+        vibrating = false
+    }
     private var activeNotificationId: Int? = null
     private var activeAlarmId: String? = null
     private val alarmStreamVolumeSession by lazy {
@@ -340,11 +367,13 @@ class AlarmRingingService : Service() {
         } else {
             startForeground(activeNotificationId ?: 1, notification)
         }
-        val streamVolumeApplied = if (payload.soundProfile == AlarmSoundProfile.SILENT) {
+        val streamVolumeApplied = if (payload.soundProfile == AlarmSoundProfile.SILENT ||
+            payload.soundProfile == AlarmSoundProfile.VIBRATION) {
             false
         } else {
             alarmStreamVolumeSession.apply(payload.playbackVolumePercent)
         }
+        if (payload.soundProfile == AlarmSoundProfile.VIBRATION) startVibration()
         startAudio(
             payload.soundProfile,
             payload.ringtoneUri,
@@ -352,7 +381,8 @@ class AlarmRingingService : Service() {
             streamVolumeApplied,
             payload.alarmId,
         )
-        if (payload.soundProfile != AlarmSoundProfile.SILENT && mediaPlayer == null) {
+        if (payload.soundProfile != AlarmSoundProfile.SILENT &&
+            payload.soundProfile != AlarmSoundProfile.VIBRATION && mediaPlayer == null) {
             alarmStreamVolumeSession.restore()
         }
         ringingOverlay.show(
@@ -365,7 +395,11 @@ class AlarmRingingService : Service() {
             },
         )
         mainHandler.removeCallbacks(safetyStop)
-        mainHandler.postDelayed(safetyStop, MAX_RINGING_MILLIS)
+        mainHandler.postDelayed(
+            safetyStop,
+            if (payload.isPrayer && payload.soundProfile == AlarmSoundProfile.VIBRATION) 40_000L
+            else MAX_RINGING_MILLIS,
+        )
         return START_NOT_STICKY
     }
 
@@ -376,7 +410,7 @@ class AlarmRingingService : Service() {
         streamVolumeApplied: Boolean,
         ringingAlarmId: String,
     ) {
-        if (profile == AlarmSoundProfile.SILENT) return
+        if (profile == AlarmSoundProfile.SILENT || profile == AlarmSoundProfile.VIBRATION) return
         val attributes = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_ALARM)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
@@ -494,6 +528,7 @@ class AlarmRingingService : Service() {
     }
 
     private fun stopAudioOnly() {
+        stopVibration()
         mediaPlayer?.let { player ->
             runCatching { if (player.isPlaying) player.stop() }
             player.release()

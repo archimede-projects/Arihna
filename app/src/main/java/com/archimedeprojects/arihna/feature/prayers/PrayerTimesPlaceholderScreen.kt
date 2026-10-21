@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -328,6 +330,7 @@ private fun SoundIconButton(
         AlarmSoundProfile.ADHAN -> Icons.Rounded.Mosque to "Adhan: ${AdhanVariant.fromStorage(rule.ringtoneUri).displayName}"
         AlarmSoundProfile.SYSTEM_DEFAULT -> Icons.Rounded.Notifications to "Suoneria: ${rule.ringtoneTitle ?: "predefinita"}"
         AlarmSoundProfile.SILENT -> Icons.Rounded.VolumeOff to "Silenzioso"
+        AlarmSoundProfile.VIBRATION -> Icons.Rounded.Notifications to "Solo vibrazione"
     }
     Surface(
         shape = CircleShape,
@@ -497,7 +500,10 @@ internal fun PrayerSoundDialog(
                     ) { Text(appText("Indietro", "رجوع")) }
                 }
             } else {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     Text(appText("Adhan", "الأذان"), fontWeight = FontWeight.ExtraBold, color = OrariForest)
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
@@ -565,6 +571,16 @@ internal fun PrayerSoundDialog(
                         }
                     }
                     SoundListRow(
+                        title = appText("Solo vibrazione", "اهتزاز فقط"),
+                        subtitle = appText("Senza Adhan e senza suoneria", "بدون أذان أو نغمة"),
+                        icon = Icons.Rounded.Notifications,
+                        selected = profile == AlarmSoundProfile.VIBRATION,
+                    ) {
+                        previewPlayer.stop()
+                        previewing = null
+                        profile = AlarmSoundProfile.VIBRATION
+                    }
+                    SoundListRow(
                         title = appText("Silenzioso", "صامت"),
                         icon = Icons.Rounded.VolumeOff,
                         selected = profile == AlarmSoundProfile.SILENT,
@@ -606,6 +622,7 @@ internal fun PrayerSoundDialog(
                             },
                             valueRange = 0f..100f,
                             steps = 0,
+                            enabled = profile != AlarmSoundProfile.VIBRATION && profile != AlarmSoundProfile.SILENT,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("prayer-volume-slider-${prayer.name.lowercase()}"),
