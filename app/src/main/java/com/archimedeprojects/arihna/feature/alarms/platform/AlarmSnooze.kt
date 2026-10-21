@@ -93,7 +93,13 @@ class AlarmSnoozeReceiver : BroadcastReceiver() {
                 if (!AndroidAlarmNotificationPermissionReader(appContext).isGranted()) return@launch
                 val application = appContext as? ArihnaApplication
                 val rule = application?.appContainer?.alarmRuleRepository?.get(payload.alarmId)
-                if (!AlarmSnoozePolicy.canReplay(payload, rule)) return@launch
+                val plannerReplay = if (payload.alarmId.startsWith("planning-")) {
+                    application?.appContainer?.planningRepository?.find(payload.alarmId)?.let { item ->
+                        item.type == com.archimedeprojects.arihna.feature.planning.PlanningType.ALARM &&
+                            item.delivered && item.revision == payload.ruleRevision
+                    } ?: false
+                } else false
+                if (!plannerReplay && !AlarmSnoozePolicy.canReplay(payload, rule)) return@launch
 
                 ContextCompat.startForegroundService(
                     appContext,
