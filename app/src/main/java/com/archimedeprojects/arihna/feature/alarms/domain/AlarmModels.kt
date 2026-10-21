@@ -16,6 +16,7 @@ enum class AlarmSoundProfile {
     ADHAN,
     SYSTEM_DEFAULT,
     SILENT,
+    VIBRATION,
 }
 
 enum class AdhanVariant(

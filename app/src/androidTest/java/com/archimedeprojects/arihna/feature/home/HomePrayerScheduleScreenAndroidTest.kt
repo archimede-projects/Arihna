@@ -62,6 +62,29 @@ class HomePrayerScheduleScreenAndroidTest {
     }
 
     @Test
+    fun planningShortcutIsImmediatelyVisibleAndClickableInAllHomeStates() {
+        val states = listOf<PrayerScheduleUiState>(
+            PrayerScheduleUiState.Loading,
+            PrayerScheduleUiState.NoLocation(
+                message = "Configura la posizione",
+                locationState = LocationResolutionState.Unconfigured,
+            ),
+            PrayerScheduleUiState.CalculationUnavailable(
+                message = "Orari non disponibili",
+                reason = PrayerCalculationResult.Reason.ASTRONOMICAL_EVENT_UNAVAILABLE,
+                selectedLocation = selectedManualLocation(),
+            ),
+            readyState(),
+        )
+        states.forEach { state ->
+            var calls = 0
+            setScreen(uiState = state, onOpenPlanning = { calls++ })
+            composeRule.onNodeWithTag("home-open-planning").assertIsDisplayed().performClick()
+            composeRule.runOnIdle { assertEquals(1, calls) }
+        }
+    }
+
+    @Test
     fun readyMatchesApprovedVisualAnchorsWithoutTechnicalProvenance() {
         setScreen(uiState = readyState())
 
@@ -198,6 +221,7 @@ class HomePrayerScheduleScreenAndroidTest {
         onOpenQibla: () -> Unit = {},
         onOpenAlarms: () -> Unit = {},
         onOpenQuran: () -> Unit = {},
+        onOpenPlanning: () -> Unit = {},
         onRefreshLocation: () -> Unit = {},
     ) {
         composeRule.setContent {
@@ -209,6 +233,7 @@ class HomePrayerScheduleScreenAndroidTest {
                     onOpenQibla = onOpenQibla,
                     onOpenAlarms = onOpenAlarms,
                     onOpenQuran = onOpenQuran,
+                    onOpenPlanning = onOpenPlanning,
                     onRefreshLocation = onRefreshLocation,
                 )
             }

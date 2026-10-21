@@ -328,6 +328,7 @@ private fun SoundIconButton(
         AlarmSoundProfile.ADHAN -> Icons.Rounded.Mosque to "Adhan: ${AdhanVariant.fromStorage(rule.ringtoneUri).displayName}"
         AlarmSoundProfile.SYSTEM_DEFAULT -> Icons.Rounded.Notifications to "Suoneria: ${rule.ringtoneTitle ?: "predefinita"}"
         AlarmSoundProfile.SILENT -> Icons.Rounded.VolumeOff to "Silenzioso"
+        AlarmSoundProfile.VIBRATION -> Icons.Rounded.Notifications to "Solo vibrazione"
     }
     Surface(
         shape = CircleShape,
@@ -563,6 +564,16 @@ internal fun PrayerSoundDialog(
                         ) {
                             Text(appText("Cambia suoneria", "تغيير النغمة"))
                         }
+                    }
+                    SoundListRow(
+                        title = appText("Solo vibrazione", "اهتزاز فقط"),
+                        subtitle = appText("Senza Adhan e senza suoneria", "بدون أذان أو نغمة"),
+                        icon = Icons.Rounded.Notifications,
+                        selected = profile == AlarmSoundProfile.VIBRATION,
+                    ) {
+                        previewPlayer.stop()
+                        previewing = null
+                        profile = AlarmSoundProfile.VIBRATION
                     }
                     SoundListRow(
                         title = appText("Silenzioso", "صامت"),

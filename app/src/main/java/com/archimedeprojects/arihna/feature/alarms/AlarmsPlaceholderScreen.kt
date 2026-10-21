@@ -347,7 +347,11 @@ internal fun CustomAlarmEditorDialog(
         mutableStateOf(initialDefinition?.weekdays ?: emptySet())
     }
     var soundEnabled by remember(initialRule?.alarmId) {
-        mutableStateOf(initialRule?.soundProfile != AlarmSoundProfile.SILENT)
+        mutableStateOf(initialRule?.soundProfile != AlarmSoundProfile.SILENT &&
+            initialRule?.soundProfile != AlarmSoundProfile.VIBRATION)
+    }
+    var vibrationOnly by remember(initialRule?.alarmId) {
+        mutableStateOf(initialRule?.soundProfile == AlarmSoundProfile.VIBRATION)
     }
     var ringtoneUri by remember(initialRule?.alarmId) {
         mutableStateOf(initialRule?.ringtoneUri)
@@ -367,6 +371,7 @@ internal fun CustomAlarmEditorDialog(
                 ringtoneUri = uri.toString()
                 ringtoneTitle = AlarmRingtonePicker.title(context, uri) ?: "Suoneria telefono"
                 soundEnabled = true
+                vibrationOnly = false
             }
         }
     }
@@ -553,6 +558,7 @@ internal fun CustomAlarmEditorDialog(
                                     tag = "alarm-sound-vintage",
                                 ) {
                                     soundEnabled = true
+                                    vibrationOnly = false
                                     ringtoneUri = ARIHNA_CLASSIC_ALARM_URI
                                     ringtoneTitle = ARIHNA_CLASSIC_ALARM_TITLE
                                 }
@@ -575,15 +581,26 @@ internal fun CustomAlarmEditorDialog(
                                 AlarmSoundChoice(
                                     title = "Silenzioso",
                                     subtitle = "Nessun suono",
-                                    selected = !soundEnabled,
+                                    selected = !soundEnabled && !vibrationOnly,
                                     tag = "alarm-sound-silent",
                                 ) {
                                     soundEnabled = false
+                                    vibrationOnly = false
+                                }
+                                AlarmSoundChoice(
+                                    title = "Solo vibrazione",
+                                    subtitle = "Vibra senza suoneria",
+                                    selected = vibrationOnly,
+                                    tag = "alarm-sound-vibration",
+                                ) {
+                                    soundEnabled = false
+                                    vibrationOnly = true
                                 }
                                 Switch(
                                     checked = soundEnabled,
                                     onCheckedChange = { enabled ->
                                         soundEnabled = enabled
+                                        vibrationOnly = false
                                         if (enabled && ringtoneTitle == null) {
                                             ringtoneUri = null
                                         }
@@ -687,7 +704,9 @@ internal fun CustomAlarmEditorDialog(
                                     label,
                                     time,
                                     weekdays,
-                                    if (soundEnabled) {
+                                    if (vibrationOnly) {
+                                        AlarmSoundProfile.VIBRATION
+                                    } else if (soundEnabled) {
                                         AlarmSoundProfile.SYSTEM_DEFAULT
                                     } else {
                                         AlarmSoundProfile.SILENT
