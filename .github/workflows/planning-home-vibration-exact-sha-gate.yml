@@ -1,0 +1,251 @@
+name: Arihna Planning Home and vibration v1 exact-SHA complete gate
+
+on:
+  push:
+    branches:
+      - driver/planning-home-vibration-v1-gate-20261021
+    paths:
+      - .github/workflows/planning-home-vibration-exact-sha-gate.yml
+
+permissions:
+  contents: read
+
+env:
+  SPEC_SHA: 5ee6f6c18545a88547e0e427ee786f4c3aa4caed
+  CANDIDATE_SHA: 54ac6c3496cf8f29e026127d984d3ce0cd73dcfa
+  BASE_SHA: 4e1bbd7514977bea373a7940c4b17adfb63902d2
+
+jobs:
+  static-unit-compile-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 54ac6c3496cf8f29e026127d984d3ce0cd73dcfa
+          fetch-depth: 0
+      - name: Exact candidate/SPEC/main lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          test "$(git rev-parse "$SPEC_SHA^")" = "$BASE_SHA"
+          test "$(git rev-list --count "$SPEC_SHA..$CANDIDATE_SHA")" -eq 1
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 12266719
+          packages: platform-tools
+      - name: Restore pinned GeoNames
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download settings-s25-premium-3f28b6f0-20260906 --repo "$GITHUB_REPOSITORY" --pattern arihna-settings-s25-premium.apk --dir /tmp/geonames
+          unzip -p /tmp/geonames/arihna-settings-s25-premium.apk assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+      - name: Static scope and local integrity contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --name-only "$SPEC_SHA..$CANDIDATE_SHA" | tee /tmp/planning-scope.txt
+          ! grep -E '^app/src/main/(assets|res)/|^app/build.gradle.kts$|^gradle/' /tmp/planning-scope.txt
+          test "$(grep -c '^app/src/main/java/' /tmp/planning-scope.txt)" -ge 7
+          grep -Fq 'Prayers("prayers", "Orari", Icons.Rounded.Mosque)' app/src/main/java/com/archimedeprojects/arihna/app/ArihnaNavHost.kt
+          grep -Fq 'Alarms("alarms", "Sveglie", Icons.Rounded.Alarm)' app/src/main/java/com/archimedeprojects/arihna/app/ArihnaNavHost.kt
+          grep -Fq 'AlarmSoundProfile.VIBRATION' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/platform/AlarmRingingService.kt
+          grep -Fq 'android.permission.VIBRATE' app/src/main/AndroidManifest.xml
+          grep -Fq 'alarm-sound-vibration' app/src/main/java/com/archimedeprojects/arihna/feature/alarms/AlarmsPlaceholderScreen.kt
+          grep -Fq 'planning-alarm-vibration' app/src/main/java/com/archimedeprojects/arihna/feature/planning/PlanningScreen.kt
+          grep -Fq 'PlanningHomeShortcut(onOpenPlanning)' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+          grep -Fq 'planning' app/src/main/java/com/archimedeprojects/arihna/app/ArihnaNavHost.kt
+          grep -Fq 'home-open-planning' app/src/main/java/com/archimedeprojects/arihna/feature/home/HomePrayerScheduleScreen.kt
+          grep -Fq 'PlanningReceiver' app/src/main/AndroidManifest.xml
+          grep -Fq 'PlanningTime' app/src/main/java/com/archimedeprojects/arihna/feature/planning/PlanningModels.kt
+          grep -Fq 'AlarmRingingService.ringPayloadIntent' app/src/main/java/com/archimedeprojects/arihna/feature/planning/PlanningScheduler.kt
+      - name: Unit tests, AndroidTest compile, signed test APK build
+        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:assembleDebug --stacktrace
+      - name: Audit APK and protected data
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          p=Path('app/build/outputs/apk/debug/app-debug.apk')
+          assert p.is_file()
+          with ZipFile(p) as z:
+              names=z.namelist()
+              print('APK size',p.stat().st_size)
+              print('Protected offline',sum('mushaf/' in f or 'mushaf-warsh/' in f for f in names))
+              assert sum('mushaf/' in f or 'mushaf-warsh/' in f for f in names)>=1208
+              assert any('geonames/cities.db' in f for f in names)
+              assert p.stat().st_size < 365000000
+          PY
+
+  api28-full:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 85
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 54ac6c3496cf8f29e026127d984d3ce0cd73dcfa
+          fetch-depth: 0
+      - name: Exact candidate/SPEC/main lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          test "$(git rev-parse "$SPEC_SHA^")" = "$BASE_SHA"
+          test "$(git rev-list --count "$SPEC_SHA..$CANDIDATE_SHA")" -eq 1
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 12266719
+          packages: platform-tools
+      - name: Restore pinned GeoNames
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download settings-s25-premium-3f28b6f0-20260906 --repo "$GITHUB_REPOSITORY" --pattern arihna-settings-s25-premium.apk --dir /tmp/geonames
+          unzip -p /tmp/geonames/arihna-settings-s25-premium.apk assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+      - run: sudo chmod 666 /dev/kvm || true
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 28
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-boot-timeout: 600
+          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
+      - name: Assert full suite and Planning Android tests passed
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as E
+          files=list(Path('app/build/outputs/androidTest-results/connected').rglob('*.xml'))
+          assert files, 'No instrumented tests'
+          names=set()
+          f=e=s=0
+          for p in files:
+              root=E.parse(p).getroot()
+              f+=int(root.attrib.get('failures','0'))
+              e+=int(root.attrib.get('errors','0'))
+              s+=int(root.attrib.get('skipped',root.attrib.get('disabled','0')))
+              names|={x.attrib.get('name','') for x in root.iter('testcase')}
+          print('API28 tests',len(names),'failures/errors/skipped',f,e,s)
+          assert f==e==s==0
+          required={'taskRoundTripEditCompletionAndDeletion','reminderPersistsDateAndStaleDeliveryCannotCompleteUpdatedVersion','planningScreenShowsThreeEntryTypesAndCanCreateTask','datedAlarmPersistsSpecificDateSoundAndIndependentVolume','personalAlarmEditorControlsAndSavesIndependentVolume','planningShortcutVisibleAtTopWhenHomeReady','planningShortcutVisibleAtTopWithoutLocation','planningShortcutVisibleAtTopWhileLoading','planningShortcutVisibleAtTopWhenPrayerCalculationUnavailable','personalAlarmVibrationOnlyPersistsInsteadOfRingtone','prayerAdhanCanBeReplacedByPerPrayerVibrationOnly'}
+          assert required<=names, required-names
+          PY
+
+  api36-planning-and-legacy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 85
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 54ac6c3496cf8f29e026127d984d3ce0cd73dcfa
+          fetch-depth: 0
+      - name: Exact candidate/SPEC/main lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD^)" = "$SPEC_SHA"
+          test "$(git rev-parse "$SPEC_SHA^")" = "$BASE_SHA"
+          test "$(git rev-list --count "$SPEC_SHA..$CANDIDATE_SHA")" -eq 1
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 12266719
+          packages: platform-tools
+      - name: Restore pinned GeoNames
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/geonames app/src/main/assets/geonames
+          gh release download settings-s25-premium-3f28b6f0-20260906 --repo "$GITHUB_REPOSITORY" --pattern arihna-settings-s25-premium.apk --dir /tmp/geonames
+          unzip -p /tmp/geonames/arihna-settings-s25-premium.apk assets/geonames/cities.db > app/src/main/assets/geonames/cities.db
+          echo "7bf32ed8845b293518880f00345406b5fc45e83b4c0e0555313c42472569c6bb  app/src/main/assets/geonames/cities.db" | sha256sum -c -
+      - run: sudo chmod 666 /dev/kvm || true
+      - name: Prepare API36 targeted matrix
+        shell: bash
+        run: |
+          cat >/tmp/planning-api36.sh <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          CLASSES='com.archimedeprojects.arihna.feature.home.HomePrayerScheduleScreenAndroidTest,com.archimedeprojects.arihna.feature.planning.PlanningAndroidTest,com.archimedeprojects.arihna.feature.alarms.AlarmsScreenAndroidTest,com.archimedeprojects.arihna.feature.alarms.platform.AlarmNotificationAndroidTest,com.archimedeprojects.arihna.feature.alarms.platform.AlarmOverlayVolumeAndroidTest,com.archimedeprojects.arihna.feature.prayers.PrayerAlertUiAndroidTest,com.archimedeprojects.arihna.feature.prayers.PrayerSettingsUiAndroidTest,com.archimedeprojects.arihna.feature.quran.QuranImlaiAndroidTest,com.archimedeprojects.arihna.feature.quran.QuranFullscreenAndroidTest'
+          ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class="$CLASSES" --stacktrace
+          P=com.archimedeprojects.arihna
+          ./gradlew :app:installDebug --stacktrace
+          adb shell pm revoke "$P" android.permission.POST_NOTIFICATIONS || true
+          adb shell pm grant "$P" android.permission.POST_NOTIFICATIONS
+          echo PASS >/tmp/planning-api36.txt
+          SH
+          chmod +x /tmp/planning-api36.sh
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 600
+          script: /tmp/planning-api36.sh
+      - name: Verify API36 matrix
+        shell: bash
+        run: |
+          test "$(cat /tmp/planning-api36.txt)" = PASS
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as E
+          files=list(Path('app/build/outputs/androidTest-results/connected').rglob('*.xml'))
+          assert files
+          names=set()
+          f=e=s=0
+          for p in files:
+              root=E.parse(p).getroot()
+              f+=int(root.attrib.get('failures','0'))
+              e+=int(root.attrib.get('errors','0'))
+              s+=int(root.attrib.get('skipped',root.attrib.get('disabled','0')))
+              names|={x.attrib.get('name','') for x in root.iter('testcase')}
+          assert f==e==s==0,(f,e,s)
+          assert {'planningScreenShowsThreeEntryTypesAndCanCreateTask','personalAlarmEditorControlsAndSavesIndependentVolume','planningShortcutVisibleAtTopWhenHomeReady','personalAlarmVibrationOnlyPersistsInsteadOfRingtone','prayerAdhanCanBeReplacedByPerPrayerVibrationOnly'}<=names
+          print('API36 passed',len(names),'test names')
+          PY
