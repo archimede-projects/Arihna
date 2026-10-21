@@ -2553,3 +2553,8 @@ Approved correction:
 - Product direction is specified in `docs/specs/planning-reminders-dated-20261021.md`: Home shortcut to Planning (no seventh permanent navigation icon), to-do list, timed quiet notifications, and independently configurable dated alarms. Existing prayer/Adhan and recurring alarm features stay unchanged.
 - Current `Singola` in the Alarms editor means the **next** occurrence today/tomorrow, NOT a selected future calendar date; no UI/date data exists on the existing stable.
 - The specification is the required first step. Runtime implementation must be a separate exactly-one-commit candidate direct child of the SPEC commit, fully tested with static/API28/API36 exact-SHA gates and S25 prerelease physical validation before a new stable.
+
+
+### 2026-10-21 — Planning Home/icon + vibration-only mode for all alarms — APPROVED
+
+After Planning v1 physical functional PASS, user reported buried Home Planning link and similar Orari/Sveglie icons, then added independent Solo vibrazione alternative for personal alarms, each Adhan/prayer, and dated Planning alarms. Baseline main 4e1bbd75; full specification docs/specs/planning-home-vibration-20261021.md. Preserve existing selections/defaults, Makkah two-takbir, volumes, app offline content and old releases. Require full SPEC-first exact SHA API28/API36 gate, new signed prerelease and explicit S25 PASS before stable.
