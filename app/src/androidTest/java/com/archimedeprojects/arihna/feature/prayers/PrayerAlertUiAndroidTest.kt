@@ -7,6 +7,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaTheme
 import com.archimedeprojects.arihna.feature.alarms.domain.AdhanVariant
@@ -50,7 +51,7 @@ class PrayerAlertUiAndroidTest {
             }
         }
 
-        composeRule.onNodeWithTag("prayer-volume-slider-fajr").assertIsDisplayed()
+        composeRule.onNodeWithTag("prayer-volume-slider-fajr").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("prayer-volume-value-fajr").assertTextEquals("100%")
         composeRule.onNodeWithTag("prayer-volume-slider-fajr")
             .performSemanticsAction(SemanticsActions.SetProgress) { setProgress ->
@@ -90,7 +91,7 @@ class PrayerAlertUiAndroidTest {
                 )
             }
         }
-        composeRule.onNodeWithText("Solo vibrazione").performClick()
+        composeRule.onNodeWithText("Solo vibrazione").performScrollTo().performClick()
         composeRule.onNodeWithText("Conferma").performClick()
         composeRule.runOnIdle { assertEquals(AlarmSoundProfile.VIBRATION, chosen) }
     }

@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -498,7 +500,10 @@ internal fun PrayerSoundDialog(
                     ) { Text(appText("Indietro", "رجوع")) }
                 }
             } else {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     Text(appText("Adhan", "الأذان"), fontWeight = FontWeight.ExtraBold, color = OrariForest)
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
@@ -617,6 +622,7 @@ internal fun PrayerSoundDialog(
                             },
                             valueRange = 0f..100f,
                             steps = 0,
+                            enabled = profile != AlarmSoundProfile.VIBRATION && profile != AlarmSoundProfile.SILENT,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("prayer-volume-slider-${prayer.name.lowercase()}"),
