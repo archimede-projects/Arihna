@@ -131,6 +131,7 @@ fun ArihnaApp(
 
     LaunchedEffect(appContainer) {
         appContainer.dailyInspirationNotificationController.reconcile()
+        appContainer.planningScheduler.reconcile()
     }
 
     ArihnaTheme {
@@ -147,6 +148,8 @@ fun ArihnaApp(
             locationSettingsViewModel = locationViewModel,
             prayerScheduleViewModel = prayerScheduleViewModel,
             alarmsViewModel = alarmsViewModel,
+            planningRepository = appContainer.planningRepository,
+            planningScheduler = appContainer.planningScheduler,
             exactAlarmAccessIntentFactory = appContainer.exactAlarmAccessIntentFactory,
             alarmFullScreenAccess = appContainer.alarmFullScreenAccess,
             alarmDiagnosticTestScheduler = appContainer.alarmDiagnosticTestScheduler,

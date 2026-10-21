@@ -37,6 +37,8 @@ import com.archimedeprojects.arihna.feature.alarms.platform.DefaultAlarmPlatform
 import com.archimedeprojects.arihna.feature.alarms.platform.DefaultAlarmReconciliationTrigger
 import com.archimedeprojects.arihna.feature.alarms.platform.ExactAlarmAccessIntentFactory
 import com.archimedeprojects.arihna.feature.home.DailyInspirationNotificationController
+import com.archimedeprojects.arihna.feature.planning.PlanningRepository
+import com.archimedeprojects.arihna.feature.planning.PlanningScheduler
 import com.archimedeprojects.arihna.feature.prayerschedule.data.PrayerSettingsRepository
 import com.archimedeprojects.arihna.feature.prayerschedule.data.preferences.PreferencesDataStorePrayerSettingsRepository
 import com.archimedeprojects.arihna.feature.prayerschedule.domain.DefaultPrayerScheduleRepository
@@ -50,6 +52,12 @@ class AppContainer(context: Context) {
     private val appContext = context.applicationContext
     private val alarmClock: Clock = Clock.systemUTC()
 
+    val planningRepository: PlanningRepository by lazy {
+        PlanningRepository(appContext.locationPreferencesDataStore)
+    }
+    val planningScheduler: PlanningScheduler by lazy {
+        PlanningScheduler(appContext, planningRepository)
+    }
     val cityRepository: CityRepository by lazy { SQLiteCityRepository(appContext) }
     val deviceLocationDataSource: DeviceLocationDataSource by lazy { GoogleFusedDeviceLocationDataSource(appContext) }
     val locationPreferencesRepository: LocationPreferencesRepository by lazy {

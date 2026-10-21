@@ -99,6 +99,7 @@ fun HomePrayerScheduleRoute(
     onOpenQibla: () -> Unit,
     onOpenAlarms: () -> Unit,
     onOpenQuran: () -> Unit = {},
+    onOpenPlanning: () -> Unit = {},
     onRefreshLocation: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -109,6 +110,7 @@ fun HomePrayerScheduleRoute(
         onOpenQibla = onOpenQibla,
         onOpenAlarms = onOpenAlarms,
         onOpenQuran = onOpenQuran,
+        onOpenPlanning = onOpenPlanning,
         onRefreshLocation = onRefreshLocation,
     )
 }
@@ -121,6 +123,7 @@ fun HomePrayerScheduleScreen(
     onOpenQibla: () -> Unit = {},
     onOpenAlarms: () -> Unit = {},
     onOpenQuran: () -> Unit = {},
+    onOpenPlanning: () -> Unit = {},
     onRefreshLocation: () -> Unit = {},
 ) {
     Column(
@@ -144,8 +147,15 @@ fun HomePrayerScheduleScreen(
                 onOpenQibla = onOpenQibla,
                 onOpenAlarms = onOpenAlarms,
                 onOpenQuran = onOpenQuran,
+                onOpenPlanning = onOpenPlanning,
                 onRefreshLocation = onRefreshLocation,
             )
+        }
+        OutlinedButton(
+            onClick = onOpenPlanning,
+            modifier = Modifier.fillMaxWidth().testTag("home-open-planning"),
+        ) {
+            Text(appText("Planning · Da fare e promemoria", "التخطيط · المهام والتذكيرات"))
         }
     }
 }
@@ -227,6 +237,7 @@ private fun ReadyContent(
     onOpenQibla: () -> Unit,
     onOpenAlarms: () -> Unit,
     onOpenQuran: () -> Unit,
+    onOpenPlanning: () -> Unit,
     onRefreshLocation: () -> Unit,
 ) {
     val zoneId = state.today.zoneId

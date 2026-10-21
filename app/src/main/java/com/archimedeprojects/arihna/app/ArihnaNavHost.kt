@@ -40,6 +40,9 @@ import com.archimedeprojects.arihna.feature.alarms.platform.AlarmFullScreenAcces
 import com.archimedeprojects.arihna.feature.alarms.platform.ExactAlarmAccessIntentFactory
 import com.archimedeprojects.arihna.feature.home.DailyInspirationNotificationController
 import com.archimedeprojects.arihna.feature.home.HomePrayerScheduleRoute
+import com.archimedeprojects.arihna.feature.planning.PlanningRoute
+import com.archimedeprojects.arihna.feature.planning.PlanningRepository
+import com.archimedeprojects.arihna.feature.planning.PlanningScheduler
 import com.archimedeprojects.arihna.feature.prayers.PrayerSettingsRoute
 import com.archimedeprojects.arihna.feature.prayers.PrayerTimesRoute
 import com.archimedeprojects.arihna.feature.prayerschedule.presentation.PrayerScheduleViewModel
@@ -84,6 +87,8 @@ fun ArihnaNavHost(
     locationSettingsViewModel: LocationSettingsViewModel,
     prayerScheduleViewModel: PrayerScheduleViewModel,
     alarmsViewModel: AlarmsViewModel,
+    planningRepository: PlanningRepository,
+    planningScheduler: PlanningScheduler,
     exactAlarmAccessIntentFactory: ExactAlarmAccessIntentFactory,
     alarmFullScreenAccess: AlarmFullScreenAccess,
     alarmDiagnosticTestScheduler: AlarmDiagnosticTestScheduler,
@@ -155,6 +160,9 @@ fun ArihnaNavHost(
                     onOpenQuran = {
                         navController.navigateTopLevel(Destination.Quran.route, Destination.Home.route)
                     },
+                    onOpenPlanning = {
+                        navController.navigate("planning")
+                    },
                     onRefreshLocation = {
                         val permissionState = locationPermissionStateResolver.resolve(
                             activity = activity,
@@ -208,6 +216,14 @@ fun ArihnaNavHost(
                 QuranPlaceholderScreen(
                     contentPadding = innerPadding,
                     onImmersiveChanged = { quranImmersive = it },
+                )
+            }
+            composable("planning") {
+                PlanningRoute(
+                    contentPadding = innerPadding,
+                    repository = planningRepository,
+                    scheduler = planningScheduler,
+                    onBack = { navController.popBackStack() },
                 )
             }
             composable(Destination.Alarms.route) {

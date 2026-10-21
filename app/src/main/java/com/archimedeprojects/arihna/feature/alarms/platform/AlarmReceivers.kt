@@ -33,6 +33,7 @@ class AlarmSystemEventReceiver : BroadcastReceiver() {
             try {
                 val application = context.applicationContext as? ArihnaApplication ?: return@launch
                 application.appContainer.alarmReconciliationTrigger.request(reason)
+                application.appContainer.planningScheduler.reconcile()
                 if (shouldRescheduleDailyInspiration(intent.action)) {
                     application.appContainer.dailyInspirationNotificationController.reconcile()
                 }
