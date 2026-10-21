@@ -166,6 +166,24 @@ class AlarmsScreenAndroidTest {
     }
 
     @Test
+    fun personalAlarmVibrationOnlyPersistsInsteadOfRingtone() {
+        var chosen: AlarmSoundProfile? = null
+        composeRule.setContent {
+            ArihnaTheme {
+                CustomAlarmEditorDialog(
+                    initialRule = customRule(),
+                    onDismiss = {},
+                    onSave = { _, _, _, _, profile, _, _, _ -> chosen = profile },
+                )
+            }
+        }
+        composeRule.onNodeWithTag("alarm-sound-vibration")
+            .performScrollTo().assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag("alarm-editor-save").performClick()
+        composeRule.runOnIdle { assertEquals(AlarmSoundProfile.VIBRATION, chosen) }
+    }
+
+    @Test
     fun newAlarmEditorDoesNotExposeDeleteAction() {
         composeRule.setContent {
             ArihnaTheme {

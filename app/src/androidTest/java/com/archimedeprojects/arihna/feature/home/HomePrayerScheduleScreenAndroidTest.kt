@@ -62,26 +62,48 @@ class HomePrayerScheduleScreenAndroidTest {
     }
 
     @Test
-    fun planningShortcutIsImmediatelyVisibleAndClickableInAllHomeStates() {
-        val states = listOf<PrayerScheduleUiState>(
-            PrayerScheduleUiState.Loading,
-            PrayerScheduleUiState.NoLocation(
+    fun planningShortcutVisibleAtTopWhenHomeReady() {
+        var calls = 0
+        setScreen(uiState = readyState(), onOpenPlanning = { calls++ })
+        composeRule.onNodeWithTag("home-open-planning").assertIsDisplayed().performClick()
+        composeRule.runOnIdle { assertEquals(1, calls) }
+    }
+
+    @Test
+    fun planningShortcutVisibleAtTopWithoutLocation() {
+        var calls = 0
+        setScreen(
+            uiState = PrayerScheduleUiState.NoLocation(
                 message = "Configura la posizione",
                 locationState = LocationResolutionState.Unconfigured,
             ),
-            PrayerScheduleUiState.CalculationUnavailable(
+            onOpenPlanning = { calls++ },
+        )
+        composeRule.onNodeWithTag("home-open-planning").assertIsDisplayed().performClick()
+        composeRule.runOnIdle { assertEquals(1, calls) }
+    }
+
+    @Test
+    fun planningShortcutVisibleAtTopWhileLoading() {
+        var calls = 0
+        setScreen(uiState = PrayerScheduleUiState.Loading, onOpenPlanning = { calls++ })
+        composeRule.onNodeWithTag("home-open-planning").assertIsDisplayed().performClick()
+        composeRule.runOnIdle { assertEquals(1, calls) }
+    }
+
+    @Test
+    fun planningShortcutVisibleAtTopWhenPrayerCalculationUnavailable() {
+        var calls = 0
+        setScreen(
+            uiState = PrayerScheduleUiState.CalculationUnavailable(
                 message = "Orari non disponibili",
                 reason = PrayerCalculationResult.Reason.ASTRONOMICAL_EVENT_UNAVAILABLE,
                 selectedLocation = selectedManualLocation(),
             ),
-            readyState(),
+            onOpenPlanning = { calls++ },
         )
-        states.forEach { state ->
-            var calls = 0
-            setScreen(uiState = state, onOpenPlanning = { calls++ })
-            composeRule.onNodeWithTag("home-open-planning").assertIsDisplayed().performClick()
-            composeRule.runOnIdle { assertEquals(1, calls) }
-        }
+        composeRule.onNodeWithTag("home-open-planning").assertIsDisplayed().performClick()
+        composeRule.runOnIdle { assertEquals(1, calls) }
     }
 
     @Test

@@ -69,6 +69,33 @@ class PrayerAlertUiAndroidTest {
         }
     }
     @Test
+    fun prayerAdhanCanBeReplacedByPerPrayerVibrationOnly() {
+        var chosen: AlarmSoundProfile? = null
+        val rule = AlarmRule(
+            alarmId = "prayer-isha",
+            revision = 5L,
+            enabled = true,
+            soundProfile = AlarmSoundProfile.ADHAN,
+            definition = AlarmDefinition.PrayerLinked(AlarmPrayer.ISHA),
+            ringtoneUri = AdhanVariant.TAKBIR_X2.storageValue,
+            ringtoneTitle = AdhanVariant.TAKBIR_X2.displayName,
+        )
+        composeRule.setContent {
+            ArihnaTheme {
+                PrayerSoundDialog(
+                    rule = rule,
+                    initialVolumePercent = 65,
+                    onDismiss = {},
+                    onSave = { profile, _, _, _ -> chosen = profile },
+                )
+            }
+        }
+        composeRule.onNodeWithText("Solo vibrazione").performClick()
+        composeRule.onNodeWithText("Conferma").performClick()
+        composeRule.runOnIdle { assertEquals(AlarmSoundProfile.VIBRATION, chosen) }
+    }
+
+    @Test
     fun androidRingtoneProfileShowsConcreteSelectedNameAndChangeAction() {
         val rule = AlarmRule(
             alarmId = "prayer-dhuhr",

@@ -1,4 +1,5 @@
 name: Arihna Planning Home and vibration isolated preflight
+# revision 2: independent Home state and vibration persistence instrumentation
 # revision 2: include planning instrumentation and home entrypoint from any location state
 
 on:
