@@ -2553,3 +2553,8 @@ Approved correction:
 - Product direction is specified in `docs/specs/planning-reminders-dated-20261021.md`: Home shortcut to Planning (no seventh permanent navigation icon), to-do list, timed quiet notifications, and independently configurable dated alarms. Existing prayer/Adhan and recurring alarm features stay unchanged.
 - Current `Singola` in the Alarms editor means the **next** occurrence today/tomorrow, NOT a selected future calendar date; no UI/date data exists on the existing stable.
 - The specification is the required first step. Runtime implementation must be a separate exactly-one-commit candidate direct child of the SPEC commit, fully tested with static/API28/API36 exact-SHA gates and S25 prerelease physical validation before a new stable.
+
+
+### 2026-10-21 — Planning access/Orari vs Sveglie icon S25 remediation — APPROVED
+
+User physically passed the Planning v1 functionality on Galaxy S25 but found the Planning CTA buried at the bottom of Home and Orari/Sveglie icons indistinct. Move Planning shortcut directly below Home header for every availability state, and change bottom Orari icon from Schedule to already-vendored Mosque; Sveglie keeps Alarm. Preserve other navigation, functionality, offline content and stable bytes. The detailed approved specification is `docs/specs/planning-home-access-prayer-icon-20261021.md`; new runtime remains subject to single-child candidate and full exact-SHA API28/API36 gates and a freshly signed S25 prerelease/physical PASS before stable.
