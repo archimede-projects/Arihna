@@ -63,6 +63,16 @@ class PlanningModelsTest {
         assertEquals(emptyList<PlanningItem>(), PlanningCodec.decode("invalid data"))
     }
 
+    @Test fun datedPlanningAlarmVibrationOnlyRoundTrips() {
+        val item = PlanningItem(
+            id = "planning-vibrate", revision = 1L,
+            type = PlanningType.ALARM, title = "Appuntamento",
+            date = LocalDate.of(2026, 12, 23), time = LocalTime.of(6, 45),
+            sound = AlarmSoundProfile.VIBRATION, volume = 70,
+        )
+        assertEquals(listOf(item), PlanningCodec.decode(PlanningCodec.encode(listOf(item))))
+    }
+
     @Test fun completionStatusCannotBeConfusedWithPending() {
         val x = PlanningItem(id = "planning-7", revision = 1, type = PlanningType.ALARM, title = "Test", date = LocalDate.of(2026, 12, 23), time = LocalTime.NOON)
         assertTrue(x.pending)

@@ -7,6 +7,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import com.archimedeprojects.arihna.core.ui.theme.ArihnaTheme
 import com.archimedeprojects.arihna.feature.alarms.domain.AdhanVariant
@@ -50,7 +51,7 @@ class PrayerAlertUiAndroidTest {
             }
         }
 
-        composeRule.onNodeWithTag("prayer-volume-slider-fajr").assertIsDisplayed()
+        composeRule.onNodeWithTag("prayer-volume-slider-fajr").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("prayer-volume-value-fajr").assertTextEquals("100%")
         composeRule.onNodeWithTag("prayer-volume-slider-fajr")
             .performSemanticsAction(SemanticsActions.SetProgress) { setProgress ->
@@ -68,6 +69,33 @@ class PrayerAlertUiAndroidTest {
             assertEquals(40, savedVolume)
         }
     }
+    @Test
+    fun prayerAdhanCanBeReplacedByPerPrayerVibrationOnly() {
+        var chosen: AlarmSoundProfile? = null
+        val rule = AlarmRule(
+            alarmId = "prayer-isha",
+            revision = 5L,
+            enabled = true,
+            soundProfile = AlarmSoundProfile.ADHAN,
+            definition = AlarmDefinition.PrayerLinked(AlarmPrayer.ISHA),
+            ringtoneUri = AdhanVariant.TAKBIR_X2.storageValue,
+            ringtoneTitle = AdhanVariant.TAKBIR_X2.displayName,
+        )
+        composeRule.setContent {
+            ArihnaTheme {
+                PrayerSoundDialog(
+                    rule = rule,
+                    initialVolumePercent = 65,
+                    onDismiss = {},
+                    onSave = { profile, _, _, _ -> chosen = profile },
+                )
+            }
+        }
+        composeRule.onNodeWithText("Solo vibrazione").performScrollTo().performClick()
+        composeRule.onNodeWithText("Conferma").performClick()
+        composeRule.runOnIdle { assertEquals(AlarmSoundProfile.VIBRATION, chosen) }
+    }
+
     @Test
     fun androidRingtoneProfileShowsConcreteSelectedNameAndChangeAction() {
         val rule = AlarmRule(
