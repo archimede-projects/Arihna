@@ -2545,3 +2545,11 @@ Approved correction:
 - Add unit tests that require: inspiration corpus size >= 60; unique inspiration text count equals corpus size; no exact inspiration repeat across 60 consecutive civil dates; action corpus size >= 30; unique Arabic and Italian action text; deterministic same-date selection; sourced entries have nonblank explicit references; original Arihna reminders are explicitly marked non-scripture.
 - Do not change Prayer, Location, Qibla, alarm scheduling, Quran reading, or permission behavior in this milestone.
 - Runtime candidate must be exactly one direct child of this SPEC commit. Gate must include JVM/unit build plus the existing Android API28 full regression and API36 smoke/Quran-permission regression before any non-forced fast-forward promotion to `main`.
+
+
+## 2026-10-21 — Planning, date-specific reminders and alarms — USER-REQUESTED / SPEC STARTED
+
+- The user approved support for exact-calendar-date quiet reminders and full ringing dated alarms, then proposed grouping personal to-dos/reminders on a new Planning screen rather than mixing them into ordinary recurring alarm editing.
+- Product direction is specified in `docs/specs/planning-reminders-dated-20261021.md`: Home shortcut to Planning (no seventh permanent navigation icon), to-do list, timed quiet notifications, and independently configurable dated alarms. Existing prayer/Adhan and recurring alarm features stay unchanged.
+- Current `Singola` in the Alarms editor means the **next** occurrence today/tomorrow, NOT a selected future calendar date; no UI/date data exists on the existing stable.
+- The specification is the required first step. Runtime implementation must be a separate exactly-one-commit candidate direct child of the SPEC commit, fully tested with static/API28/API36 exact-SHA gates and S25 prerelease physical validation before a new stable.
