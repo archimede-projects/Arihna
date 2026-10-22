@@ -138,9 +138,9 @@ fun HomePrayerScheduleScreen(
         verticalArrangement = Arrangement.spacedBy(13.dp),
     ) {
         when (uiState) {
-            PrayerScheduleUiState.Loading -> LoadingContent()
-            is PrayerScheduleUiState.NoLocation -> NoLocationContent(uiState, onOpenLocationSettings)
-            is PrayerScheduleUiState.CalculationUnavailable -> CalculationUnavailableContent(uiState)
+            PrayerScheduleUiState.Loading -> LoadingContent(onOpenPlanning)
+            is PrayerScheduleUiState.NoLocation -> NoLocationContent(uiState, onOpenLocationSettings, onOpenPlanning)
+            is PrayerScheduleUiState.CalculationUnavailable -> CalculationUnavailableContent(uiState, onOpenPlanning)
             is PrayerScheduleUiState.Ready -> ReadyContent(
                 state = uiState,
                 onOpenLocationSettings = onOpenLocationSettings,
@@ -151,18 +151,33 @@ fun HomePrayerScheduleScreen(
                 onRefreshLocation = onRefreshLocation,
             )
         }
-        OutlinedButton(
-            onClick = onOpenPlanning,
-            modifier = Modifier.fillMaxWidth().testTag("home-open-planning"),
-        ) {
-            Text(appText("Planning · Da fare e promemoria", "التخطيط · المهام والتذكيرات"))
-        }
     }
 }
 
 @Composable
-private fun LoadingContent() {
+private fun PlanningHomeShortcut(onOpenPlanning: () -> Unit) {
+    OutlinedButton(
+        onClick = onOpenPlanning,
+        modifier = Modifier.fillMaxWidth().testTag("home-open-planning"),
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, HomeAccent),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = HomeHero,
+            contentColor = HomeHeroText,
+        ),
+        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 16.dp),
+    ) {
+        Text(
+            appText("Planning · Da fare e promemoria", "التخطيط · المهام والتذكيرات"),
+            fontWeight = FontWeight.Bold,
+        )
+    }
+}
+
+@Composable
+private fun LoadingContent(onOpenPlanning: () -> Unit) {
     BrandHeader()
+    PlanningHomeShortcut(onOpenPlanning)
     StateCard {
         CircularProgressIndicator(color = HomeAccent)
         Text("Calcolo degli orari in corso…", color = HomeText)
@@ -173,8 +188,10 @@ private fun LoadingContent() {
 private fun NoLocationContent(
     state: PrayerScheduleUiState.NoLocation,
     onOpenLocationSettings: () -> Unit,
+    onOpenPlanning: () -> Unit,
 ) {
     BrandHeader()
+    PlanningHomeShortcut(onOpenPlanning)
     StateCard {
         Text(state.message, style = MaterialTheme.typography.bodyLarge, color = HomeText)
         Button(
@@ -190,8 +207,12 @@ private fun NoLocationContent(
 }
 
 @Composable
-private fun CalculationUnavailableContent(state: PrayerScheduleUiState.CalculationUnavailable) {
+private fun CalculationUnavailableContent(
+    state: PrayerScheduleUiState.CalculationUnavailable,
+    onOpenPlanning: () -> Unit,
+) {
     BrandHeader()
+    PlanningHomeShortcut(onOpenPlanning)
     StateCard {
         Text("Orari non disponibili", fontWeight = FontWeight.Bold, color = HomeText)
         Text(state.message, color = HomeMuted)
@@ -243,6 +264,7 @@ private fun ReadyContent(
     val zoneId = state.today.zoneId
 
     HomeHeader(state, onRefreshLocation)
+    PlanningHomeShortcut(onOpenPlanning)
     NextPrayerHero(state, zoneId)
     TodayPrayerStrip(state, zoneId)
     WeekStrip(state.localDate)

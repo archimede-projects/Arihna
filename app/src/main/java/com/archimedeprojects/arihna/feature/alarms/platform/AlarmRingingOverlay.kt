@@ -149,6 +149,7 @@ internal class AlarmRingingOverlay(
                 com.archimedeprojects.arihna.feature.alarms.domain.AlarmSoundProfile.SYSTEM_DEFAULT ->
                     payload.ringtoneTitle ?: "Sveglia in corso"
                 com.archimedeprojects.arihna.feature.alarms.domain.AlarmSoundProfile.SILENT -> "Sveglia in corso"
+                com.archimedeprojects.arihna.feature.alarms.domain.AlarmSoundProfile.VIBRATION -> "Solo vibrazione"
             }
             setTextColor(Color.rgb(225, 235, 229))
             textSize = 15f
