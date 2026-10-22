@@ -7,7 +7,7 @@ import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.MenuBook
-import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Mosque
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -63,7 +63,7 @@ private enum class Destination(
     val icon: ImageVector,
 ) {
     Home("home", "Home", Icons.Rounded.Home),
-    Prayers("prayers", "Orari", Icons.Rounded.Schedule),
+    Prayers("prayers", "Orari", Icons.Rounded.Mosque),
     Qibla("qibla", "Qibla", Icons.Rounded.Explore),
     Quran("quran", "Corano", Icons.Rounded.MenuBook),
     Alarms("alarms", "Sveglie", Icons.Rounded.Alarm),

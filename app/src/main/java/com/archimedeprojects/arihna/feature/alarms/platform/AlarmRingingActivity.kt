@@ -189,7 +189,7 @@ class AlarmRingingActivity : ComponentActivity() {
                         modifier = Modifier.padding(top = 24.dp),
                     ) {
                         Text(
-                            text = if (payload.soundProfile == AlarmSoundProfile.ADHAN) "☾" else "♪",
+                            text = if (payload.soundProfile == AlarmSoundProfile.ADHAN) "☾" else if (payload.soundProfile == AlarmSoundProfile.VIBRATION) "〰" else "♪",
                             color = ArihnaGold,
                             fontSize = 54.sp,
                             modifier = Modifier.padding(horizontal = 24.dp, vertical = 14.dp),
@@ -215,6 +215,7 @@ class AlarmRingingActivity : ComponentActivity() {
                             AlarmSoundProfile.ADHAN -> "È il momento della preghiera"
                             AlarmSoundProfile.SYSTEM_DEFAULT -> "Sveglia Arihna"
                             AlarmSoundProfile.SILENT -> "Sveglia silenziosa"
+                            AlarmSoundProfile.VIBRATION -> "Solo vibrazione"
                         },
                         style = MaterialTheme.typography.titleMedium,
                         color = Color.White.copy(alpha = 0.82f),

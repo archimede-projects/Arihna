@@ -292,6 +292,10 @@ private fun PlanningEditor(
                     OutlinedButton(onClick = {
                         ringtoneLauncher.launch(AlarmRingtonePicker.createIntent(ringtoneUri))
                     }) { Text(ringtoneTitle ?: "Scegli suoneria Android") }
+                    OutlinedButton(
+                        onClick = { sound = AlarmSoundProfile.VIBRATION },
+                        modifier = Modifier.testTag("planning-alarm-vibration"),
+                    ) { Text("Solo vibrazione · senza suoneria") }
                     OutlinedButton(onClick = {
                         sound = AlarmSoundProfile.SILENT
                         ringtoneUri = null; ringtoneTitle = null
@@ -300,6 +304,8 @@ private fun PlanningEditor(
                     Slider(
                         value = volume.toFloat(), onValueChange = { volume = it.toInt().coerceIn(0, 100) },
                         valueRange = 0f..100f,
+                        enabled = sound != AlarmSoundProfile.VIBRATION &&
+                            sound != AlarmSoundProfile.SILENT,
                         modifier = Modifier.testTag("planning-editor-volume"),
                     )
                 }

@@ -165,11 +165,17 @@ class AlarmOverlayVolumeAndroidTest {
             }
             InstrumentationRegistry.getInstrumentation().waitForIdleSync()
             assertTrue(matchingHandled)
-            if (scenario.state != Lifecycle.State.DESTROYED) {
-                scenario.onActivity { activity ->
-                    assertTrue(activity.isFinishing || activity.isDestroyed)
+            // Finish is asynchronous. Wait for a terminal lifecycle state instead of
+            // calling onActivity after the Activity may already have been destroyed.
+            var destroyed = scenario.state == Lifecycle.State.DESTROYED
+            repeat(60) {
+                if (!destroyed) {
+                    Thread.sleep(50L)
+                    InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+                    destroyed = scenario.state == Lifecycle.State.DESTROYED
                 }
             }
+            assertTrue("Matching alarm should close the Activity", destroyed)
         } finally {
             scenario.close()
         }
